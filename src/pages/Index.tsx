@@ -8,14 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
-// Simulação de ganhadores recentes (Ticker)
-const RECENT_WINNERS = [
-  { name: "Drako_FF", amount: "R$ 250,00" },
-  { name: "Nobru_Fake", amount: "R$ 1.500,00" },
-  { name: "Mestra_Isa", amount: "R$ 85,00" },
-  { name: "Joker_Kill", amount: "R$ 200,00" },
-  { name: "Ghost_Rider", amount: "R$ 120,00" },
-];
+// Ganhadores recentes serão carregados do banco de dados
 
 export default function Index() {
   const navigate = useNavigate();
@@ -23,6 +16,7 @@ export default function Index() {
   const [profile, setProfile] = useState<any>(null);
   const [featuredTournament, setFeaturedTournament] = useState<any>(null);
   const [topPlayers, setTopPlayers] = useState<any[]>([]);
+  const [recentWinners, setRecentWinners] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,13 +48,19 @@ export default function Index() {
         .maybeSingle();
       setFeaturedTournament(featured);
 
-      // 4. Pega Top Jogadores (Ordenados por Saldo - Os mais ricos)
+      // 4. Pega Top Jogadores (Ordenados por ganhos em torneio - total_winnings)
       const { data: players } = await supabase
         .from("profiles")
-        .select("nickname, saldo, avatar_url, freefire_level")
-        .order("saldo", { ascending: false })
-        .limit(10); // Lista maior (Top 10)
+        .select("nickname, total_winnings, avatar_url, freefire_level")
+        .gt("total_winnings", 0)
+        .order("total_winnings", { ascending: false })
+        .limit(10);
       setTopPlayers(players || []);
+
+      // 5. Pega jogadores premiados recentemente para o ticker
+      setRecentWinners(
+        (players || []).filter((p: any) => p.total_winnings > 0).slice(0, 5)
+      );
 
     } catch (error) {
       console.error("Erro ao carregar dashboard", error);
@@ -115,14 +115,19 @@ export default function Index() {
         <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-[#050505] to-transparent"></div>
         
         <div className="animate-marquee">
-          {/* Lista duplicada várias vezes para garantir o loop infinito sem buracos */}
-          {[...RECENT_WINNERS, ...RECENT_WINNERS, ...RECENT_WINNERS, ...RECENT_WINNERS].map((winner, i) => (
-            <span key={i} className="inline-flex items-center mx-6 text-xs font-medium text-gray-300">
-              <Trophy className="h-3 w-3 text-yellow-500 mr-1.5" />
-              <span className="text-white font-bold mr-1">{winner.name}</span> ganhou <span className="text-green-400 ml-1 font-bold">{winner.amount}</span> 
-              <span className="mx-2 text-gray-600">•</span>
+          {recentWinners.length > 0 ? (
+            [...recentWinners, ...recentWinners, ...recentWinners, ...recentWinners].map((winner, i) => (
+              <span key={i} className="inline-flex items-center mx-6 text-xs font-medium text-gray-300">
+                <Trophy className="h-3 w-3 text-yellow-500 mr-1.5" />
+                <span className="text-white font-bold mr-1">{winner.nickname}</span> ganhou <span className="text-green-400 ml-1 font-bold">R$ {winner.total_winnings?.toFixed(2)}</span> 
+                <span className="mx-2 text-gray-600">•</span>
+              </span>
+            ))
+          ) : (
+            <span className="inline-flex items-center mx-6 text-xs font-medium text-gray-500">
+              Nenhum ganhador ainda. Participe dos torneios!
             </span>
-          ))}
+          )}
         </div>
       </div>
 
@@ -244,7 +249,7 @@ export default function Index() {
 
                 <div className="text-right">
                   <span className={`block font-bold text-sm ${index < 3 ? 'text-green-400' : 'text-green-600'}`}>
-                    R$ {player.saldo?.toFixed(2)}
+                    R$ {player.total_winnings?.toFixed(2)}
                   </span>
                 </div>
               </div>
