@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Shield, Trophy, Wallet, Users, MessageSquare, Plus, Check, X, Star, ExternalLink, Loader2, 
   Edit, Save, Calendar, Link as LinkIcon, Trash2, Send, Lightbulb, Archive, Gamepad2, Search, 
-  AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock
+  AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,30 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 export default function Admin() {
-  const { isAdmin, loading } = useAuth();
+  const { isAdmin, loading, user } = useAuth();
   const navigate = useNavigate();
+  const [adminUnread, setAdminUnread] = useState(0);
 
   useEffect(() => {
     if (!loading && !isAdmin) navigate("/dashboard", { replace: true });
   }, [isAdmin, loading, navigate]);
+
+  // Fetch admin notification count
+  useEffect(() => {
+    if (!user) return;
+    const fetchCount = async () => {
+      const { count } = await supabase.from("notifications").select("*", { count: 'exact', head: true }).eq("user_id", user.id).eq("is_read", false);
+      setAdminUnread(count || 0);
+    };
+    fetchCount();
+    const channel = supabase
+      .channel('admin-notif-count')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
+        fetchCount();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   if (loading) return <div className="flex min-h-screen items-center justify-center bg-black text-neon-orange"><Loader2 className="animate-spin h-10 w-10"/></div>;
   if (!isAdmin) return null;
@@ -31,14 +49,27 @@ export default function Admin() {
   return (
     <div className="min-h-screen bg-[#050505] pb-20 text-white font-sans">
       <div className="border-b border-white/10 bg-[#0c0c0c] px-4 py-4 sticky top-0 z-50 shadow-lg">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-neon-orange/10 rounded-lg border border-neon-orange/20">
-            <Shield className="h-6 w-6 text-neon-orange" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-neon-orange/10 rounded-lg border border-neon-orange/20">
+              <Shield className="h-6 w-6 text-neon-orange" />
+            </div>
+            <div>
+              <h1 className="text-lg font-black uppercase tracking-wider text-white">Sala de Comando</h1>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Real Fire Admin • v2.0</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-black uppercase tracking-wider text-white">Sala de Comando</h1>
-            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Real Fire Admin • v2.0</p>
-          </div>
+          <button className="relative p-2" onClick={async () => {
+            await supabase.from("notifications").update({ is_read: true }).eq("user_id", user!.id).eq("is_read", false);
+            setAdminUnread(0);
+          }}>
+            <Bell className="h-5 w-5 text-gray-400" />
+            {adminUnread > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-neon-orange text-[9px] font-bold text-black">
+                {adminUnread > 9 ? '9+' : adminUnread}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
@@ -912,6 +943,14 @@ function AdminSupport() {
         sender_id: adminId,
         message: chatInput.trim(),
         is_admin: true,
+    });
+    // Notify the player
+    await supabase.from("notifications").insert({
+        user_id: chatTicket.user_id,
+        title: chatTicket.type === 'support' ? 'Resposta do Suporte' : 'Resposta à Sugestão',
+        message: chatInput.trim().substring(0, 100),
+        type: chatTicket.type === 'support' ? 'support_reply' : 'suggestion_reply',
+        ticket_id: chatTicket.id,
     });
     setChatInput("");
   };

@@ -302,6 +302,18 @@ export default function Profile() {
     if (error) {
         toast.error("Erro ao enviar sugestão");
     } else {
+        // Notify all admins
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+        if (admins) {
+          for (const admin of admins) {
+            await supabase.from("notifications").insert({
+              user_id: admin.user_id,
+              title: "Nova Sugestão",
+              message: feedbackMessage.substring(0, 100),
+              type: "new_suggestion",
+            });
+          }
+        }
         toast.success("Sugestão enviada!", { description: "Obrigado por ajudar a melhorar o Real Fire." });
         setRating(0);
         setFeedbackMessage("");
@@ -322,6 +334,18 @@ export default function Profile() {
     if (error) {
         toast.error("Erro ao enviar solicitação");
     } else {
+        // Notify all admins
+        const { data: admins } = await supabase.from("user_roles").select("user_id").eq("role", "admin");
+        if (admins) {
+          for (const admin of admins) {
+            await supabase.from("notifications").insert({
+              user_id: admin.user_id,
+              title: "Novo Ticket de Suporte",
+              message: supportMessage.substring(0, 100),
+              type: "new_support",
+            });
+          }
+        }
         toast.success("Solicitação enviada!", { description: "Suporte notificado." });
         setSupportMessage("");
         setActiveModal(null);
