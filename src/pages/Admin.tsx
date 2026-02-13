@@ -937,12 +937,14 @@ function AdminSupport() {
                         </div>
                         <p className="text-sm font-bold text-white mb-1">{ticket.nickname || "Usuário"}</p>
                         <p className="text-sm text-gray-300 bg-black/20 p-2 rounded mb-3">"{ticket.message}"</p>
-                        {view === 'open' && (
-                            <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-2">
+                            {view === 'open' && (
                                 <Button size="sm" variant="ghost" onClick={() => handleArchive(ticket.id)} className="text-gray-500 hover:text-red-500"><Archive className="mr-2 h-3 w-3" /> Arquivar</Button>
-                                <Button size="sm" className={ticket.type === 'support' ? 'bg-neon-orange text-black' : 'bg-blue-600 text-white'} onClick={() => handleReply(ticket)}><Send className="mr-2 h-3 w-3" /> Responder</Button>
-                            </div>
-                        )}
+                            )}
+                            <Button size="sm" className={ticket.type === 'support' ? 'bg-neon-orange text-black' : 'bg-blue-600 text-white'} onClick={() => handleReply(ticket)}>
+                                {view === 'archived' ? <><Eye className="mr-2 h-3 w-3" /> Histórico</> : <><Send className="mr-2 h-3 w-3" /> Responder</>}
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
             ))}
