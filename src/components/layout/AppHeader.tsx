@@ -3,6 +3,7 @@ import { Bell, Wallet, X, MessageSquare, Lightbulb } from "lucide-react";
 import phoenixLogo from "@/assets/phoenix-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { playNotificationSound } from "@/utils/notificationSound";
 
 interface AppHeaderProps {
   balance?: number;
@@ -32,6 +33,7 @@ export function AppHeader({ balance = 0 }: AppHeaderProps) {
       .channel('notifications-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
         fetchNotifications();
+        playNotificationSound();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };

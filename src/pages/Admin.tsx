@@ -5,6 +5,7 @@ import {
   AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { playNotificationSound } from "@/utils/notificationSound";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,6 +39,7 @@ export default function Admin() {
       .channel('admin-notif-count')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
         fetchCount();
+        playNotificationSound();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };

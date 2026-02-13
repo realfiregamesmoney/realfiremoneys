@@ -10,22 +10,6 @@ import { useToast } from "@/hooks/use-toast";
 
 type WinnerEntry = { name: string; amount: string; avatar_url?: string };
 
-// Fictional placeholder data
-const FICTIONAL_RANKING = [
-  { nickname: "🔥 FireKing", saldo: 2450, avatar_url: null, freefire_level: 78 },
-  { nickname: "ShadowX", saldo: 1890, avatar_url: null, freefire_level: 65 },
-  { nickname: "ProSniper_BR", saldo: 1540, avatar_url: null, freefire_level: 72 },
-  { nickname: "QueenFF", saldo: 1320, avatar_url: null, freefire_level: 60 },
-  { nickname: "NightWolf", saldo: 980, avatar_url: null, freefire_level: 55 },
-];
-
-const FICTIONAL_WINNERS: WinnerEntry[] = [
-  { name: "FireKing", amount: "R$ 500,00" },
-  { name: "ShadowX", amount: "R$ 300,00" },
-  { name: "ProSniper_BR", amount: "R$ 200,00" },
-  { name: "QueenFF", amount: "R$ 150,00" },
-];
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -62,20 +46,14 @@ export default function Dashboard() {
       const { data: featured } = await supabase.from("tournaments").select("*").eq("is_featured", true).maybeSingle();
       setFeaturedTournament(featured);
 
-      // Ranking: use total_winnings for ranking instead of saldo
+      // Ranking: use total_winnings for ranking - only real winners, descending
       const { data: players } = await supabase
         .from("profiles")
-        .select("nickname, saldo, avatar_url, freefire_level, total_winnings")
+        .select("nickname, avatar_url, freefire_level, total_winnings")
+        .gt("total_winnings", 0)
         .order("total_winnings", { ascending: false })
         .limit(10);
-      
-      if (players && players.length >= 3) {
-        setTopPlayers(players);
-      } else {
-        // Merge real + fictional, real first
-        const merged = [...(players || []), ...FICTIONAL_RANKING].slice(0, 10);
-        setTopPlayers(merged);
-      }
+      setTopPlayers(players || []);
 
     } catch (error) {
       console.error("Erro ao carregar dashboard", error);
@@ -102,8 +80,7 @@ export default function Dashboard() {
       });
       setRecentWinners(winners);
     } else {
-      // Use fictional winners as placeholder
-      setRecentWinners(FICTIONAL_WINNERS);
+      setRecentWinners([]);
     }
   };
 
@@ -246,7 +223,7 @@ export default function Dashboard() {
                 </div>
                 <div className="text-right">
                   <span className={`block font-bold text-sm ${index < 3 ? 'text-green-400' : 'text-green-600'}`}>
-                    R$ {Number(player.total_winnings || player.saldo || 0).toFixed(2)}
+                    R$ {Number(player.total_winnings || 0).toFixed(2)}
                   </span>
                 </div>
               </div>

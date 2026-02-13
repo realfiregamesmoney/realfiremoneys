@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { playNotificationSound } from "@/utils/notificationSound";
 
 const typeColor = (type: string) => {
   const t = type.toLowerCase();
@@ -63,34 +64,40 @@ export default function Tournaments() {
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // --- 1. SISTEMA DE NOTIFICAÇÕES AUTOMÁTICAS (10m, 5m, 1m) ---
+  // --- 1. SISTEMA DE NOTIFICAÇÕES AUTOMÁTICAS PARA TODOS OS JOGADORES (10m, 5m, 1m) ---
   useEffect(() => {
+    if (!user) return;
+    
     const checkNotifications = () => {
       const now = new Date();
       tournaments.forEach(t => {
-        if (enrolledIds.has(t.id)) {
-          const tournamentTime = new Date(t.scheduled_at);
-          const diffMs = tournamentTime.getTime() - now.getTime();
-          const diffMinutes = Math.floor(diffMs / 60000);
+        if (t.status !== 'open') return;
+        const tournamentTime = new Date(t.scheduled_at);
+        const diffMs = tournamentTime.getTime() - now.getTime();
+        const diffMinutes = Math.floor(diffMs / 60000);
 
-          if ([10, 5, 1].includes(diffMinutes)) {
-            const storageKey = `notif_${t.id}_${diffMinutes}`;
-            if (!sessionStorage.getItem(storageKey)) {
-              toast({
-                title: `Aviso de Torneio: ${t.title}`,
-                description: `Faltam ${diffMinutes} minuto(s) para começar! Prepare-se.`,
-                variant: diffMinutes === 1 ? "destructive" : "default",
-              });
-              sessionStorage.setItem(storageKey, "true");
-            }
+        if ([10, 5, 1].includes(diffMinutes)) {
+          const storageKey = `notif_${t.id}_${diffMinutes}`;
+          if (!sessionStorage.getItem(storageKey)) {
+            const isEnrolled = enrolledIds.has(t.id);
+            playNotificationSound();
+            toast({
+              title: `⏰ Torneio: ${t.title}`,
+              description: isEnrolled
+                ? `Faltam ${diffMinutes} minuto(s)! Prepare-se para jogar.`
+                : `Faltam ${diffMinutes} minuto(s)! Inscreva-se agora antes que feche.`,
+              variant: diffMinutes === 1 ? "destructive" : "default",
+            });
+            sessionStorage.setItem(storageKey, "true");
           }
         }
       });
     };
 
     const interval = setInterval(checkNotifications, 10000);
+    checkNotifications(); // check immediately
     return () => clearInterval(interval);
-  }, [tournaments, enrolledIds]);
+  }, [tournaments, enrolledIds, user]);
 
   // --- 2. LÓGICA DE INSCRIÇÃO COM REDIRECIONAMENTO SE CHEIO ---
   const handleEnroll = async (tournament: any) => {

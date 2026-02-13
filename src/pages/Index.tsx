@@ -275,7 +275,7 @@ export default function Index() {
               <span className="text-[10px] text-gray-500 uppercase">Torneios</span>
             </div>
             <div>
-              <span className="block text-xl font-black text-green-500">R$ {profile?.saldo?.toFixed(0)}</span>
+              <span className="block text-xl font-black text-green-500">R$ {Number(profile?.total_winnings || 0).toFixed(0)}</span>
               <span className="text-[10px] text-gray-500 uppercase">Ganhos</span>
             </div>
             <div>
