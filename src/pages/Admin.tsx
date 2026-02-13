@@ -264,26 +264,42 @@ function AdminRooms() {
         setResultModal(room);
         setWinnerId("");
         setPrintUrl("");
-        const { data } = await supabase
-            .from("tournament_participants")
-            .select("*, profiles(nickname, freefire_id)")
-            .eq("tournament_id", room.id)
-            .eq("status", "paid");
-        if(data) setPlayersList(data);
+        const { data: enrollments } = await supabase
+            .from("enrollments")
+            .select("user_id")
+            .eq("tournament_id", room.id);
+        if (enrollments && enrollments.length > 0) {
+            const userIds = enrollments.map(e => e.user_id);
+            const { data: profiles } = await supabase
+                .from("profiles")
+                .select("user_id, nickname, freefire_id")
+                .in("user_id", userIds);
+            if (profiles) setPlayersList(profiles.map(p => ({ user_id: p.user_id, profiles: { nickname: p.nickname, freefire_id: p.freefire_id } })));
+        } else {
+            setPlayersList([]);
+        }
     };
 
-    // Realtime: update player list when someone pays
+    // Realtime: update player list when someone enrolls
     useEffect(() => {
         const channel = supabase
             .channel('rooms-participants-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_participants' }, async (payload) => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'enrollments' }, async () => {
                 if (resultModal) {
-                    const { data } = await supabase
-                        .from("tournament_participants")
-                        .select("*, profiles(nickname, freefire_id)")
-                        .eq("tournament_id", resultModal.id)
-                        .eq("status", "paid");
-                    if(data) setPlayersList(data);
+                    const { data: enrollments } = await supabase
+                        .from("enrollments")
+                        .select("user_id")
+                        .eq("tournament_id", resultModal.id);
+                    if (enrollments && enrollments.length > 0) {
+                        const userIds = enrollments.map(e => e.user_id);
+                        const { data: profiles } = await supabase
+                            .from("profiles")
+                            .select("user_id, nickname, freefire_id")
+                            .in("user_id", userIds);
+                        if (profiles) setPlayersList(profiles.map(p => ({ user_id: p.user_id, profiles: { nickname: p.nickname, freefire_id: p.freefire_id } })));
+                    } else {
+                        setPlayersList([]);
+                    }
                 }
             })
             .subscribe();
