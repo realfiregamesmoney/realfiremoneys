@@ -18,6 +18,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
+// Definir SINO para evitar erro no código
+const SINO = Bell;
+
 export default function Admin() {
   const { isAdmin, loading, user } = useAuth();
   const navigate = useNavigate();
@@ -75,8 +78,9 @@ export default function Admin() {
         </div>
       </div>
 
-      <Tabs defaultValue="tournaments" className="px-2 pt-4">
+      <Tabs defaultValue="notifications" className="px-2 pt-4">
         <TabsList className="flex flex-wrap justify-start gap-2 bg-transparent h-auto p-0 mb-4 overflow-x-auto">
+          <TabItem value="notifications" icon={SINO} label="Notificações" />
           <TabItem value="tournaments" icon={Trophy} label="Torneios" />
           <TabItem value="rooms" icon={Gamepad2} label="Salas Ao Vivo" />
           <TabItem value="users" icon={Users} label="Jogadores" />
@@ -89,6 +93,7 @@ export default function Admin() {
         </TabsList>
 
         <div className="px-2">
+            <TabsContent value="notifications"><AdminNotificationsSettings /></TabsContent>
             <TabsContent value="tournaments"><AdminTournaments /></TabsContent>
             <TabsContent value="rooms"><AdminRooms /></TabsContent>
             <TabsContent value="users"><AdminUsers /></TabsContent>
@@ -118,6 +123,112 @@ const TabItem = ({ value, icon: Icon, label }: any) => (
         <Icon className="h-3 w-3" /> {label}
     </TabsTrigger>
 );
+
+// --- 1. NOTIFICAÇÕES (CORRIGIDO PARA FORÇAR EXIBIÇÃO) ---
+function AdminNotificationsSettings() {
+    const { toast } = useToast();
+    const [settings, setSettings] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // LISTA FIXA OBRIGATÓRIA - Garante que os botões apareçam mesmo sem banco
+    const defaultList = [
+        { category: 'admin', key_name: 'adm_data_changes', label: 'Notificações de Mudança de Dados' },
+        { category: 'admin', key_name: 'adm_new_user', label: 'Notificações de Novo Usuário Cadastrado' },
+        { category: 'admin', key_name: 'adm_tourn_schedule', label: 'Notificações de Horários de Torneio' },
+        { category: 'admin', key_name: 'adm_finance', label: 'Notificações de Saque e Depósito' },
+        { category: 'admin', key_name: 'adm_messages', label: 'Notificações de Novas Mensagens' },
+        { category: 'admin', key_name: 'adm_system_actions', label: 'Ações Gerais do Sistema' },
+        { category: 'player', key_name: 'ply_new_tournaments', label: 'Notificações de Novos Torneios' },
+        { category: 'player', key_name: 'ply_schedule', label: 'Notificações de Horários de Torneio' },
+        { category: 'player', key_name: 'ply_finance_done', label: 'Notificações de Saque e Depósito Concluído' },
+        { category: 'player', key_name: 'ply_msg_reply', label: 'Notificações de Mensagens Respondidas' },
+        { category: 'player', key_name: 'ply_open_rooms', label: 'Notificações de Salas Abertas' }
+    ];
+
+    const fetchSettings = async () => {
+        try {
+            const { data } = await (supabase as any).from('notification_settings').select('*');
+            const dbData = data || [];
+            
+            // Combina a lista fixa com o que tem no banco
+            const merged = defaultList.map(item => {
+                const dbItem = dbData.find(d => d.key_name === item.key_name);
+                return { 
+                    ...item, 
+                    id: dbItem?.id || item.key_name, 
+                    is_enabled: dbItem ? dbItem.is_enabled : true 
+                };
+            });
+            setSettings(merged);
+        } catch (e) {
+            // Fallback para lista padrão se der erro
+            setSettings(defaultList.map(i => ({ ...i, is_enabled: true })));
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => { fetchSettings(); }, []);
+
+    const handleToggle = async (key_name: string, currentStatus: boolean) => {
+        // Atualiza na tela imediatamente
+        setSettings(prev => prev.map(s => s.key_name === key_name ? { ...s, is_enabled: !currentStatus } : s));
+        
+        const item = defaultList.find(l => l.key_name === key_name);
+
+        // Salva no banco (Upsert)
+        const { error } = await (supabase as any)
+            .from('notification_settings')
+            .upsert({ 
+                key_name, 
+                is_enabled: !currentStatus, 
+                category: item?.category, 
+                label: item?.label 
+            }, { onConflict: 'key_name' });
+
+        if (error) {
+            toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
+        } else {
+            toast({ title: "Configuração atualizada!" });
+        }
+    };
+
+    if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>;
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-blue-900/20 border border-blue-500/30 p-3 rounded-lg flex items-center gap-3">
+                <Bell className="text-blue-400 h-5 w-5" />
+                <p className="text-xs text-blue-200">Gerencie quais notificações o sistema deve disparar.</p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+                {['admin', 'player'].map((cat) => (
+                    <Card key={cat} className="border-white/10 bg-[#0c0c0c]">
+                        <CardHeader className="pb-2 border-b border-white/5">
+                            <CardTitle className="text-xs uppercase text-neon-orange">
+                                {cat === 'admin' ? "Alertas para Equipe" : "Alertas para Jogadores"}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4 space-y-4">
+                            {settings.filter(s => s.category === cat).map((s) => (
+                                <div key={s.key_name} className="flex items-center justify-between gap-2 p-2 rounded hover:bg-white/5 transition-colors">
+                                    <Label className="text-sm cursor-pointer" htmlFor={s.key_name}>{s.label}</Label>
+                                    <Switch 
+                                        id={s.key_name} 
+                                        checked={s.is_enabled} 
+                                        onCheckedChange={() => handleToggle(s.key_name, s.is_enabled)}
+                                        className="data-[state=checked]:bg-neon-orange"
+                                    />
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 // --- 1. TORNEIOS ---
 function AdminTournaments() {
@@ -276,31 +387,61 @@ function AdminTournaments() {
 function AdminRooms() {
     const { toast } = useToast();
     const [rooms, setRooms] = useState<any[]>([]);
+    const [roomPlayerCounts, setRoomPlayerCounts] = useState<Record<string, number>>({});
     const [resultModal, setResultModal] = useState<any | null>(null);
     const [playersList, setPlayersList] = useState<any[]>([]);
     const [winnerId, setWinnerId] = useState("");
     const [uploadingPrint, setUploadingPrint] = useState(false);
     const [printUrl, setPrintUrl] = useState("");
+    const [historyModal, setHistoryModal] = useState<any | null>(null);
+    const [resultHistory, setResultHistory] = useState<any[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
-    useEffect(() => {
-        supabase.from("tournaments").select("*").neq('status', 'finished').order("scheduled_at", {ascending: true}).then(({data}) => {
-            if(data) setRooms(data);
-        });
-    }, []);
-
-    const openGame = (link: string) => {
-        if(!link) return alert("Sem link cadastrado.");
-        window.open(link, "_blank");
+    const fetchRooms = async () => {
+        const { data } = await supabase.from("tournaments").select("*").neq('status', 'finished').order("scheduled_at", {ascending: true});
+        if(data) setRooms(data);
     };
 
-    const handleOpenResult = async (room: any) => {
-        setResultModal(room);
-        setWinnerId("");
-        setPrintUrl("");
+    // Fetch player counts for all rooms
+    const fetchAllPlayerCounts = async (roomsList?: any[]) => {
+        const targetRooms = roomsList || rooms;
+        if (targetRooms.length === 0) return;
+        const counts: Record<string, number> = {};
+        await Promise.all(targetRooms.map(async (room) => {
+            const { count } = await supabase.from("enrollments").select("*", { count: 'exact', head: true }).eq("tournament_id", room.id);
+            counts[room.id] = count || 0;
+        }));
+        setRoomPlayerCounts(counts);
+    };
+
+    useEffect(() => {
+        fetchRooms().then(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (rooms.length > 0) fetchAllPlayerCounts(rooms);
+    }, [rooms]);
+
+    // Realtime: update player counts when enrollments change
+    useEffect(() => {
+        const channel = supabase
+            .channel('rooms-enrollment-counts')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'enrollments' }, () => {
+                fetchAllPlayerCounts();
+                // Also update playersList if result modal is open
+                if (resultModal) {
+                    refreshPlayersList(resultModal.id);
+                }
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [rooms, resultModal]);
+
+    const refreshPlayersList = async (tournamentId: string) => {
         const { data: enrollments } = await supabase
             .from("enrollments")
             .select("user_id")
-            .eq("tournament_id", room.id);
+            .eq("tournament_id", tournamentId);
         if (enrollments && enrollments.length > 0) {
             const userIds = enrollments.map(e => e.user_id);
             const { data: profiles } = await supabase
@@ -313,26 +454,25 @@ function AdminRooms() {
         }
     };
 
-    // Realtime: update player list when someone enrolls
+    const openGame = (link: string) => {
+        if(!link) return alert("Sem link cadastrado.");
+        window.open(link, "_blank");
+    };
+
+    const handleOpenResult = async (room: any) => {
+        setResultModal(room);
+        setWinnerId("");
+        setPrintUrl("");
+        await refreshPlayersList(room.id);
+    };
+
+    // Realtime: update player list when someone enrolls (kept for backward compat)
     useEffect(() => {
         const channel = supabase
             .channel('rooms-participants-realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'enrollments' }, async () => {
                 if (resultModal) {
-                    const { data: enrollments } = await supabase
-                        .from("enrollments")
-                        .select("user_id")
-                        .eq("tournament_id", resultModal.id);
-                    if (enrollments && enrollments.length > 0) {
-                        const userIds = enrollments.map(e => e.user_id);
-                        const { data: profiles } = await supabase
-                            .from("profiles")
-                            .select("user_id, nickname, freefire_id")
-                            .in("user_id", userIds);
-                        if (profiles) setPlayersList(profiles.map(p => ({ user_id: p.user_id, profiles: { nickname: p.nickname, freefire_id: p.freefire_id } })));
-                    } else {
-                        setPlayersList([]);
-                    }
+                    await refreshPlayersList(resultModal.id);
                 }
             })
             .subscribe();
@@ -374,16 +514,50 @@ function AdminRooms() {
 
         await supabase.from("tournaments").update({ status: 'finished' }).eq("id", resultModal.id);
 
+        // Save result to tournament_results history
+        const adminUser = (await supabase.auth.getUser()).data.user;
+        await supabase.from("tournament_results").insert({
+            tournament_id: resultModal.id,
+            winner_user_id: winnerId,
+            print_url: printUrl,
+            prize_amount: Number(resultModal.prize_pool),
+            admin_id: adminUser?.id || null,
+        });
+
         await supabase.from("audit_logs").insert({ 
-            admin_id: (await supabase.auth.getUser()).data.user?.id, 
+            admin_id: adminUser?.id, 
             action_type: 'tournament_result', 
             details: `Finalizou ${resultModal.title}. Vencedor: ${winner?.profiles?.nickname} (R$ ${resultModal.prize_pool})` 
         });
 
         toast({ title: "Resultado Lançado!", description: "Prêmio enviado ao jogador." });
         setResultModal(null);
-        const { data } = await supabase.from("tournaments").select("*").neq('status', 'finished').order("scheduled_at", {ascending: true});
-        if(data) setRooms(data);
+        fetchRooms();
+    };
+
+    const handleOpenHistory = async (room: any) => {
+        setHistoryModal(room);
+        setHistoryLoading(true);
+        // Fetch all results for this tournament
+        const { data: results } = await supabase
+            .from("tournament_results")
+            .select("*")
+            .eq("tournament_id", room.id)
+            .order("created_at", { ascending: false });
+        
+        if (results && results.length > 0) {
+            const winnerIds = [...new Set(results.map(r => r.winner_user_id))];
+            const { data: profiles } = await supabase
+                .from("profiles")
+                .select("user_id, nickname, freefire_id, avatar_url")
+                .in("user_id", winnerIds);
+            const profileMap: Record<string, any> = {};
+            profiles?.forEach(p => { profileMap[p.user_id] = p; });
+            setResultHistory(results.map(r => ({ ...r, winner_profile: profileMap[r.winner_user_id] || null })));
+        } else {
+            setResultHistory([]);
+        }
+        setHistoryLoading(false);
     };
 
     return (
@@ -393,7 +567,8 @@ function AdminRooms() {
                 <p className="text-xs text-orange-200">Clique em "Assistir" para abrir o jogo. Use "Lançar Resultado" para finalizar e pagar.</p>
             </div>
             {rooms.map(room => {
-                const isLive = room.scheduled_at && new Date() >= new Date(room.scheduled_at) && new Date() < new Date(new Date(room.scheduled_at).getTime() + 60*60*1000); 
+                const isLive = room.scheduled_at && new Date() >= new Date(room.scheduled_at) && new Date() < new Date(new Date(room.scheduled_at).getTime() + 60*60*1000);
+                const liveCount = roomPlayerCounts[room.id] ?? room.current_players;
                 return (
                     <Card key={room.id} className={`bg-[#0c0c0c] border ${isLive ? 'border-neon-green shadow-[0_0_10px_rgba(0,255,0,0.2)]' : 'border-white/5'}`}>
                         <CardContent className="p-4 flex flex-col gap-3">
@@ -410,12 +585,20 @@ function AdminRooms() {
                                     <p className="text-neon-green font-bold">R$ {room.prize_pool}</p>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
+                                <Users className="h-4 w-4 text-neon-orange" />
+                                <span className="text-xs font-bold text-white">{liveCount}</span>
+                                <span className="text-[10px] text-gray-400">/ {room.max_players} jogadores na sala</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2">
                                 <Button size="sm" onClick={() => openGame(room.room_link)} className="bg-white/10 text-white hover:bg-white/20">
-                                    <Eye className="mr-2 h-4 w-4" /> Assistir
+                                    <Eye className="mr-1 h-4 w-4" /> Assistir
                                 </Button>
                                 <Button size="sm" onClick={() => handleOpenResult(room)} className="bg-yellow-600 text-black font-bold hover:bg-yellow-700">
-                                    <Trophy className="mr-2 h-4 w-4" /> Lançar Resultado
+                                    <Trophy className="mr-1 h-4 w-4" /> Resultado
+                                </Button>
+                                <Button size="sm" onClick={() => handleOpenHistory(room)} className="bg-blue-600/80 text-white hover:bg-blue-700">
+                                    <History className="mr-1 h-4 w-4" /> Histórico
                                 </Button>
                             </div>
                         </CardContent>
@@ -423,14 +606,21 @@ function AdminRooms() {
                 )
             })}
 
+            {/* Result Modal */}
             <Dialog open={!!resultModal} onOpenChange={() => setResultModal(null)}>
-                <DialogContent className="bg-[#111] border-yellow-600/50 text-white w-[95%] rounded-2xl">
+                <DialogContent className="bg-[#111] border-yellow-600/50 text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-yellow-500 flex items-center gap-2"><Trophy /> Finalizar Partida</DialogTitle>
                         <DialogDescription className="text-gray-400">Selecione o ganhador. O prêmio será transferido automaticamente.</DialogDescription>
                     </DialogHeader>
                     
                     <div className="space-y-4 py-2">
+                        <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
+                            <Users className="h-4 w-4 text-neon-orange" />
+                            <span className="text-sm font-bold text-white">{playersList.length}</span>
+                            <span className="text-xs text-gray-400">jogadores inscritos</span>
+                        </div>
+
                         <div className="space-y-2">
                             <Label className="text-xs">Quem deu Booyah?</Label>
                             <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white" onChange={(e) => setWinnerId(e.target.value)} value={winnerId}>
@@ -464,6 +654,47 @@ function AdminRooms() {
                             CONFIRMAR E PAGAR PRÊMIO
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* History Modal */}
+            <Dialog open={!!historyModal} onOpenChange={() => setHistoryModal(null)}>
+                <DialogContent className="bg-[#111] border-blue-600/50 text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-blue-400 flex items-center gap-2"><History /> Histórico dos Resultados</DialogTitle>
+                        <DialogDescription className="text-gray-400">{historyModal?.title}</DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-2">
+                        {historyLoading ? (
+                            <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-blue-400" /></div>
+                        ) : resultHistory.length === 0 ? (
+                            <p className="text-center text-gray-500 text-sm py-8">Nenhum resultado registrado para esta sala.</p>
+                        ) : (
+                            resultHistory.map(result => (
+                                <div key={result.id} className="border border-white/10 rounded-xl overflow-hidden bg-white/5">
+                                    <img src={result.print_url} alt="Print do resultado" className="w-full max-h-72 object-contain bg-black" />
+                                    <div className="p-3 flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-full bg-neon-orange/20 border border-neon-orange/40 flex items-center justify-center text-neon-orange font-bold text-sm shrink-0">
+                                            {result.winner_profile?.avatar_url ? (
+                                                <img src={result.winner_profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                                            ) : (
+                                                result.winner_profile?.nickname?.charAt(0)?.toUpperCase() || "?"
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-white truncate">{result.winner_profile?.nickname || "Jogador"}</p>
+                                            <p className="text-[10px] text-gray-400">ID: {result.winner_profile?.freefire_id || "N/A"}</p>
+                                        </div>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-neon-green font-bold text-sm">R$ {Number(result.prize_amount).toFixed(2)}</p>
+                                            <p className="text-[10px] text-gray-500">{new Date(result.created_at).toLocaleDateString("pt-BR")}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
@@ -1109,6 +1340,13 @@ function AdminAlerts() {
 function AdminReferrals() {
     const [referrals, setReferrals] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [referrersList, setReferrersList] = useState<any[]>([]);
+    const [showReferrers, setShowReferrers] = useState(false);
+    const [selectedReferrer, setSelectedReferrer] = useState<any | null>(null);
+    const [referrerDetails, setReferrerDetails] = useState<any[]>([]);
+    const [detailsLoading, setDetailsLoading] = useState(false);
+
+    const BONUS_PER_MILESTONE = 10; // R$10 per 10 confirmed referrals (adjust as needed)
 
     useEffect(() => {
         const fetchReferrals = async () => {
@@ -1121,51 +1359,218 @@ function AdminReferrals() {
                 const allIds = [...new Set(data.flatMap(r => [r.referrer_id, r.referred_id]))];
                 const { data: profiles } = await supabase
                     .from("profiles")
-                    .select("user_id, nickname, email")
+                    .select("user_id, nickname, email, full_name, freefire_id, freefire_nick, avatar_url")
                     .in("user_id", allIds);
                 
                 const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
                 
-                setReferrals(data.map(r => ({
+                const enriched = data.map(r => ({
                     ...r,
-                    referrer_nick: profileMap.get(r.referrer_id)?.nickname || "Desconhecido",
-                    referrer_email: profileMap.get(r.referrer_id)?.email || "",
-                    referred_nick: profileMap.get(r.referred_id)?.nickname || "Desconhecido",
-                    referred_email: profileMap.get(r.referred_id)?.email || "",
-                })));
+                    referrer_profile: profileMap.get(r.referrer_id) || null,
+                    referred_profile: profileMap.get(r.referred_id) || null,
+                }));
+                setReferrals(enriched);
+
+                // Build referrers summary
+                const referrerMap = new Map<string, { profile: any; total: number; confirmed: number }>();
+                enriched.forEach(r => {
+                    const existing = referrerMap.get(r.referrer_id);
+                    if (existing) {
+                        existing.total += 1;
+                        if (r.status === 'confirmed') existing.confirmed += 1;
+                    } else {
+                        referrerMap.set(r.referrer_id, {
+                            profile: r.referrer_profile,
+                            total: 1,
+                            confirmed: r.status === 'confirmed' ? 1 : 0,
+                        });
+                    }
+                });
+                const referrersArr = Array.from(referrerMap.entries()).map(([id, data]) => ({
+                    referrer_id: id,
+                    ...data,
+                    milestones: Math.floor(data.confirmed / 10),
+                    totalEarnings: Math.floor(data.confirmed / 10) * BONUS_PER_MILESTONE,
+                })).sort((a, b) => b.total - a.total);
+                setReferrersList(referrersArr);
             } else {
                 setReferrals([]);
+                setReferrersList([]);
             }
             setLoading(false);
         };
         fetchReferrals();
     }, []);
 
+    const handleSelectReferrer = (referrer: any) => {
+        setSelectedReferrer(referrer);
+        setDetailsLoading(true);
+        const referred = referrals
+            .filter(r => r.referrer_id === referrer.referrer_id)
+            .map(r => ({
+                ...r,
+                profile: r.referred_profile,
+            }));
+        setReferrerDetails(referred);
+        setDetailsLoading(false);
+    };
+
     if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>;
+
+    // Drill-down: selected referrer's referred users
+    if (selectedReferrer) {
+        return (
+            <div className="space-y-4">
+                <Button variant="ghost" onClick={() => setSelectedReferrer(null)} className="text-gray-400 hover:text-white mb-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                </Button>
+
+                <Card className="bg-[#0c0c0c] border-indigo-500/30">
+                    <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0 overflow-hidden">
+                                {selectedReferrer.profile?.avatar_url ? (
+                                    <img src={selectedReferrer.profile.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
+                                ) : (
+                                    <span className="text-indigo-400 font-bold text-lg">{selectedReferrer.profile?.nickname?.charAt(0)?.toUpperCase() || "?"}</span>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-white font-bold">{selectedReferrer.profile?.nickname || "Desconhecido"}</p>
+                                <p className="text-xs text-gray-500">{selectedReferrer.profile?.email || ""}</p>
+                                {selectedReferrer.profile?.full_name && <p className="text-xs text-gray-400">{selectedReferrer.profile.full_name}</p>}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Indicados</p>
+                                <p className="text-xl font-black text-indigo-400">{selectedReferrer.total}</p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Confirmados</p>
+                                <p className="text-xl font-black text-green-400">{selectedReferrer.confirmed}</p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Metas de 10 atingidas</p>
+                                <p className="text-xl font-black text-yellow-400">{selectedReferrer.milestones}x</p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Ganho</p>
+                                <p className="text-xl font-black text-neon-green">R$ {selectedReferrer.totalEarnings.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <h3 className="text-xs font-bold uppercase text-gray-500">Pessoas indicadas por {selectedReferrer.profile?.nickname}</h3>
+                
+                {detailsLoading ? (
+                    <div className="flex justify-center py-4"><Loader2 className="animate-spin h-5 w-5 text-indigo-400" /></div>
+                ) : referrerDetails.length === 0 ? (
+                    <p className="text-center text-gray-600 text-sm py-4">Nenhum indicado encontrado.</p>
+                ) : (
+                    referrerDetails.map(r => (
+                        <Card key={r.id} className="bg-[#111] border-white/10">
+                            <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                                        {r.profile?.avatar_url ? (
+                                            <img src={r.profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                                        ) : (
+                                            <Users className="h-4 w-4 text-gray-500" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-white truncate">{r.profile?.nickname || "Desconhecido"}</p>
+                                        <p className="text-[10px] text-gray-500">{r.profile?.email || "Sem email"}</p>
+                                        {r.profile?.full_name && <p className="text-[10px] text-gray-400">{r.profile.full_name}</p>}
+                                        {r.profile?.freefire_id && <p className="text-[10px] text-gray-400">FF ID: {r.profile.freefire_id} {r.profile.freefire_nick ? `• ${r.profile.freefire_nick}` : ''}</p>}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status === 'confirmed' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
+                                            {r.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente'}
+                                        </span>
+                                        <p className="text-[10px] text-gray-600 mt-1">{new Date(r.created_at).toLocaleDateString("pt-BR")}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+        );
+    }
+
+    // Referrers list view
+    if (showReferrers) {
+        return (
+            <div className="space-y-4">
+                <Button variant="ghost" onClick={() => setShowReferrers(false)} className="text-gray-400 hover:text-white mb-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                </Button>
+
+                <h3 className="text-xs font-bold uppercase text-gray-500">Jogadores que indicaram</h3>
+                
+                {referrersList.length === 0 ? (
+                    <p className="text-center text-gray-600 text-sm py-8">Nenhum jogador indicou ainda.</p>
+                ) : (
+                    referrersList.map(ref => (
+                        <Card key={ref.referrer_id} className="bg-[#0c0c0c] border-white/10 cursor-pointer hover:border-indigo-500/40 transition-colors" onClick={() => handleSelectReferrer(ref)}>
+                            <CardContent className="p-3 flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0 overflow-hidden">
+                                    {ref.profile?.avatar_url ? (
+                                        <img src={ref.profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
+                                    ) : (
+                                        <span className="text-indigo-400 font-bold">{ref.profile?.nickname?.charAt(0)?.toUpperCase() || "?"}</span>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-white truncate">{ref.profile?.nickname || "Desconhecido"}</p>
+                                    <p className="text-[10px] text-gray-500">{ref.profile?.email || ""}</p>
+                                </div>
+                                <div className="text-right shrink-0">
+                                    <p className="text-indigo-400 font-bold text-sm">{ref.total} indicações</p>
+                                    <p className="text-[10px] text-green-400">{ref.confirmed} confirmadas</p>
+                                    {ref.milestones > 0 && <p className="text-[10px] text-yellow-400">{ref.milestones}x meta de 10</p>}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-4">
-            <div className="bg-indigo-900/20 border border-indigo-500/30 p-3 rounded-lg flex items-center gap-3">
-                <Gift className="text-indigo-400 h-5 w-5" />
-                <p className="text-xs text-indigo-200">Total de indicações: <strong className="text-white">{referrals.length}</strong></p>
-            </div>
+            <button 
+                onClick={() => setShowReferrers(true)}
+                className="w-full bg-indigo-900/20 border border-indigo-500/30 p-4 rounded-lg flex items-center justify-between hover:bg-indigo-900/30 transition-colors"
+            >
+                <div className="flex items-center gap-3">
+                    <Gift className="text-indigo-400 h-5 w-5" />
+                    <p className="text-sm text-indigo-200">Total de indicações: <strong className="text-white">{referrals.length}</strong></p>
+                </div>
+                <span className="text-indigo-400 text-xs font-bold">Ver detalhes →</span>
+            </button>
 
             {referrals.length === 0 ? (
                 <div className="text-center py-8 text-gray-500 text-sm">Nenhuma indicação registrada ainda.</div>
             ) : (
-                referrals.map(r => (
+                referrals.slice(0, 20).map(r => (
                     <Card key={r.id} className="bg-[#0c0c0c] border-white/10">
                         <CardContent className="p-3 space-y-2">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold">Quem indicou</p>
-                                    <p className="text-sm font-bold text-indigo-400">{r.referrer_nick}</p>
-                                    <p className="text-[10px] text-gray-600">{r.referrer_email}</p>
+                                    <p className="text-sm font-bold text-indigo-400">{r.referrer_profile?.nickname || "Desconhecido"}</p>
+                                    <p className="text-[10px] text-gray-600">{r.referrer_profile?.email || ""}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-gray-500 uppercase font-bold">Indicado</p>
-                                    <p className="text-sm font-bold text-white">{r.referred_nick}</p>
-                                    <p className="text-[10px] text-gray-600">{r.referred_email}</p>
+                                    <p className="text-sm font-bold text-white">{r.referred_profile?.nickname || "Desconhecido"}</p>
+                                    <p className="text-[10px] text-gray-600">{r.referred_profile?.email || ""}</p>
                                 </div>
                             </div>
                             <div className="flex justify-between items-center pt-1 border-t border-white/5">
