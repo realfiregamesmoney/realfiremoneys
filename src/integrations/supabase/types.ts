@@ -97,6 +97,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_settings: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          is_enabled: boolean
+          key_name: string
+          label: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          key_name: string
+          label: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          key_name?: string
+          label?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
