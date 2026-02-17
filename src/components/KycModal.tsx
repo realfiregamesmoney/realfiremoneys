@@ -1,20 +1,12 @@
 import { useState } from "react";
-import { Lock, AlertTriangle } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, ShieldCheck } from "lucide-react";
 
 interface KycModalProps {
   open: boolean;
@@ -22,113 +14,88 @@ interface KycModalProps {
   onSuccess: () => void;
 }
 
-function formatCpf(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
-
-function validateCpf(cpf: string): boolean {
-  const digits = cpf.replace(/\D/g, "");
-  return digits.length === 11;
-}
-
 export default function KycModal({ open, onClose, onSuccess }: KycModalProps) {
   const { user, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const [fullName, setFullName] = useState("");
   const [cpf, setCpf] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
-    if (!user) return;
-    if (!fullName.trim() || fullName.trim().length < 5) {
-      toast({ variant: "destructive", title: "Digite seu nome completo" });
-      return;
-    }
-    if (!validateCpf(cpf)) {
-      toast({ variant: "destructive", title: "CPF inválido", description: "Digite os 11 dígitos do CPF" });
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName || !cpf) {
+      toast({ variant: "destructive", title: "Preencha todos os campos" });
       return;
     }
 
-    setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ full_name: fullName.trim(), cpf: cpf.replace(/\D/g, "") })
-      .eq("user_id", user.id);
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          cpf: cpf,
+        })
+        .eq("user_id", user?.id);
 
-    if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
-    } else {
-      await refreshProfile();
-      // Log KYC completion
-      await supabase.from('audit_logs').insert({
-        admin_id: user.id,
-        action_type: 'kyc_complete',
-        details: `Jogador completou KYC: Nome=${fullName.trim()}, CPF registrado`
-      });
-      toast({ title: "Dados salvos com sucesso! ✅" });
+      if (error) throw error;
+
+      toast({ title: "Dados salvos com sucesso!" });
+      await refreshProfile(); // Atualiza os dados no sistema
       onSuccess();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
+    } finally {
+      setLoading(false);
     }
-    setSaving(false);
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <AlertDialogContent className="border-neon-orange bg-card max-w-sm">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 text-neon-orange">
-            <Lock className="h-5 w-5" /> Verificação Obrigatória
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-muted-foreground">
-            Para sua segurança, precisamos verificar sua identidade antes do primeiro depósito.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="bg-[#121212] border-white/10 text-white w-[95%] rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-orange-500">
+            <ShieldCheck className="h-5 w-5" />
+            Verificação Obrigatória
+          </DialogTitle>
+          <DialogDescription className="text-gray-400 text-xs">
+            Para realizar depósitos e saques, precisamos do seu nome real e CPF para identificar suas transferências PIX.
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-            <p className="text-xs text-destructive">
-              Esses dados são para sua segurança e saque. <strong>Não poderão ser alterados depois.</strong>
-            </p>
-          </div>
-
+        <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Nome Completo</Label>
+            <Label htmlFor="name" className="text-xs uppercase font-bold text-gray-500">Nome Completo</Label>
             <Input
-              placeholder="Seu nome completo"
+              id="name"
+              placeholder="Nome idêntico ao do banco"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="bg-secondary border-border"
-              maxLength={100}
+              className="bg-black border-white/10 text-white"
             />
           </div>
-
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">CPF</Label>
+            <Label htmlFor="cpf" className="text-xs uppercase font-bold text-gray-500">CPF</Label>
             <Input
+              id="cpf"
               placeholder="000.000.000-00"
               value={cpf}
-              onChange={(e) => setCpf(formatCpf(e.target.value))}
-              className="bg-secondary border-border"
-              maxLength={14}
+              onChange={(e) => setCpf(e.target.value)}
+              className="bg-black border-white/10 text-white"
             />
           </div>
-        </div>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel className="border-border">Cancelar</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => { e.preventDefault(); handleSave(); }}
-            disabled={saving}
-            className="gradient-orange font-bold uppercase glow-orange"
-          >
-            {saving ? "Salvando..." : "Confirmar Dados"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          <DialogFooter className="pt-2">
+            <Button 
+              type="submit" 
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold"
+              disabled={loading}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "SALVAR E CONTINUAR"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
