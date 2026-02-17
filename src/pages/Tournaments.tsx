@@ -107,7 +107,7 @@ export default function Tournaments() {
     const isFull = tournament.current_players >= tournament.max_players;
     if (isFull) {
       // Auto-add to waiting list
-      await supabase.from("waiting_list").upsert({
+      await (supabase as any).from("waiting_list").upsert({
         user_id: user.id,
         tournament_id: tournament.id,
         status: 'waiting',
