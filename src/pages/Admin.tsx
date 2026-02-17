@@ -147,7 +147,7 @@ function AdminNotificationsSettings() {
 
     const fetchSettings = async () => {
         try {
-            const { data } = await supabase.from('notification_settings').select('*');
+            const { data } = await (supabase as any).from('notification_settings').select('*');
             const dbData = data || [];
             
             const merged = defaultList.map(item => {
@@ -170,7 +170,7 @@ function AdminNotificationsSettings() {
 
     const handleToggle = async (key_name: string, currentStatus: boolean) => {
         const item = defaultList.find(l => l.key_name === key_name);
-        const { error } = await supabase.from('notification_settings').upsert({ 
+        const { error } = await (supabase as any).from('notification_settings').upsert({ 
             key_name, 
             is_enabled: !currentStatus, 
             category: item?.category, 
@@ -506,7 +506,7 @@ function AdminRooms() {
             }
 
             // 2. SALVA NO HISTÓRICO
-            const { error: historyError } = await supabase.from("tournament_results").insert({
+            const { error: historyError } = await (supabase as any).from("tournament_results").insert({
                 tournament_id: resultModal.id,
                 winner_user_id: winnerId,
                 print_url: printUrl,
@@ -539,14 +539,14 @@ function AdminRooms() {
         setHistoryModal(room);
         setHistoryLoading(true);
         // Fetch all results for this tournament
-        const { data: results } = await supabase
+        const { data: results } = await (supabase as any)
             .from("tournament_results")
             .select("*")
             .eq("tournament_id", room.id)
             .order("created_at", { ascending: false });
         
         if (results && results.length > 0) {
-            const winnerIds = [...new Set(results.map(r => r.winner_user_id))];
+            const winnerIds = [...new Set(results.map((r: any) => r.winner_user_id))] as string[];
             const { data: profiles } = await supabase
                 .from("profiles")
                 .select("user_id, nickname, freefire_id, avatar_url")
