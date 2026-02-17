@@ -811,51 +811,67 @@ function AdminUsers() {
                 />
             </div>
 
-            <div className="space-y-2">
-                {users.map(user => (
-                    <div key={user.id} className="bg-[#111] p-3 rounded border border-white/5 flex justify-between items-center cursor-pointer hover:bg-white/5" onClick={() => openUser(user)}>
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-black border border-white/10 overflow-hidden">
-                                {user.avatar_url ? <img src={user.avatar_url} className="h-full w-full object-cover" /> : <Users className="h-5 w-5 m-auto mt-2 text-gray-500" />}
-                            </div>
-                            <div>
-                                <p className="font-bold text-sm text-white">{user.nickname || "Sem Nick"}</p>
-                                <p className="text-[10px] text-gray-500">{user.email}</p>
-                                <p className="text-[10px] text-neon-orange font-mono">ID: {user.freefire_id || "?"}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-sm font-black text-neon-green">R$ {Number(user.saldo).toFixed(2)}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <div className="space-y-2">
+                {users.map(user => (
+                    <div key={user.id} className="bg-[#111] p-3 rounded border border-white/5 flex justify-between items-center cursor-pointer hover:bg-white/5" onClick={() => openUser(user)}>
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-full bg-black border border-white/10 overflow-hidden shrink-0">
+                                {user.avatar_url ? <img src={user.avatar_url} className="h-full w-full object-cover" alt={user.nickname} /> : <Users className="h-5 w-5 m-auto mt-3 text-gray-500" />}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="font-bold text-sm text-white truncate">{user.nickname || "Sem Nick"}</p>
+                                <p className="text-[10px] text-gray-500 truncate">{user.full_name || "Nome não informado"} • {user.email}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px] text-neon-orange font-mono">ID: {user.freefire_id || "?"}</span>
+                                    <span className="text-[10px] text-gray-600">•</span>
+                                    <span className="text-[10px] text-gray-400">Nv. {user.freefire_level || 0}</span>
+                                    <span className="text-[10px] text-gray-600">•</span>
+                                    <span className="text-[10px] text-yellow-500">{user.victories || 0}V</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-right shrink-0 ml-2">
+                            <p className="text-sm font-black text-neon-green">R$ {Number(user.saldo).toFixed(2)}</p>
+                            <p className="text-[10px] text-yellow-500">Ganhos: R$ {Number(user.total_winnings || 0).toFixed(2)}</p>
+                            <p className="text-[10px] text-gray-500">{user.tournaments_played || 0} torneios</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
 
             <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
                 <DialogContent className="bg-[#111] border-white/10 text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader><DialogTitle className="text-neon-orange uppercase">Dossiê do Jogador</DialogTitle></DialogHeader>
-                    {selectedUser && !editMode && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                                <img src={selectedUser.avatar_url || ""} className="w-20 h-20 rounded-full bg-black border border-white/10 object-cover" />
-                                <div>
-                                    <h3 className="text-xl font-bold">{selectedUser.nickname}</h3>
-                                    <p className="text-xs text-gray-400">{selectedUser.email}</p>
-                                    <Badge className="bg-neon-orange text-black mt-1">Nível {selectedUser.freefire_level || 0}</Badge>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Nome Real</span>{selectedUser.full_name || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">CPF</span>{selectedUser.cpf || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">ID Free Fire</span>{selectedUser.freefire_id || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Saldo Atual</span>R$ {Number(selectedUser.saldo).toFixed(2)}</div>
-                            </div>
-                            {selectedUser.freefire_proof_url && (
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-1">Print de Verificação:</p>
-                                    <img src={selectedUser.freefire_proof_url} className="w-full rounded border border-white/10" />
-                                </div>
-                            )}
+                    {selectedUser && !editMode && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-20 h-20 rounded-full bg-black border-2 border-neon-orange/40 overflow-hidden shrink-0">
+                                    {selectedUser.avatar_url ? <img src={selectedUser.avatar_url} className="w-full h-full object-cover" alt={selectedUser.nickname} /> : <Users className="h-8 w-8 m-auto mt-5 text-gray-500" />}
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold">{selectedUser.nickname}</h3>
+                                    <p className="text-xs text-gray-400">{selectedUser.email}</p>
+                                    <p className="text-xs text-gray-500">{selectedUser.full_name || "Nome não informado"}</p>
+                                    <Badge className="bg-neon-orange text-black mt-1">Nível {selectedUser.freefire_level || 0}</Badge>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Nome Real</span>{selectedUser.full_name || "-"}</div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">CPF</span>{selectedUser.cpf || "-"}</div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">ID Free Fire</span>{selectedUser.freefire_id || "-"}</div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Nick Free Fire</span>{selectedUser.freefire_nick || "-"}</div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Saldo Atual</span><span className="text-neon-green font-bold">R$ {Number(selectedUser.saldo).toFixed(2)}</span></div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Ganhos em Torneios</span><span className="text-yellow-500 font-bold">R$ {Number(selectedUser.total_winnings || 0).toFixed(2)}</span></div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Vitórias</span>{selectedUser.victories || 0}</div>
+                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Torneios Jogados</span>{selectedUser.tournaments_played || 0}</div>
+                                <div className="bg-black/30 p-2 rounded col-span-2"><span className="text-gray-500 text-xs block">Cadastrado em</span>{new Date(selectedUser.created_at).toLocaleDateString("pt-BR")} às {new Date(selectedUser.created_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                            {selectedUser.freefire_proof_url && (
+                                <div>
+                                    <p className="text-xs text-gray-500 mb-1">Print de Verificação:</p>
+                                    <img src={selectedUser.freefire_proof_url} className="w-full rounded border border-white/10" alt="Verificação" />
+                                </div>
+                            )}
                             {/* Action Buttons */}
                             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
                                 <Button onClick={() => setEditMode(true)} className="bg-blue-600 text-white text-xs"><Edit className="mr-1 h-3 w-3" /> Editar</Button>
