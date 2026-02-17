@@ -367,6 +367,44 @@ export type Database = {
           },
         ]
       }
+      tournament_results: {
+        Row: {
+          admin_id: string | null
+          created_at: string
+          id: string
+          print_url: string | null
+          prize_amount: number
+          tournament_id: string
+          winner_user_id: string
+        }
+        Insert: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          print_url?: string | null
+          prize_amount?: number
+          tournament_id: string
+          winner_user_id: string
+        }
+        Update: {
+          admin_id?: string | null
+          created_at?: string
+          id?: string
+          print_url?: string | null
+          prize_amount?: number
+          tournament_id?: string
+          winner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_results_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tournaments: {
         Row: {
           created_at: string
