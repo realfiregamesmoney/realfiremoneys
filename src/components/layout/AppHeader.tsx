@@ -1,16 +1,18 @@
 import { useState, useEffect } from "react";
-import { Bell, Wallet, X, MessageSquare, Lightbulb } from "lucide-react";
+import { Bell, Wallet, X, MessageSquare, Lightbulb, Settings } from "lucide-react";
 import phoenixLogo from "@/assets/phoenix-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { playNotificationSound } from "@/utils/notificationSound";
+import { useNavigate } from "react-router-dom";
 
 interface AppHeaderProps {
   balance?: number;
 }
 
 export function AppHeader({ balance = 0 }: AppHeaderProps) {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showPanel, setShowPanel] = useState(false);
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -46,11 +48,12 @@ export function AppHeader({ balance = 0 }: AppHeaderProps) {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 flex h-14 items-center justify-between border-b border-border bg-card/95 px-4 backdrop-blur-lg">
+    <header className="fixed top-0 left-0 right-0 z-[999] flex h-14 items-center justify-between border-b border-white/10 bg-card/95 px-4 backdrop-blur-lg">
       <div className="flex items-center gap-2">
         <img src={phoenixLogo} alt="Real Fire" className="h-8 w-8 object-contain" />
         <span className="text-lg font-bold tracking-wider text-neon-orange">REAL FIRE</span>
       </div>
+      
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1">
           <Wallet className="h-4 w-4 text-neon-green" />
@@ -58,46 +61,81 @@ export function AppHeader({ balance = 0 }: AppHeaderProps) {
             R$ {balance.toFixed(2).replace(".", ",")}
           </span>
         </div>
+        
+        {/* BOTÃO DO SINO COM PRIORIDADE DE CLIQUE */}
         <button
-          className="relative p-1 text-muted-foreground hover:text-foreground"
-          onClick={() => { setShowPanel(!showPanel); if (!showPanel) markAllRead(); }}
+          className="relative p-2 text-muted-foreground hover:text-foreground cursor-pointer transition-all active:scale-95"
+          style={{ pointerEvents: 'auto' }}
+          onClick={(e) => { 
+            e.preventDefault();
+            e.stopPropagation();
+            setShowPanel(!showPanel); 
+            if (!showPanel) markAllRead(); 
+          }}
         >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neon-orange text-[9px] font-bold text-black">
+            <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-neon-orange text-[9px] font-bold text-black border-2 border-card">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </button>
       </div>
 
-      {/* Notification Panel */}
+      {/* PAINEL DE NOTIFICAÇÕES ABAIXO DO SINO */}
       {showPanel && (
-        <div className="absolute right-2 top-14 z-50 w-80 max-h-96 overflow-y-auto rounded-xl border border-border bg-card shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border p-3">
-            <span className="text-sm font-bold text-foreground">Notificações</span>
-            <button onClick={() => setShowPanel(false)}><X className="h-4 w-4 text-muted-foreground" /></button>
+        <div className="absolute right-2 top-16 z-[1000] w-80 max-h-[80vh] overflow-y-auto rounded-xl border border-white/10 bg-[#0c0c0c] shadow-2xl animate-in fade-in zoom-in duration-200">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/5 bg-[#0c0c0c]/90 p-3 backdrop-blur-md">
+            <span className="text-sm font-bold text-white">Notificações</span>
+            <div className="flex items-center gap-3">
+              {/* ATALHO PARA CONFIGURAÇÕES (SÓ PARA ADMIN) */}
+              {isAdmin && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/admin/notifications");
+                    setShowPanel(false);
+                  }}
+                  className="p-1.5 hover:bg-white/10 rounded-md text-neon-orange transition-colors"
+                  title="Configurações"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
+              <button className="p-1 hover:bg-white/10 rounded-md" onClick={() => setShowPanel(false)}>
+                <X className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
           </div>
-          {notifications.length === 0 ? (
-            <div className="p-6 text-center text-xs text-muted-foreground">Nenhuma notificação</div>
-          ) : (
-            notifications.map(n => (
-              <div key={n.id} className={`border-b border-border p-3 ${!n.is_read ? 'bg-primary/5' : ''}`}>
-                <div className="flex items-start gap-2">
-                  {n.type?.includes('support') ? (
-                    <MessageSquare className="h-4 w-4 mt-0.5 text-neon-orange shrink-0" />
-                  ) : (
-                    <Lightbulb className="h-4 w-4 mt-0.5 text-blue-400 shrink-0" />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-foreground">{n.title}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{n.message}</p>
-                    <span className="text-[9px] text-muted-foreground">{new Date(n.created_at).toLocaleString("pt-BR", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+
+          <div className="py-1">
+            {notifications.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-600 font-medium">
+                Nenhuma notificação por aqui.
+              </div>
+            ) : (
+              notifications.map(n => (
+                <div key={n.id} className={`p-4 border-b border-white/5 transition-colors ${!n.is_read ? 'bg-neon-orange/5' : 'hover:bg-white/5'}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`mt-1 p-1.5 rounded-lg ${n.type?.includes('support') ? 'bg-neon-orange/10' : 'bg-blue-500/10'}`}>
+                      {n.type?.includes('support') ? (
+                        <MessageSquare className="h-3.5 w-3.5 text-neon-orange" />
+                      ) : (
+                        <Lightbulb className="h-3.5 w-3.5 text-blue-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-gray-200">{n.title}</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed line-clamp-3">{n.message}</p>
+                      <span className="text-[9px] text-gray-600 mt-2 block font-medium">
+                        {new Date(n.created_at).toLocaleString("pt-BR")}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       )}
     </header>
