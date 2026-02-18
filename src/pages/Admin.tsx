@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Shield, Trophy, Wallet, Users, MessageSquare, Plus, Check, X, Star, ExternalLink, Loader2, 
   Edit, Save, Calendar, Link as LinkIcon, Trash2, Send, Lightbulb, Archive, Gamepad2, Search, 
-  AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell
+  AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell, Zap
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { playNotificationSound } from "@/utils/notificationSound";
@@ -311,11 +311,11 @@ function AdminTournaments() {
              </select>
              <Input type="datetime-local" className="bg-black/50 border-white/10" value={formData.scheduled_at} onChange={e => setFormData({...formData, scheduled_at: e.target.value})} />
           </div>
-           <div className="grid grid-cols-3 gap-3">
-             <div className="space-y-1"><Label className="text-[10px]">Entrada (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.entry_fee} onChange={e => setFormData({...formData, entry_fee: e.target.value})} /></div>
-             <div className="space-y-1"><Label className="text-[10px]">Prêmio (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.prize_pool} onChange={e => setFormData({...formData, prize_pool: e.target.value})} /></div>
-             <div className="space-y-1"><Label className="text-[10px]">Jogadores</Label><Input type="number" min="0" max="54" className="bg-black/50 border-white/10" value={formData.max_players} onChange={e => setFormData({...formData, max_players: e.target.value})} placeholder="50" /></div>
-           </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1"><Label className="text-[10px]">Entrada (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.entry_fee} onChange={e => setFormData({...formData, entry_fee: e.target.value})} /></div>
+              <div className="space-y-1"><Label className="text-[10px]">Prêmio (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.prize_pool} onChange={e => setFormData({...formData, prize_pool: e.target.value})} /></div>
+              <div className="space-y-1"><Label className="text-[10px]">Jogadores</Label><Input type="number" min="0" max="54" className="bg-black/50 border-white/10" value={formData.max_players} onChange={e => setFormData({...formData, max_players: e.target.value})} placeholder="50" /></div>
+            </div>
           
           <div className="p-3 border border-white/10 rounded-lg bg-white/5 space-y-3">
               <Label className="text-xs text-neon-green font-bold uppercase">Controle de Abertura</Label>
@@ -703,113 +703,113 @@ function AdminRooms() {
 
 // --- 3. JOGADORES (COM EDITAR, APAGAR, BLOQUEAR, BANIR) ---
 function AdminUsers() {
-    const { toast } = useToast();
-    const [searchTerm, setSearchTerm] = useState("");
-    const [users, setUsers] = useState<any[]>([]);
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
-    const [editMode, setEditMode] = useState(false);
-    const [editFields, setEditFields] = useState({ full_name: "", cpf: "", email: "", nickname: "", freefire_id: "", freefire_level: "" });
-    
-    const fetchUsers = async () => {
-        let query = supabase.from("profiles").select("*");
-        if (searchTerm) {
-            query = query.or(`nickname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,freefire_id.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%`);
-        }
-        const { data } = await query.order("created_at", { ascending: false }).limit(50);
-        if (data) setUsers(data);
-    };
+    const { toast } = useToast();
+    const [searchTerm, setSearchTerm] = useState("");
+    const [users, setUsers] = useState<any[]>([]);
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [editMode, setEditMode] = useState(false);
+    const [editFields, setEditFields] = useState({ full_name: "", cpf: "", email: "", nickname: "", freefire_id: "", freefire_level: "" });
+    
+    const fetchUsers = async () => {
+        let query = supabase.from("profiles").select("*");
+        if (searchTerm) {
+            query = query.or(`nickname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,freefire_id.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%`);
+        }
+        const { data } = await query.order("created_at", { ascending: false }).limit(50);
+        if (data) setUsers(data);
+    };
 
-    useEffect(() => {
-        const timer = setTimeout(fetchUsers, 500);
-        return () => clearTimeout(timer);
-    }, [searchTerm]);
+    useEffect(() => {
+        const timer = setTimeout(fetchUsers, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-    const openUser = (user: any) => {
-        setSelectedUser(user);
-        setEditMode(false);
-        setEditFields({
-            full_name: user.full_name || "",
-            cpf: user.cpf || "",
-            email: user.email || "",
-            nickname: user.nickname || "",
-            freefire_id: user.freefire_id || "",
-            freefire_level: String(user.freefire_level || ""),
-        });
-    };
+    const openUser = (user: any) => {
+        setSelectedUser(user);
+        setEditMode(false);
+        setEditFields({
+            full_name: user.full_name || "",
+            cpf: user.cpf || "",
+            email: user.email || "",
+            nickname: user.nickname || "",
+            freefire_id: user.freefire_id || "",
+            freefire_level: String(user.freefire_level || ""),
+        });
+    };
 
-    const handleAdminEditUser = async () => {
-        if (!selectedUser) return;
-        const { error } = await supabase.from("profiles").update({
-            full_name: editFields.full_name,
-            cpf: editFields.cpf,
-            email: editFields.email,
-            nickname: editFields.nickname,
-            freefire_id: editFields.freefire_id,
-            freefire_level: editFields.freefire_level ? parseInt(editFields.freefire_level) : null,
-        }).eq("user_id", selectedUser.user_id);
-        if (error) return toast({ variant: "destructive", title: "Erro", description: error.message });
-        
-        await supabase.from("audit_logs").insert({
-            admin_id: (await supabase.auth.getUser()).data.user?.id,
-            action_type: "admin_edit_user",
-            details: `Admin editou perfil de ${selectedUser.nickname}: Nome=${editFields.full_name}, CPF=${editFields.cpf}, Email=${editFields.email}`
-        });
-        toast({ title: "Perfil atualizado!" });
-        setEditMode(false);
-        setSelectedUser(null);
-        fetchUsers();
-    };
+    const handleAdminEditUser = async () => {
+        if (!selectedUser) return;
+        const { error } = await supabase.from("profiles").update({
+            full_name: editFields.full_name,
+            cpf: editFields.cpf,
+            email: editFields.email,
+            nickname: editFields.nickname,
+            freefire_id: editFields.freefire_id,
+            freefire_level: editFields.freefire_level ? parseInt(editFields.freefire_level) : null,
+        }).eq("user_id", selectedUser.user_id);
+        if (error) return toast({ variant: "destructive", title: "Erro", description: error.message });
+        
+        await supabase.from("audit_logs").insert({
+            admin_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: "admin_edit_user",
+            details: `Admin editou perfil de ${selectedUser.nickname}: Nome=${editFields.full_name}, CPF=${editFields.cpf}, Email=${editFields.email}`
+        });
+        toast({ title: "Perfil atualizado!" });
+        setEditMode(false);
+        setSelectedUser(null);
+        fetchUsers();
+    };
 
-    const handleDeleteUser = async () => {
-        if (!selectedUser || !confirm(`Tem certeza que deseja APAGAR o jogador ${selectedUser.nickname}?`)) return;
-        await supabase.from("profiles").delete().eq("user_id", selectedUser.user_id);
-        await supabase.from("audit_logs").insert({
-            admin_id: (await supabase.auth.getUser()).data.user?.id,
-            action_type: "admin_delete_user",
-            details: `Admin apagou perfil de ${selectedUser.nickname} (${selectedUser.email})`
-        });
-        toast({ variant: "destructive", title: "Usuário removido" });
-        setSelectedUser(null);
-        fetchUsers();
-    };
+    const handleDeleteUser = async () => {
+        if (!selectedUser || !confirm(`Tem certeza que deseja APAGAR o jogador ${selectedUser.nickname}?`)) return;
+        await supabase.from("profiles").delete().eq("user_id", selectedUser.user_id);
+        await supabase.from("audit_logs").insert({
+            admin_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: "admin_delete_user",
+            details: `Admin apagou perfil de ${selectedUser.nickname} (${selectedUser.email})`
+        });
+        toast({ variant: "destructive", title: "Usuário removido" });
+        setSelectedUser(null);
+        fetchUsers();
+    };
 
-    const handleBlockBalance = async () => {
-        if (!selectedUser) return;
-        await supabase.from("profiles").update({ saldo: 0 }).eq("user_id", selectedUser.user_id);
-        await supabase.from("audit_logs").insert({
-            admin_id: (await supabase.auth.getUser()).data.user?.id,
-            action_type: "admin_block_balance",
-            details: `Admin bloqueou saldo de ${selectedUser.nickname} (R$${Number(selectedUser.saldo).toFixed(2)} → R$0.00)`
-        });
-        toast({ title: "Saldo bloqueado (zerado)" });
-        setSelectedUser(null);
-        fetchUsers();
-    };
+    const handleBlockBalance = async () => {
+        if (!selectedUser) return;
+        await supabase.from("profiles").update({ saldo: 0 }).eq("user_id", selectedUser.user_id);
+        await supabase.from("audit_logs").insert({
+            admin_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: "admin_block_balance",
+            details: `Admin bloqueou saldo de ${selectedUser.nickname} (R$${Number(selectedUser.saldo).toFixed(2)} → R$0.00)`
+        });
+        toast({ title: "Saldo bloqueado (zerado)" });
+        setSelectedUser(null);
+        fetchUsers();
+    };
 
-    const handleBanUser = async () => {
-        if (!selectedUser || !confirm(`Tem certeza que deseja BANIR o jogador ${selectedUser.nickname}? Esta ação zera o saldo.`)) return;
-        await supabase.from("profiles").update({ saldo: 0, nickname: `[BANIDO] ${selectedUser.nickname}` }).eq("user_id", selectedUser.user_id);
-        await supabase.from("audit_logs").insert({
-            admin_id: (await supabase.auth.getUser()).data.user?.id,
-            action_type: "admin_ban_user",
-            details: `Admin baniu jogador ${selectedUser.nickname} (${selectedUser.email})`
-        });
-        toast({ variant: "destructive", title: "Jogador banido!" });
-        setSelectedUser(null);
-        fetchUsers();
-    };
+    const handleBanUser = async () => {
+        if (!selectedUser || !confirm(`Tem certeza que deseja BANIR o jogador ${selectedUser.nickname}? Esta ação zera o saldo.`)) return;
+        await supabase.from("profiles").update({ saldo: 0, nickname: `[BANIDO] ${selectedUser.nickname}` }).eq("user_id", selectedUser.user_id);
+        await supabase.from("audit_logs").insert({
+            admin_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: "admin_ban_user",
+            details: `Admin baniu jogador ${selectedUser.nickname} (${selectedUser.email})`
+        });
+        toast({ variant: "destructive", title: "Jogador banido!" });
+        setSelectedUser(null);
+        fetchUsers();
+    };
 
-    return (
-        <div className="space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                <Input 
-                    placeholder="Buscar por Nick, ID, Email ou Nome..." 
-                    className="pl-10 bg-[#0c0c0c] border-white/10 h-10 focus:border-neon-orange"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                />
-            </div>
+    return (
+        <div className="space-y-4">
+            <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
+                <Input 
+                    placeholder="Buscar por Nick, ID, Email ou Nome..." 
+                    className="pl-10 bg-[#0c0c0c] border-white/10 h-10 focus:border-neon-orange"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
 
             <div className="space-y-2">
                 {users.map(user => (
@@ -839,9 +839,9 @@ function AdminUsers() {
                 ))}
             </div>
 
-            <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-                <DialogContent className="bg-[#111] border-white/10 text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader><DialogTitle className="text-neon-orange uppercase">Dossiê do Jogador</DialogTitle></DialogHeader>
+            <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
+                <DialogContent className="bg-[#111] border-white/10 text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader><DialogTitle className="text-neon-orange uppercase">Dossiê do Jogador</DialogTitle></DialogHeader>
                     {selectedUser && !editMode && (
                         <div className="space-y-4">
                             <div className="flex items-center gap-4">
@@ -872,733 +872,820 @@ function AdminUsers() {
                                     <img src={selectedUser.freefire_proof_url} className="w-full rounded border border-white/10" alt="Verificação" />
                                 </div>
                             )}
-                            {/* Action Buttons */}
-                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
-                                <Button onClick={() => setEditMode(true)} className="bg-blue-600 text-white text-xs"><Edit className="mr-1 h-3 w-3" /> Editar</Button>
-                                <Button onClick={handleBlockBalance} variant="outline" className="border-yellow-600 text-yellow-500 text-xs"><Lock className="mr-1 h-3 w-3" /> Bloquear Saldo</Button>
-                                <Button onClick={handleBanUser} variant="destructive" className="text-xs"><Ban className="mr-1 h-3 w-3" /> Banir</Button>
-                                <Button onClick={handleDeleteUser} variant="destructive" className="bg-red-900 text-xs"><Trash2 className="mr-1 h-3 w-3" /> Apagar</Button>
-                            </div>
-                        </div>
-                    )}
-                    {selectedUser && editMode && (
-                        <div className="space-y-3">
-                            <p className="text-xs text-neon-orange font-bold uppercase">Editando dados do jogador</p>
-                            <div><Label className="text-[10px]">Nome Completo</Label><Input value={editFields.full_name} onChange={e => setEditFields({...editFields, full_name: e.target.value})} className="bg-black border-white/10" /></div>
-                            <div><Label className="text-[10px]">CPF</Label><Input value={editFields.cpf} onChange={e => setEditFields({...editFields, cpf: e.target.value})} className="bg-black border-white/10" /></div>
-                            <div><Label className="text-[10px]">Email</Label><Input value={editFields.email} onChange={e => setEditFields({...editFields, email: e.target.value})} className="bg-black border-white/10" /></div>
-                            <div><Label className="text-[10px]">Nickname</Label><Input value={editFields.nickname} onChange={e => setEditFields({...editFields, nickname: e.target.value})} className="bg-black border-white/10" /></div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><Label className="text-[10px]">ID Free Fire</Label><Input value={editFields.freefire_id} onChange={e => setEditFields({...editFields, freefire_id: e.target.value})} className="bg-black border-white/10" /></div>
-                                <div><Label className="text-[10px]">Nível</Label><Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({...editFields, freefire_level: e.target.value})} className="bg-black border-white/10" /></div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button onClick={() => setEditMode(false)} variant="outline" className="flex-1 border-white/10">Cancelar</Button>
-                                <Button onClick={handleAdminEditUser} className="flex-1 bg-green-600">Salvar</Button>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
+                            {/* Action Buttons */}
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
+                                <Button onClick={() => setEditMode(true)} className="bg-blue-600 text-white text-xs"><Edit className="mr-1 h-3 w-3" /> Editar</Button>
+                                <Button onClick={handleBlockBalance} variant="outline" className="border-yellow-600 text-yellow-500 text-xs"><Lock className="mr-1 h-3 w-3" /> Bloquear Saldo</Button>
+                                <Button onClick={handleBanUser} variant="destructive" className="text-xs"><Ban className="mr-1 h-3 w-3" /> Banir</Button>
+                                <Button onClick={handleDeleteUser} variant="destructive" className="bg-red-900 text-xs"><Trash2 className="mr-1 h-3 w-3" /> Apagar</Button>
+                            </div>
+                        </div>
+                    )}
+                    {selectedUser && editMode && (
+                        <div className="space-y-3">
+                            <p className="text-xs text-neon-orange font-bold uppercase">Editando dados do jogador</p>
+                            <div><Label className="text-[10px]">Nome Completo</Label><Input value={editFields.full_name} onChange={e => setEditFields({...editFields, full_name: e.target.value})} className="bg-black border-white/10" /></div>
+                            <div><Label className="text-[10px]">CPF</Label><Input value={editFields.cpf} onChange={e => setEditFields({...editFields, cpf: e.target.value})} className="bg-black border-white/10" /></div>
+                            <div><Label className="text-[10px]">Email</Label><Input value={editFields.email} onChange={e => setEditFields({...editFields, email: e.target.value})} className="bg-black border-white/10" /></div>
+                            <div><Label className="text-[10px]">Nickname</Label><Input value={editFields.nickname} onChange={e => setEditFields({...editFields, nickname: e.target.value})} className="bg-black border-white/10" /></div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div><Label className="text-[10px]">ID Free Fire</Label><Input value={editFields.freefire_id} onChange={e => setEditFields({...editFields, freefire_id: e.target.value})} className="bg-black border-white/10" /></div>
+                                <div><Label className="text-[10px]">Nível</Label><Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({...editFields, freefire_level: e.target.value})} className="bg-black border-white/10" /></div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button onClick={() => setEditMode(false)} variant="outline" className="flex-1 border-white/10">Cancelar</Button>
+                                <Button onClick={handleAdminEditUser} className="flex-1 bg-green-600">Salvar</Button>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
 }
 
-// --- 4. FINANCEIRO ---
+// --- 4. FINANCEIRO (COM CONTROLE DE APROVAÇÃO AUTOMÁTICA) ---
 function AdminFinance() {
-    const { toast } = useToast();
-    const [transactions, setTransactions] = useState<any[]>([]);
+    const { toast } = useToast();
+    const [transactions, setTransactions] = useState<any[]>([]);
+    
+    // Novo estado para o botão de Automático/Manual
+    const [autoApprove, setAutoApprove] = useState(true);
+    const [loadingSettings, setLoadingSettings] = useState(true);
 
-    const fetchTx = async () => {
-        const { data } = await supabase
-            .from("transactions")
-            .select("*")
-            .eq("status", "pending")
-            .order("created_at", { ascending: false });
-        
-        if (!data) return;
-        
-        const userIds = [...new Set(data.map(tx => tx.user_id))];
-        if (userIds.length === 0) { setTransactions([]); return; }
-        const { data: profiles } = await supabase
-            .from("profiles")
-            .select("user_id, nickname, full_name, cpf, email")
-            .in("user_id", userIds);
-        
-        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-        const enriched = data.map(tx => {
-            const prof = profileMap.get(tx.user_id);
-            return { ...tx, nickname: prof?.nickname || "Desconhecido", full_name: prof?.full_name || "-", cpf: prof?.cpf || "-", email: prof?.email || "-" };
-        });
-        setTransactions(enriched);
-    };
+    const fetchTx = async () => {
+        const { data } = await supabase
+            .from("transactions")
+            .select("*")
+            .eq("status", "pending")
+            .order("created_at", { ascending: false });
+        
+        if (!data) return;
+        
+        const userIds = [...new Set(data.map(tx => tx.user_id))];
+        if (userIds.length === 0) { setTransactions([]); return; }
+        const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, nickname, full_name, cpf, email")
+            .in("user_id", userIds);
+        
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+        const enriched = data.map(tx => {
+            const prof = profileMap.get(tx.user_id);
+            return { ...tx, nickname: prof?.nickname || "Desconhecido", full_name: prof?.full_name || "-", cpf: prof?.cpf || "-", email: prof?.email || "-" };
+        });
+        setTransactions(enriched);
+    };
 
-    // Fetch on mount + realtime updates
-    useEffect(() => {
-        fetchTx();
-        const channel = supabase
-            .channel('admin-finance-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchTx())
-            .subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, []);
+    // Busca a configuração atual ao abrir a tela
+    const fetchSettings = async () => {
+        const { data } = await (supabase as any)
+            .from('notification_settings')
+            .select('is_enabled')
+            .eq('key_name', 'config_auto_approve_deposit')
+            .maybeSingle();
+        
+        // Se não existir configuração, assume TRUE (Automático)
+        if (data) setAutoApprove(data.is_enabled);
+        setLoadingSettings(false);
+    };
 
-    const handleApprove = async (tx: any) => {
-        if (tx.type === 'deposit' && tx.amount < 15) return toast({ variant: "destructive", title: "Bloqueado", description: "Depósito mínimo é R$ 15,00" });
-        if (tx.type === 'withdraw' && tx.amount < 20) return toast({ variant: "destructive", title: "Bloqueado", description: "Saque mínimo é R$ 20,00" });
-        
-        // Validate CPF and name for deposits
-        if (tx.type === 'deposit' && (!tx.full_name || tx.full_name === '-' || !tx.cpf || tx.cpf === '-')) {
-            return toast({ variant: "destructive", title: "Bloqueado", description: "Depósito requer Nome e CPF cadastrados." });
-        }
+    // Fetch on mount + realtime updates
+    useEffect(() => {
+        fetchTx();
+        fetchSettings();
 
-        const { data: profile } = await supabase.from("profiles").select("saldo").eq("user_id", tx.user_id).single();
-        if (!profile) return;
+        const channel = supabase
+            .channel('admin-finance-realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchTx())
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, []);
 
-        let newBalance = Number(profile.saldo);
-        if (tx.type === 'deposit') newBalance += Number(tx.amount);
-        if (tx.type === 'withdraw') {
-            if (newBalance < tx.amount) return toast({ variant: "destructive", title: "Saldo Insuficiente do Usuário" });
-            newBalance -= Number(tx.amount);
-        }
-        if (newBalance < 0) return toast({ variant: "destructive", title: "Erro: saldo ficaria negativo" });
+    const handleToggleAutoApprove = async (val: boolean) => {
+        setAutoApprove(val);
+        // Salva a configuração no banco
+        const { error } = await (supabase as any).from('notification_settings').upsert({ 
+            key_name: 'config_auto_approve_deposit', 
+            is_enabled: val,
+            category: 'system',
+            label: 'Aprovação Automática de Depósitos'
+        }, { onConflict: 'key_name' });
 
-        await supabase.from("profiles").update({ saldo: newBalance }).eq("user_id", tx.user_id);
-        await supabase.from("transactions").update({ status: 'approved' }).eq("id", tx.id);
-        
-        const adminId = (await supabase.auth.getUser()).data.user?.id;
+        if (error) {
+            toast({ variant: 'destructive', title: 'Erro ao salvar configuração' });
+            setAutoApprove(!val); // Reverte visualmente
+        } else {
+            toast({ 
+                title: val ? "Modo Automático Ativado" : "Modo Manual Ativado",
+                description: val ? "Os depósitos cairão na hora." : "Você precisará aprovar cada depósito manualmente."
+            });
+        }
+    };
 
-        await supabase.from("audit_logs").insert({ 
-            admin_id: adminId, 
-            action_type: 'finance_approve', 
-            details: `Aprovou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name}, CPF: ${tx.cpf})` 
-        });
+    const handleApprove = async (tx: any) => {
+        if (tx.type === 'deposit' && tx.amount < 15) return toast({ variant: "destructive", title: "Bloqueado", description: "Depósito mínimo é R$ 15,00" });
+        if (tx.type === 'withdraw' && tx.amount < 20) return toast({ variant: "destructive", title: "Bloqueado", description: "Saque mínimo é R$ 20,00" });
+        
+        // Validate CPF and name for deposits
+        if (tx.type === 'deposit' && (!tx.full_name || tx.full_name === '-' || !tx.cpf || tx.cpf === '-')) {
+            return toast({ variant: "destructive", title: "Bloqueado", description: "Depósito requer Nome e CPF cadastrados." });
+        }
 
-        // --- LÓGICA DE RECOMPENSA POR INDICAÇÃO ---
-        if (tx.type === 'deposit') {
-            const { data: referral } = await supabase
-                .from("referrals")
-                .select("*")
-                .eq("referred_id", tx.user_id)
-                .eq("status", "pending")
-                .maybeSingle();
-            
-            if (referral) {
-                await supabase.from("referrals").update({ status: "confirmed" }).eq("id", referral.id);
+        const { data: profile } = await supabase.from("profiles").select("saldo").eq("user_id", tx.user_id).single();
+        if (!profile) return;
 
-                const { count } = await supabase
-                    .from("referrals")
-                    .select("*", { count: "exact", head: true })
-                    .eq("referrer_id", referral.referrer_id)
-                    .eq("status", "confirmed");
+        let newBalance = Number(profile.saldo);
+        if (tx.type === 'deposit') newBalance += Number(tx.amount);
+        if (tx.type === 'withdraw') {
+            if (newBalance < tx.amount) return toast({ variant: "destructive", title: "Saldo Insuficiente do Usuário" });
+            newBalance -= Number(tx.amount);
+        }
+        if (newBalance < 0) return toast({ variant: "destructive", title: "Erro: saldo ficaria negativo" });
 
-                if (count && count >= 10 && count % 10 === 0) {
-                    const rewardAmount = 10;
-                    const { data: referrerProfile } = await supabase.from("profiles").select("saldo").eq("user_id", referral.referrer_id).single();
-                    if (referrerProfile) {
-                        const newReferrerBalance = Number(referrerProfile.saldo) + rewardAmount;
-                        await supabase.from("profiles").update({ saldo: newReferrerBalance }).eq("user_id", referral.referrer_id);
-                        
-                        await supabase.from("audit_logs").insert({
-                            admin_id: adminId,
-                            action_type: "referral_reward",
-                            details: `Recompensa automática de R$${rewardAmount.toFixed(2)} creditada por atingir ${count} indicações confirmadas.`
-                        });
-                    }
-                }
-            }
-        }
+        await supabase.from("profiles").update({ saldo: newBalance }).eq("user_id", tx.user_id);
+        await supabase.from("transactions").update({ status: 'approved' }).eq("id", tx.id);
+        
+        const adminId = (await supabase.auth.getUser()).data.user?.id;
 
-        toast({ title: "Transação Aprovada!" });
-        fetchTx();
-    };
+        await supabase.from("audit_logs").insert({ 
+            admin_id: adminId, 
+            action_type: 'finance_approve', 
+            details: `Aprovou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name}, CPF: ${tx.cpf})` 
+        });
 
-    const handleReject = async (tx: any) => {
-        if(!confirm("Tem certeza que deseja rejeitar esta transação?")) return;
-        await supabase.from("transactions").update({ status: 'rejected' }).eq("id", tx.id);
-        await supabase.from("audit_logs").insert({ 
-            admin_id: (await supabase.auth.getUser()).data.user?.id, 
-            action_type: 'finance_reject', 
-            details: `Rejeitou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name})` 
-        });
-        toast({ variant: "destructive", title: "Transação Rejeitada!" });
-        fetchTx();
-    };
+        // --- LÓGICA DE RECOMPENSA POR INDICAÇÃO ---
+        if (tx.type === 'deposit') {
+            const { data: referral } = await supabase
+                .from("referrals")
+                .select("*")
+                .eq("referred_id", tx.user_id)
+                .eq("status", "pending")
+                .maybeSingle();
+            
+            if (referral) {
+                await supabase.from("referrals").update({ status: "confirmed" }).eq("id", referral.id);
 
-    return (
-        <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase text-gray-500">Solicitações Pendentes</h3>
-            {transactions.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Tudo limpo por aqui.</p>}
-            {transactions.map(tx => (
-                <Card key={tx.id} className="bg-[#0c0c0c] border-white/5">
-                    <CardContent className="p-3 space-y-2">
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <div className="flex items-center gap-2">
-                                    <Badge className={tx.type === 'deposit' ? "bg-green-600" : "bg-red-600"}>
-                                        {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
-                                    </Badge>
-                                    <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
-                                </div>
-                                <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button size="icon" className="bg-green-600 h-8 w-8 hover:bg-green-700" onClick={() => handleApprove(tx)}><Check className="h-4 w-4"/></Button>
-                                <Button size="icon" variant="destructive" className="h-8 w-8 hover:bg-red-700" onClick={() => handleReject(tx)}><X className="h-4 w-4"/></Button>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-1 text-[10px] text-gray-500 bg-white/5 rounded p-2">
-                            <span>Nome: <span className="text-gray-300">{tx.full_name}</span></span>
-                            <span>CPF: <span className="text-gray-300">{tx.cpf}</span></span>
-                            <span>Email: <span className="text-gray-300">{tx.email}</span></span>
-                            <span>Horário: <span className="text-gray-300">{new Date(tx.created_at).toLocaleString("pt-BR")}</span></span>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-    );
+                const { count } = await supabase
+                    .from("referrals")
+                    .select("*", { count: "exact", head: true })
+                    .eq("referrer_id", referral.referrer_id)
+                    .eq("status", "confirmed");
+
+                if (count && count >= 10 && count % 10 === 0) {
+                    const rewardAmount = 10;
+                    const { data: referrerProfile } = await supabase.from("profiles").select("saldo").eq("user_id", referral.referrer_id).single();
+                    if (referrerProfile) {
+                        const newReferrerBalance = Number(referrerProfile.saldo) + rewardAmount;
+                        await supabase.from("profiles").update({ saldo: newReferrerBalance }).eq("user_id", referral.referrer_id);
+                        
+                        await supabase.from("audit_logs").insert({
+                            admin_id: adminId,
+                            action_type: "referral_reward",
+                            details: `Recompensa automática de R$${rewardAmount.toFixed(2)} creditada por atingir ${count} indicações confirmadas.`
+                        });
+                    }
+                }
+            }
+        }
+
+        toast({ title: "Transação Aprovada!" });
+        fetchTx();
+    };
+
+    const handleReject = async (tx: any) => {
+        if(!confirm("Tem certeza que deseja rejeitar esta transação?")) return;
+        await supabase.from("transactions").update({ status: 'rejected' }).eq("id", tx.id);
+        await supabase.from("audit_logs").insert({ 
+            admin_id: (await supabase.auth.getUser()).data.user?.id, 
+            action_type: 'finance_reject', 
+            details: `Rejeitou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name})` 
+        });
+        toast({ variant: "destructive", title: "Transação Rejeitada!" });
+        fetchTx();
+    };
+
+    return (
+        <div className="space-y-4">
+            
+            {/* NOVO: Painel de Controle de Automação */}
+            <Card className="border-neon-green/30 bg-[#0c0c0c]">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-neon-green uppercase flex items-center gap-2"><Zap className="h-4 w-4" /> Automação de Depósitos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
+                        <div className="space-y-0.5">
+                            <Label className="text-base text-white">Aprovar Automaticamente</Label>
+                            <p className="text-xs text-gray-400">
+                                {autoApprove 
+                                    ? "Ligado: O saldo cai na conta do jogador assim que o banco confirmar." 
+                                    : "Desligado: Você precisa aprovar manualmente cada depósito abaixo."}
+                            </p>
+                        </div>
+                        <Switch 
+                            checked={autoApprove} 
+                            onCheckedChange={handleToggleAutoApprove}
+                            className="data-[state=checked]:bg-neon-green"
+                            disabled={loadingSettings}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="space-y-3">
+                <h3 className="text-xs font-bold uppercase text-gray-500">Solicitações Pendentes</h3>
+                {transactions.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Tudo limpo por aqui.</p>}
+                {transactions.map(tx => (
+                    <Card key={tx.id} className="bg-[#0c0c0c] border-white/5">
+                        <CardContent className="p-3 space-y-2">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <Badge className={tx.type === 'deposit' ? "bg-green-600" : "bg-red-600"}>
+                                            {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
+                                        </Badge>
+                                        <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
+                                    <p className="text-[9px] text-gray-600 font-mono mt-0.5">ID: {tx.id}</p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button size="icon" className="bg-green-600 h-8 w-8 hover:bg-green-700" onClick={() => handleApprove(tx)}><Check className="h-4 w-4"/></Button>
+                                    <Button size="icon" variant="destructive" className="h-8 w-8 hover:bg-red-700" onClick={() => handleReject(tx)}><X className="h-4 w-4"/></Button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1 text-[10px] text-gray-500 bg-white/5 rounded p-2">
+                                <span>Nome: <span className="text-gray-300">{tx.full_name}</span></span>
+                                <span>CPF: <span className="text-gray-300">{tx.cpf}</span></span>
+                                <span>Email: <span className="text-gray-300">{tx.email}</span></span>
+                                <span>Horário: <span className="text-gray-300">{new Date(tx.created_at).toLocaleString("pt-BR")}</span></span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
 }
 
-// --- 5. LINK DA CONTA (NOVO) ---
+// --- 5. LINK DA CONTA (NOVO: COM SWITCH PARA ASAAS) ---
 function AdminPaymentLink() {
-    const { toast } = useToast();
-    const [currentLink, setCurrentLink] = useState("");
-    const [newLink, setNewLink] = useState("");
-    const [history, setHistory] = useState<any[]>([]);
+    const { toast } = useToast();
+    const [currentLink, setCurrentLink] = useState("");
+    const [newLink, setNewLink] = useState("");
+    const [history, setHistory] = useState<any[]>([]);
+    
+    // Novo estado para controlar o Gateway
+    const [useAsaas, setUseAsaas] = useState(true);
+    const [loadingSettings, setLoadingSettings] = useState(true);
 
-    const fetchLinks = async () => {
-        const { data } = await supabase.from("payment_links").select("*").order("created_at", { ascending: false });
-        if (data && data.length > 0) {
-            setCurrentLink(data[0].link);
-            setHistory(data);
-        }
-    };
+    const fetchLinks = async () => {
+        const { data } = await supabase.from("payment_links").select("*").order("created_at", { ascending: false });
+        if (data && data.length > 0) {
+            setCurrentLink(data[0].link);
+            setHistory(data);
+        }
+    };
 
-    useEffect(() => { fetchLinks(); }, []);
+    const fetchSettings = async () => {
+        const { data } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'config_enable_asaas').maybeSingle();
+        // Se existir a configuração, usa. Se não, assume true (ligado).
+        if (data) setUseAsaas(data.is_enabled);
+        setLoadingSettings(false);
+    };
 
-    const handleSaveLink = async () => {
-        if (!newLink.trim()) return toast({ variant: "destructive", title: "Digite o novo link" });
-        const adminId = (await supabase.auth.getUser()).data.user?.id;
-        const { error } = await supabase.from("payment_links").insert({ link: newLink.trim(), created_by: adminId });
-        if (error) return toast({ variant: "destructive", title: "Erro", description: error.message });
-        
-        await supabase.from("audit_logs").insert({
-            admin_id: adminId,
-            action_type: "payment_link_change",
-            details: `Admin alterou link de pagamento para: ${newLink.trim()}`
-        });
-        
-        toast({ title: "Link atualizado!" });
-        setNewLink("");
-        fetchLinks();
-    };
+    useEffect(() => { 
+        fetchLinks(); 
+        fetchSettings();
+    }, []);
 
-    return (
-        <div className="space-y-4">
-            <Card className="border-white/10 bg-[#0c0c0c]">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-neon-orange uppercase flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Link de Pagamento Atual</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    <div className="bg-black/50 p-3 rounded border border-white/10">
-                        <p className="text-sm text-white break-all font-mono">{currentLink || "Nenhum link configurado"}</p>
-                    </div>
-                    <Input placeholder="Novo link de pagamento (PIX, email, etc.)" value={newLink} onChange={e => setNewLink(e.target.value)} className="bg-black/50 border-white/10" />
-                    <Button onClick={handleSaveLink} className="w-full bg-orange-600 hover:bg-orange-700 font-bold">Atualizar Link</Button>
-                </CardContent>
-            </Card>
+    const handleSaveLink = async () => {
+        if (!newLink.trim()) return toast({ variant: "destructive", title: "Digite o novo link" });
+        const adminId = (await supabase.auth.getUser()).data.user?.id;
+        const { error } = await supabase.from("payment_links").insert({ link: newLink.trim(), created_by: adminId });
+        if (error) return toast({ variant: "destructive", title: "Erro", description: error.message });
+        
+        await supabase.from("audit_logs").insert({
+            admin_id: adminId,
+            action_type: "payment_link_change",
+            details: `Admin alterou link de pagamento para: ${newLink.trim()}`
+        });
+        
+        toast({ title: "Link atualizado!" });
+        setNewLink("");
+        fetchLinks();
+    };
 
-            <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase text-gray-500">Histórico de Links</h3>
-                {history.map(h => (
-                    <div key={h.id} className="bg-[#111] p-2 rounded border border-white/5 flex justify-between items-center">
-                        <p className="text-xs text-gray-300 break-all flex-1">{h.link}</p>
-                        <span className="text-[10px] text-gray-600 ml-2 shrink-0">{new Date(h.created_at).toLocaleDateString("pt-BR")}</span>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
+    const handleToggleAsaas = async (val: boolean) => {
+        setUseAsaas(val);
+        // Usa a tabela de settings para guardar essa config global
+        const { error } = await (supabase as any).from('notification_settings').upsert({ 
+            key_name: 'config_enable_asaas', 
+            is_enabled: val,
+            category: 'system',
+            label: 'Ativar Integração Asaas (Automático)'
+        }, { onConflict: 'key_name' });
+
+        if (error) {
+            toast({ variant: 'destructive', title: 'Erro ao salvar configuração' });
+            setUseAsaas(!val); // Reverte visualmente se falhar
+        } else {
+            toast({ title: val ? "Modo Automático Ativado" : "Modo Manual Ativado" });
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            
+            {/* NOVO: SWITCH DE CONTROLE DO GATEWAY */}
+            <Card className="border-neon-orange/30 bg-[#0c0c0c]">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-neon-orange uppercase flex items-center gap-2"><Zap className="h-4 w-4" /> Modo de Operação</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
+                        <div className="space-y-0.5">
+                            <Label className="text-base text-white">Integração Asaas (Automático)</Label>
+                            <p className="text-xs text-gray-400">
+                                {useAsaas 
+                                    ? "Ligado: O sistema gera PIX Copia e Cola automático." 
+                                    : "Desligado: O sistema usa o link manual abaixo."}
+                            </p>
+                        </div>
+                        <Switch 
+                            checked={useAsaas} 
+                            onCheckedChange={handleToggleAsaas}
+                            className="data-[state=checked]:bg-neon-green"
+                            disabled={loadingSettings}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className={`border-white/10 bg-[#0c0c0c] ${useAsaas ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-gray-400 uppercase flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Link Manual (Emergência)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="bg-black/50 p-3 rounded border border-white/10">
+                        <p className="text-sm text-white break-all font-mono">{currentLink || "Nenhum link configurado"}</p>
+                    </div>
+                    <Input placeholder="Novo link de pagamento (PIX, email, etc.)" value={newLink} onChange={e => setNewLink(e.target.value)} className="bg-black/50 border-white/10" />
+                    <Button onClick={handleSaveLink} className="w-full bg-gray-700 hover:bg-gray-600 font-bold">Atualizar Link Manual</Button>
+                </CardContent>
+            </Card>
+
+            <div className="space-y-2">
+                <h3 className="text-xs font-bold uppercase text-gray-500">Histórico de Links</h3>
+                {history.map(h => (
+                    <div key={h.id} className="bg-[#111] p-2 rounded border border-white/5 flex justify-between items-center">
+                        <p className="text-xs text-gray-300 break-all flex-1">{h.link}</p>
+                        <span className="text-[10px] text-gray-600 ml-2 shrink-0">{new Date(h.created_at).toLocaleDateString("pt-BR")}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 // --- 6. SUPORTE ---
 function AdminSupport() {
-  const { toast } = useToast();
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [view, setView] = useState<'open' | 'archived'>('open');
+  const { toast } = useToast();
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [view, setView] = useState<'open' | 'archived'>('open');
 
-  const fetchTickets = async () => {
-    const { data } = await supabase
-        .from("support_tickets")
-        .select("*")
-        .eq("status", view)
-        .order("created_at", { ascending: false });
-    if (!data) return;
-    
-    const userIds = [...new Set(data.map(t => t.user_id))];
-    if (userIds.length === 0) { setTickets([]); return; }
-    const { data: profiles } = await supabase.from("profiles").select("user_id, nickname").in("user_id", userIds);
-    const profileMap = new Map(profiles?.map(p => [p.user_id, p.nickname]) || []);
-    const enriched = data.map(t => ({ ...t, nickname: profileMap.get(t.user_id) || "Usuário" }));
-    setTickets(enriched);
-  };
+  const fetchTickets = async () => {
+    const { data } = await supabase
+        .from("support_tickets")
+        .select("*")
+        .eq("status", view)
+        .order("created_at", { ascending: false });
+    if (!data) return;
+    
+    const userIds = [...new Set(data.map(t => t.user_id))];
+    if (userIds.length === 0) { setTickets([]); return; }
+    const { data: profiles } = await supabase.from("profiles").select("user_id, nickname").in("user_id", userIds);
+    const profileMap = new Map(profiles?.map(p => [p.user_id, p.nickname]) || []);
+    const enriched = data.map(t => ({ ...t, nickname: profileMap.get(t.user_id) || "Usuário" }));
+    setTickets(enriched);
+  };
 
-  useEffect(() => {
-    fetchTickets();
-    const channel = supabase.channel('support_updates').on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchTickets).subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [view]);
+  useEffect(() => {
+    fetchTickets();
+    const channel = supabase.channel('support_updates').on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchTickets).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [view]);
 
-  const handleArchive = async (id: string) => {
-    const { error } = await supabase.from("support_tickets").update({ status: 'archived' }).eq("id", id);
-    if (!error) { toast({ title: "Ticket Arquivado" }); fetchTickets(); }
-  };
+  const handleArchive = async (id: string) => {
+    const { error } = await supabase.from("support_tickets").update({ status: 'archived' }).eq("id", id);
+    if (!error) { toast({ title: "Ticket Arquivado" }); fetchTickets(); }
+  };
 
-  const [chatTicket, setChatTicket] = useState<any | null>(null);
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [loadingChat, setLoadingChat] = useState(false);
+  const [chatTicket, setChatTicket] = useState<any | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [loadingChat, setLoadingChat] = useState(false);
 
-  const handleReply = async (ticket: any) => {
-    setChatTicket(ticket);
-    setLoadingChat(true);
-    const { data } = await supabase
-        .from("support_messages")
-        .select("*")
-        .eq("ticket_id", ticket.id)
-        .order("created_at", { ascending: true });
-    setChatMessages(data || []);
-    setLoadingChat(false);
-  };
+  const handleReply = async (ticket: any) => {
+    setChatTicket(ticket);
+    setLoadingChat(true);
+    const { data } = await supabase
+        .from("support_messages")
+        .select("*")
+        .eq("ticket_id", ticket.id)
+        .order("created_at", { ascending: true });
+    setChatMessages(data || []);
+    setLoadingChat(false);
+  };
 
-  // Realtime chat messages
-  useEffect(() => {
-    if (!chatTicket) return;
-    const channel = supabase
-        .channel(`chat-${chatTicket.id}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `ticket_id=eq.${chatTicket.id}` }, (payload) => {
-            setChatMessages(prev => [...prev, payload.new]);
-        })
-        .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [chatTicket]);
+  // Realtime chat messages
+  useEffect(() => {
+    if (!chatTicket) return;
+    const channel = supabase
+        .channel(`chat-${chatTicket.id}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `ticket_id=eq.${chatTicket.id}` }, (payload) => {
+            setChatMessages(prev => [...prev, payload.new]);
+        })
+        .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [chatTicket]);
 
-  const handleSendChat = async () => {
-    if (!chatInput.trim() || !chatTicket) return;
-    const adminId = (await supabase.auth.getUser()).data.user?.id;
-    await supabase.from("support_messages").insert({
-        ticket_id: chatTicket.id,
-        sender_id: adminId,
-        message: chatInput.trim(),
-        is_admin: true,
-    });
-    // Notify the player
-    await supabase.from("notifications").insert({
-        user_id: chatTicket.user_id,
-        title: chatTicket.type === 'support' ? 'Resposta do Suporte' : 'Resposta à Sugestão',
-        message: chatInput.trim().substring(0, 100),
-        type: chatTicket.type === 'support' ? 'support_reply' : 'suggestion_reply',
-        ticket_id: chatTicket.id,
-    });
-    setChatInput("");
-  };
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || !chatTicket) return;
+    const adminId = (await supabase.auth.getUser()).data.user?.id;
+    await supabase.from("support_messages").insert({
+        ticket_id: chatTicket.id,
+        sender_id: adminId,
+        message: chatInput.trim(),
+        is_admin: true,
+    });
+    // Notify the player
+    await supabase.from("notifications").insert({
+        user_id: chatTicket.user_id,
+        title: chatTicket.type === 'support' ? 'Resposta do Suporte' : 'Resposta à Sugestão',
+        message: chatInput.trim().substring(0, 100),
+        type: chatTicket.type === 'support' ? 'support_reply' : 'suggestion_reply',
+        ticket_id: chatTicket.id,
+    });
+    setChatInput("");
+  };
 
-  return (
-    <>
-    <div className="space-y-4 pt-4">
-      <div className="flex gap-2 p-1 bg-secondary rounded-lg">
-        <Button variant={view === 'open' ? 'default' : 'ghost'} className={`flex-1 text-xs ${view === 'open' ? 'bg-white/10' : ''}`} onClick={() => setView('open')}>Caixa de Entrada</Button>
-        <Button variant={view === 'archived' ? 'default' : 'ghost'} className={`flex-1 text-xs ${view === 'archived' ? 'bg-white/10' : ''}`} onClick={() => setView('archived')}>Arquivados</Button>
-      </div>
-      
-      {tickets.length === 0 ? (
-        <Card className="border-border bg-card"><CardContent className="flex flex-col items-center justify-center p-8 text-center"><MessageSquare className="h-12 w-12 text-muted-foreground mb-3" /><p className="text-sm text-muted-foreground">Nenhum ticket aqui.</p></CardContent></Card>
-      ) : (
-        <div className="space-y-3">
-            {tickets.map(ticket => (
-                <Card key={ticket.id} className={`bg-card border-l-4 ${ticket.type === 'support' ? 'border-l-neon-orange' : 'border-l-blue-500'}`}>
-                    <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-2">
-                            <span className={`text-xs font-bold uppercase ${ticket.type === 'support' ? 'text-neon-orange' : 'text-blue-400'}`}>{ticket.type === 'support' ? 'Problema' : 'Sugestão'}</span>
-                            <span className="text-[10px] text-gray-500">{new Date(ticket.created_at).toLocaleString()}</span>
-                        </div>
-                        <p className="text-sm font-bold text-white mb-1">{ticket.nickname || "Usuário"}</p>
-                        <p className="text-sm text-gray-300 bg-black/20 p-2 rounded mb-3">"{ticket.message}"</p>
-                        <div className="flex justify-end gap-2">
-                            {view === 'open' && (
-                                <Button size="sm" variant="ghost" onClick={() => handleArchive(ticket.id)} className="text-gray-500 hover:text-red-500"><Archive className="mr-2 h-3 w-3" /> Arquivar</Button>
-                            )}
-                            <Button size="sm" className={ticket.type === 'support' ? 'bg-neon-orange text-black' : 'bg-blue-600 text-white'} onClick={() => handleReply(ticket)}>
-                                {view === 'archived' ? <><Eye className="mr-2 h-3 w-3" /> Histórico</> : <><Send className="mr-2 h-3 w-3" /> Responder</>}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-      )}
-    </div>
+  return (
+    <>
+    <div className="space-y-4 pt-4">
+      <div className="flex gap-2 p-1 bg-secondary rounded-lg">
+        <Button variant={view === 'open' ? 'default' : 'ghost'} className={`flex-1 text-xs ${view === 'open' ? 'bg-white/10' : ''}`} onClick={() => setView('open')}>Caixa de Entrada</Button>
+        <Button variant={view === 'archived' ? 'default' : 'ghost'} className={`flex-1 text-xs ${view === 'archived' ? 'bg-white/10' : ''}`} onClick={() => setView('archived')}>Arquivados</Button>
+      </div>
+      
+      {tickets.length === 0 ? (
+        <Card className="border-border bg-card"><CardContent className="flex flex-col items-center justify-center p-8 text-center"><MessageSquare className="h-12 w-12 text-muted-foreground mb-3" /><p className="text-sm text-muted-foreground">Nenhum ticket aqui.</p></CardContent></Card>
+      ) : (
+        <div className="space-y-3">
+            {tickets.map(ticket => (
+                <Card key={ticket.id} className={`bg-card border-l-4 ${ticket.type === 'support' ? 'border-l-neon-orange' : 'border-l-blue-500'}`}>
+                    <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                            <span className={`text-xs font-bold uppercase ${ticket.type === 'support' ? 'text-neon-orange' : 'text-blue-400'}`}>{ticket.type === 'support' ? 'Problema' : 'Sugestão'}</span>
+                            <span className="text-[10px] text-gray-500">{new Date(ticket.created_at).toLocaleString()}</span>
+                        </div>
+                        <p className="text-sm font-bold text-white mb-1">{ticket.nickname || "Usuário"}</p>
+                        <p className="text-sm text-gray-300 bg-black/20 p-2 rounded mb-3">"{ticket.message}"</p>
+                        <div className="flex justify-end gap-2">
+                            {view === 'open' && (
+                                <Button size="sm" variant="ghost" onClick={() => handleArchive(ticket.id)} className="text-gray-500 hover:text-red-500"><Archive className="mr-2 h-3 w-3" /> Arquivar</Button>
+                            )}
+                            <Button size="sm" className={ticket.type === 'support' ? 'bg-neon-orange text-black' : 'bg-blue-600 text-white'} onClick={() => handleReply(ticket)}>
+                                {view === 'archived' ? <><Eye className="mr-2 h-3 w-3" /> Histórico</> : <><Send className="mr-2 h-3 w-3" /> Responder</>}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+      )}
+    </div>
 
-    {/* Chat Dialog */}
-    <Dialog open={!!chatTicket} onOpenChange={() => setChatTicket(null)}>
-        <DialogContent className="bg-[#111] border-neon-orange text-white w-[95%] rounded-2xl max-h-[85vh] flex flex-col">
-            <DialogHeader>
-                <DialogTitle className="text-neon-orange flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Chat com {chatTicket?.nickname}</DialogTitle>
-                <DialogDescription className="text-gray-500 text-xs">Mensagem original: "{chatTicket?.message}"</DialogDescription>
-            </DialogHeader>
-            
-            <div className="flex-1 overflow-y-auto space-y-2 py-3 min-h-[200px] max-h-[400px]">
-                {loadingChat ? (
-                    <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>
-                ) : chatMessages.length === 0 ? (
-                    <p className="text-center text-gray-500 text-xs py-4">Nenhuma mensagem ainda. Envie a primeira!</p>
-                ) : (
-                    chatMessages.map(msg => (
-                        <div key={msg.id} className={`flex ${msg.is_admin ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${msg.is_admin ? 'bg-neon-orange text-black' : 'bg-white/10 text-white'}`}>
-                                <p>{msg.message}</p>
-                                <span className="text-[9px] opacity-60 block mt-1">{new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
+    {/* Chat Dialog */}
+    <Dialog open={!!chatTicket} onOpenChange={() => setChatTicket(null)}>
+        <DialogContent className="bg-[#111] border-neon-orange text-white w-[95%] rounded-2xl max-h-[85vh] flex flex-col">
+            <DialogHeader>
+                <DialogTitle className="text-neon-orange flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Chat com {chatTicket?.nickname}</DialogTitle>
+                <DialogDescription className="text-gray-500 text-xs">Mensagem original: "{chatTicket?.message}"</DialogDescription>
+            </DialogHeader>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 py-3 min-h-[200px] max-h-[400px]">
+                {loadingChat ? (
+                    <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>
+                ) : chatMessages.length === 0 ? (
+                    <p className="text-center text-gray-500 text-xs py-4">Nenhuma mensagem ainda. Envie a primeira!</p>
+                ) : (
+                    chatMessages.map(msg => (
+                        <div key={msg.id} className={`flex ${msg.is_admin ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${msg.is_admin ? 'bg-neon-orange text-black' : 'bg-white/10 text-white'}`}>
+                                <p>{msg.message}</p>
+                                <span className="text-[9px] opacity-60 block mt-1">{new Date(msg.created_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
 
-            <div className="flex gap-2 pt-2 border-t border-white/10">
-                <Input 
-                    value={chatInput} 
-                    onChange={e => setChatInput(e.target.value)} 
-                    placeholder="Digite sua resposta..." 
-                    className="bg-black border-white/10 flex-1" 
-                    onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                />
-                <Button onClick={handleSendChat} className="bg-neon-orange text-black"><Send className="h-4 w-4" /></Button>
-            </div>
-        </DialogContent>
-    </Dialog>
-    </>
-  );
+            <div className="flex gap-2 pt-2 border-t border-white/10">
+                <Input 
+                    value={chatInput} 
+                    onChange={e => setChatInput(e.target.value)} 
+                    placeholder="Digite sua resposta..." 
+                    className="bg-black border-white/10 flex-1" 
+                    onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+                />
+                <Button onClick={handleSendChat} className="bg-neon-orange text-black"><Send className="h-4 w-4" /></Button>
+            </div>
+        </DialogContent>
+    </Dialog>
+    </>
+  );
 }
 
 // --- 7. REGISTROS ---
 function AdminLogs() {
-    const [logs, setLogs] = useState<any[]>([]);
-    useEffect(() => {
-        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100).then(({ data }) => {
-            if(data) setLogs(data);
-        });
-    }, []);
+    const [logs, setLogs] = useState<any[]>([]);
+    useEffect(() => {
+        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100).then(({ data }) => {
+            if(data) setLogs(data);
+        });
+    }, []);
 
-    const getIcon = (type: string) => {
-        if (type.startsWith('admin_') || type.startsWith('finance_') || type.startsWith('tournament_') || type === 'payment_link_change') return <Shield className="h-4 w-4 text-neon-orange shrink-0" />;
-        return <UserCog className="h-4 w-4 text-blue-400 shrink-0" />;
-    };
+    const getIcon = (type: string) => {
+        if (type.startsWith('admin_') || type.startsWith('finance_') || type.startsWith('tournament_') || type === 'payment_link_change') return <Shield className="h-4 w-4 text-neon-orange shrink-0" />;
+        return <UserCog className="h-4 w-4 text-blue-400 shrink-0" />;
+    };
 
-    return (
-        <div className="space-y-2">
-            <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">Linha do Tempo (Admin e Jogadores)</h3>
-            {logs.length === 0 && <p className="text-xs text-gray-600">Nenhum registro recente.</p>}
-            {logs.map(log => (
-                <div key={log.id} className="text-xs p-3 rounded bg-[#111] border border-white/5 text-gray-400 flex items-start gap-3">
-                    {getIcon(log.action_type)}
-                    <div>
-                        <span className="text-neon-orange font-bold">[{new Date(log.created_at).toLocaleString("pt-BR")}]</span>
-                        <span className="text-[10px] text-gray-600 ml-2 uppercase">{log.action_type}</span>
-                        <span className="block mt-1">{log.details}</span>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
+    return (
+        <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">Linha do Tempo (Admin e Jogadores)</h3>
+            {logs.length === 0 && <p className="text-xs text-gray-600">Nenhum registro recente.</p>}
+            {logs.map(log => (
+                <div key={log.id} className="text-xs p-3 rounded bg-[#111] border border-white/5 text-gray-400 flex items-start gap-3">
+                    {getIcon(log.action_type)}
+                    <div>
+                        <span className="text-neon-orange font-bold">[{new Date(log.created_at).toLocaleString("pt-BR")}]</span>
+                        <span className="text-[10px] text-gray-600 ml-2 uppercase">{log.action_type}</span>
+                        <span className="block mt-1">{log.details}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
 }
 
 // --- 8. ALERTAS ---
 function AdminAlerts() {
-    const [dupes, setDupes] = useState<any[]>([]);
-    
-    useEffect(() => {
-        const findDupes = async () => {
-            const { data } = await supabase.from("profiles").select("id, nickname, freefire_id");
-            if (!data) return;
-            const lookup = new Map();
-            const found: any[] = [];
-            data.forEach(u => {
-                if (u.freefire_id && lookup.has(u.freefire_id)) {
-                    found.push({ original: lookup.get(u.freefire_id), dupe: u });
-                } else if (u.freefire_id) {
-                    lookup.set(u.freefire_id, u);
-                }
-            });
-            setDupes(found);
-        };
-        findDupes();
-    }, []);
+    const [dupes, setDupes] = useState<any[]>([]);
+    
+    useEffect(() => {
+        const findDupes = async () => {
+            const { data } = await supabase.from("profiles").select("id, nickname, freefire_id");
+            if (!data) return;
+            const lookup = new Map();
+            const found: any[] = [];
+            data.forEach(u => {
+                if (u.freefire_id && lookup.has(u.freefire_id)) {
+                    found.push({ original: lookup.get(u.freefire_id), dupe: u });
+                } else if (u.freefire_id) {
+                    lookup.set(u.freefire_id, u);
+                }
+            });
+            setDupes(found);
+        };
+        findDupes();
+    }, []);
 
-    return (
-        <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">Integridade do Sistema</h3>
-            {dupes.length === 0 ? <div className="text-center bg-green-900/10 border border-green-900/30 p-4 rounded"><Check className="h-6 w-6 text-green-500 mx-auto mb-2" /><p className="text-green-500 text-sm">Nenhum ID Duplicado.</p></div> : dupes.map((d, i) => (
-                <div key={i} className="bg-red-900/10 border border-red-500/50 p-3 rounded flex justify-between items-center">
-                    <div>
-                        <p className="font-bold text-red-500 text-sm mb-1 flex items-center gap-2"><AlertTriangle className="h-4 w-4"/> ID DUPLICADO: {d.original.freefire_id}</p>
-                        <p className="text-xs text-gray-400">Conta 1: {d.original.nickname}</p>
-                        <p className="text-xs text-gray-400">Conta 2: {d.dupe.nickname}</p>
-                    </div>
-                    <Button size="sm" variant="destructive">Bloquear</Button>
-                </div>
-            ))}
-        </div>
-    );
+    return (
+        <div className="space-y-3">
+            <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">Integridade do Sistema</h3>
+            {dupes.length === 0 ? <div className="text-center bg-green-900/10 border border-green-900/30 p-4 rounded"><Check className="h-6 w-6 text-green-500 mx-auto mb-2" /><p className="text-green-500 text-sm">Nenhum ID Duplicado.</p></div> : dupes.map((d, i) => (
+                <div key={i} className="bg-red-900/10 border border-red-500/50 p-3 rounded flex justify-between items-center">
+                    <div>
+                        <p className="font-bold text-red-500 text-sm mb-1 flex items-center gap-2"><AlertTriangle className="h-4 w-4"/> ID DUPLICADO: {d.original.freefire_id}</p>
+                        <p className="text-xs text-gray-400">Conta 1: {d.original.nickname}</p>
+                        <p className="text-xs text-gray-400">Conta 2: {d.dupe.nickname}</p>
+                    </div>
+                    <Button size="sm" variant="destructive">Bloquear</Button>
+                </div>
+            ))}
+        </div>
+    );
 }
 
 // --- 9. INDICAÇÕES ---
 function AdminReferrals() {
-    const [referrals, setReferrals] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [referrersList, setReferrersList] = useState<any[]>([]);
-    const [showReferrers, setShowReferrers] = useState(false);
-    const [selectedReferrer, setSelectedReferrer] = useState<any | null>(null);
-    const [referrerDetails, setReferrerDetails] = useState<any[]>([]);
-    const [detailsLoading, setDetailsLoading] = useState(false);
+    const [referrals, setReferrals] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [referrersList, setReferrersList] = useState<any[]>([]);
+    const [showReferrers, setShowReferrers] = useState(false);
+    const [selectedReferrer, setSelectedReferrer] = useState<any | null>(null);
+    const [referrerDetails, setReferrerDetails] = useState<any[]>([]);
+    const [detailsLoading, setDetailsLoading] = useState(false);
 
-    const BONUS_PER_MILESTONE = 10; // R$10 per 10 confirmed referrals (adjust as needed)
+    const BONUS_PER_MILESTONE = 10; // R$10 per 10 confirmed referrals (adjust as needed)
 
-    useEffect(() => {
-        const fetchReferrals = async () => {
-            const { data } = await supabase
-                .from("referrals")
-                .select("*")
-                .order("created_at", { ascending: false });
-            
-            if (data && data.length > 0) {
-                const allIds = [...new Set(data.flatMap(r => [r.referrer_id, r.referred_id]))];
-                const { data: profiles } = await supabase
-                    .from("profiles")
-                    .select("user_id, nickname, email, full_name, freefire_id, freefire_nick, avatar_url")
-                    .in("user_id", allIds);
-                                    
-                const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
-                
-                const enriched = data.map(r => ({
-                    ...r,
-                    referrer_profile: profileMap.get(r.referrer_id) || null,
-                    referred_profile: profileMap.get(r.referred_id) || null,
-                }));
-                setReferrals(enriched);
+    useEffect(() => {
+        const fetchReferrals = async () => {
+            const { data } = await supabase
+                .from("referrals")
+                .select("*")
+                .order("created_at", { ascending: false });
+            
+            if (data && data.length > 0) {
+                const allIds = [...new Set(data.flatMap(r => [r.referrer_id, r.referred_id]))];
+                const { data: profiles } = await supabase
+                    .from("profiles")
+                    .select("user_id, nickname, email, full_name, freefire_id, freefire_nick, avatar_url")
+                    .in("user_id", allIds);
+                                        
+                const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+                
+                const enriched = data.map(r => ({
+                    ...r,
+                    referrer_profile: profileMap.get(r.referrer_id) || null,
+                    referred_profile: profileMap.get(r.referred_id) || null,
+                }));
+                setReferrals(enriched);
 
-                // Build referrers summary
-                const referrerMap = new Map<string, { profile: any; total: number; confirmed: number }>();
-                enriched.forEach(r => {
-                    const existing = referrerMap.get(r.referrer_id);
-                    if (existing) {
-                        existing.total += 1;
-                        if (r.status === 'confirmed') existing.confirmed += 1;
-                    } else {
-                        referrerMap.set(r.referrer_id, {
-                            profile: r.referrer_profile,
-                            total: 1,
-                            confirmed: r.status === 'confirmed' ? 1 : 0,
-                        });
-                    }
-                });
-                const referrersArr = Array.from(referrerMap.entries()).map(([id, data]) => ({
-                    referrer_id: id,
-                    ...data,
-                    milestones: Math.floor(data.confirmed / 10),
-                    totalEarnings: Math.floor(data.confirmed / 10) * BONUS_PER_MILESTONE,
-                })).sort((a, b) => b.total - a.total);
-                setReferrersList(referrersArr);
-            } else {
-                setReferrals([]);
-                setReferrersList([]);
-            }
-            setLoading(false);
-        };
-        fetchReferrals();
-    }, []);
+                // Build referrers summary
+                const referrerMap = new Map<string, { profile: any; total: number; confirmed: number }>();
+                enriched.forEach(r => {
+                    const existing = referrerMap.get(r.referrer_id);
+                    if (existing) {
+                        existing.total += 1;
+                        if (r.status === 'confirmed') existing.confirmed += 1;
+                    } else {
+                        referrerMap.set(r.referrer_id, {
+                            profile: r.referrer_profile,
+                            total: 1,
+                            confirmed: r.status === 'confirmed' ? 1 : 0,
+                        });
+                    }
+                });
+                const referrersArr = Array.from(referrerMap.entries()).map(([id, data]) => ({
+                    referrer_id: id,
+                    ...data,
+                    milestones: Math.floor(data.confirmed / 10),
+                    totalEarnings: Math.floor(data.confirmed / 10) * BONUS_PER_MILESTONE,
+                })).sort((a, b) => b.total - a.total);
+                setReferrersList(referrersArr);
+            } else {
+                setReferrals([]);
+                setReferrersList([]);
+            }
+            setLoading(false);
+        };
+        fetchReferrals();
+    }, []);
 
-    const handleSelectReferrer = (referrer: any) => {
-        setSelectedReferrer(referrer);
-        setDetailsLoading(true);
-        const referred = referrals
-            .filter(r => r.referrer_id === referrer.referrer_id)
-            .map(r => ({
-                ...r,
-                profile: r.referred_profile,
-            }));
-        setReferrerDetails(referred);
-        setDetailsLoading(false);
-    };
+    const handleSelectReferrer = (referrer: any) => {
+        setSelectedReferrer(referrer);
+        setDetailsLoading(true);
+        const referred = referrals
+            .filter(r => r.referrer_id === referrer.referrer_id)
+            .map(r => ({
+                ...r,
+                profile: r.referred_profile,
+            }));
+        setReferrerDetails(referred);
+        setDetailsLoading(false);
+    };
 
-    if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>;
+    if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>;
 
-    // Drill-down: selected referrer's referred users
-    if (selectedReferrer) {
-        return (
-            <div className="space-y-4">
-                <Button variant="ghost" onClick={() => setSelectedReferrer(null)} className="text-gray-400 hover:text-white mb-2">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-                </Button>
+    // Drill-down: selected referrer's referred users
+    if (selectedReferrer) {
+        return (
+            <div className="space-y-4">
+                <Button variant="ghost" onClick={() => setSelectedReferrer(null)} className="text-gray-400 hover:text-white mb-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
+                </Button>
 
-                <Card className="bg-[#0c0c0c] border-indigo-500/30">
-                    <CardContent className="p-4 space-y-3">
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0 overflow-hidden">
-                                {selectedReferrer.profile?.avatar_url ? (
-                                    <img src={selectedReferrer.profile.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
-                                ) : (
-                                    <span className="text-indigo-400 font-bold text-lg">{selectedReferrer.profile?.nickname?.charAt(0)?.toUpperCase() || "?"}</span>
-                                )}
-                            </div>
-                            <div>
-                                <p className="text-white font-bold">{selectedReferrer.profile?.nickname || "Desconhecido"}</p>
-                                <p className="text-xs text-gray-500">{selectedReferrer.profile?.email || ""}</p>
-                                {selectedReferrer.profile?.full_name && <p className="text-xs text-gray-400">{selectedReferrer.profile.full_name}</p>}
-                            </div>
-                        </div>
+                <Card className="bg-[#0c0c0c] border-indigo-500/30">
+                    <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="h-12 w-12 rounded-full bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0 overflow-hidden">
+                                {selectedReferrer.profile?.avatar_url ? (
+                                    <img src={selectedReferrer.profile.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover" />
+                                ) : (
+                                    <span className="text-indigo-400 font-bold text-lg">{selectedReferrer.profile?.nickname?.charAt(0)?.toUpperCase() || "?"}</span>
+                                )}
+                            </div>
+                            <div>
+                                <p className="text-white font-bold">{selectedReferrer.profile?.nickname || "Desconhecido"}</p>
+                                <p className="text-xs text-gray-500">{selectedReferrer.profile?.email || ""}</p>
+                                {selectedReferrer.profile?.full_name && <p className="text-xs text-gray-400">{selectedReferrer.profile.full_name}</p>}
+                            </div>
+                        </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                            <div className="bg-white/5 rounded-lg p-3 text-center">
-                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Indicados</p>
-                                <p className="text-xl font-black text-indigo-400">{selectedReferrer.total}</p>
-                            </div>
-                            <div className="bg-white/5 rounded-lg p-3 text-center">
-                                <p className="text-[10px] text-gray-500 uppercase font-bold">Confirmados</p>
-                                <p className="text-xl font-black text-green-400">{selectedReferrer.confirmed}</p>
-                            </div>
-                            <div className="bg-white/5 rounded-lg p-3 text-center">
-                                <p className="text-[10px] text-gray-500 uppercase font-bold">Metas de 10 atingidas</p>
-                                <p className="text-xl font-black text-yellow-400">{selectedReferrer.milestones}x</p>
-                            </div>
-                            <div className="bg-white/5 rounded-lg p-3 text-center">
-                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Ganho</p>
-                                <p className="text-xl font-black text-neon-green">R$ {selectedReferrer.totalEarnings.toFixed(2)}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Indicados</p>
+                                <p className="text-xl font-black text-indigo-400">{selectedReferrer.total}</p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Confirmados</p>
+                                <p className="text-xl font-black text-green-400">{selectedReferrer.confirmed}</p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Metas de 10 atingidas</p>
+                                <p className="text-xl font-black text-yellow-400">{selectedReferrer.milestones}x</p>
+                            </div>
+                            <div className="bg-white/5 rounded-lg p-3 text-center">
+                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Ganho</p>
+                                <p className="text-xl font-black text-neon-green">R$ {selectedReferrer.totalEarnings.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                <h3 className="text-xs font-bold uppercase text-gray-500">Pessoas indicadas por {selectedReferrer.profile?.nickname}</h3>
-                                
-                {detailsLoading ? (
-                    <div className="flex justify-center py-4"><Loader2 className="animate-spin h-5 w-5 text-indigo-400" /></div>
-                ) : referrerDetails.length === 0 ? (
-                    <p className="text-center text-gray-600 text-sm py-4">Nenhum indicado encontrado.</p>
-                ) : (
-                    referrerDetails.map(r => (
-                        <Card key={r.id} className="bg-[#111] border-white/10">
-                            <CardContent className="p-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
-                                        {r.profile?.avatar_url ? (
-                                            <img src={r.profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
-                                        ) : (
-                                            <Users className="h-4 w-4 text-gray-500" />
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-white truncate">{r.profile?.nickname || "Desconhecido"}</p>
-                                        <p className="text-[10px] text-gray-500">{r.profile?.email || "Sem email"}</p>
-                                        {r.profile?.full_name && <p className="text-[10px] text-gray-400">{r.profile.full_name}</p>}
-                                        {r.profile?.freefire_id && <p className="text-[10px] text-gray-400">FF ID: {r.profile.freefire_id} {r.profile.freefire_nick ? `• ${r.profile.freefire_nick}` : ''}</p>}
-                                    </div>
-                                    <div className="text-right shrink-0">
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status === 'confirmed' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
-                                            {r.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente'}
-                                        </span>
-                                        <p className="text-[10px] text-gray-600 mt-1">{new Date(r.created_at).toLocaleDateString("pt-BR")}</p>
-                                    </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))
-            )}
-        </div>
-    );
-}
+                <h3 className="text-xs font-bold uppercase text-gray-500">Pessoas indicadas por {selectedReferrer.profile?.nickname}</h3>
+                                
+                {detailsLoading ? (
+                    <div className="flex justify-center py-4"><Loader2 className="animate-spin h-5 w-5 text-indigo-400" /></div>
+                ) : referrerDetails.length === 0 ? (
+                    <p className="text-center text-gray-600 text-sm py-4">Nenhum indicado encontrado.</p>
+                ) : (
+                    referrerDetails.map(r => (
+                        <Card key={r.id} className="bg-[#111] border-white/10">
+                            <CardContent className="p-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+                                        {r.profile?.avatar_url ? (
+                                            <img src={r.profile.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                                        ) : (
+                                            <Users className="h-4 w-4 text-gray-500" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-white truncate">{r.profile?.nickname || "Desconhecido"}</p>
+                                        <p className="text-[10px] text-gray-500">{r.profile?.email || "Sem email"}</p>
+                                        {r.profile?.full_name && <p className="text-[10px] text-gray-400">{r.profile.full_name}</p>}
+                                        {r.profile?.freefire_id && <p className="text-[10px] text-gray-400">FF ID: {r.profile.freefire_id} {r.profile.freefire_nick ? `• ${r.profile.freefire_nick}` : ''}</p>}
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status === 'confirmed' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
+                                            {r.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente'}
+                                        </span>
+                                        <p className="text-[10px] text-gray-600 mt-1">{new Date(r.created_at).toLocaleDateString("pt-BR")}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
+        );
+    }
 
-    // Referrers list view
-    if (showReferrers) {
-        return (
-            <div className="space-y-4">
-                <Button variant="ghost" onClick={() => setShowReferrers(false)} className="text-gray-400 hover:text-white mb-2">
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
-                </Button>
+    return (
+        <div className="space-y-4">
+            <button 
+                onClick={() => setShowReferrers(true)}
+                className="w-full bg-indigo-900/20 border border-indigo-500/30 p-4 rounded-lg flex items-center justify-between hover:bg-indigo-900/30 transition-colors"
+            >
+                <div className="flex items-center gap-3">
+                    <Gift className="text-indigo-400 h-5 w-5" />
+                    <p className="text-sm text-indigo-200">Total de indicações: <strong className="text-white">{referrals.length}</strong></p>
+                </div>
+                <span className="text-indigo-400 text-xs font-bold">Ver detalhes →</span>
+            </button>
 
-                <h3 className="text-xs font-bold uppercase text-gray-500">Jogadores que indicaram</h3>
-                                
-                {referrersList.length === 0 ? (
-                    <p className="text-center text-gray-600 text-sm py-8">Nenhum jogador indicou ainda.</p>
-                ) : (
-                    referrersList.map(ref => (
-                        <Card key={ref.referrer_id} className="bg-[#0c0c0c] border-white/10 cursor-pointer hover:border-indigo-500/40 transition-colors" onClick={() => handleSelectReferrer(ref)}>
-                            <CardContent className="p-3 flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0 overflow-hidden">
-                                    {ref.profile?.avatar_url ? (
-                                        <img src={ref.profile.avatar_url} alt="" className="h-10 w-10 rounded-full object-cover" />
-                                    ) : (
-                                        <span className="text-indigo-400 font-bold">{ref.profile?.nickname?.charAt(0)?.toUpperCase() || "?"}</span>
-                                    )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold text-white truncate">{ref.profile?.nickname || "Desconhecido"}</p>
-                                    <p className="text-[10px] text-gray-500">{ref.profile?.email || ""}</p>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <p className="text-indigo-400 font-bold text-sm">{ref.total} indicações</p>
-                                    <p className="text-[10px] text-green-400">{ref.confirmed} confirmadas</p>
-                                    {ref.milestones > 0 && <p className="text-[10px] text-yellow-400">{ref.milestones}x meta de 10</p>}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))
-                )}
-            </div>
-        );
-    }
-
-    return (
-        <div className="space-y-4">
-            <button 
-                onClick={() => setShowReferrers(true)}
-                className="w-full bg-indigo-900/20 border border-indigo-500/30 p-4 rounded-lg flex items-center justify-between hover:bg-indigo-900/30 transition-colors"
-            >
-                <div className="flex items-center gap-3">
-                    <Gift className="text-indigo-400 h-5 w-5" />
-                    <p className="text-sm text-indigo-200">Total de indicações: <strong className="text-white">{referrals.length}</strong></p>
-                </div>
-                <span className="text-indigo-400 text-xs font-bold">Ver detalhes →</span>
-            </button>
-
-            {referrals.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm">Nenhuma indicação registrada ainda.</div>
-            ) : (
-                referrals.slice(0, 20).map(r => (
-                    <Card key={r.id} className="bg-[#0c0c0c] border-white/10">
-                        <CardContent className="p-3 space-y-2">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="text-xs text-gray-500 uppercase font-bold">Quem indicou</p>
-                                    <p className="text-sm font-bold text-indigo-400">{r.referrer_profile?.nickname || "Desconhecido"}</p>
-                                    <p className="text-[10px] text-gray-600">{r.referrer_profile?.email || ""}</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-gray-500 uppercase font-bold">Indicado</p>
-                                    <p className="text-sm font-bold text-white">{r.referred_profile?.nickname || "Desconhecido"}</p>
-                                    <p className="text-[10px] text-gray-600">{r.referred_profile?.email || ""}</p>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center pt-1 border-t border-white/5">
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status === 'confirmed' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
-                                    {r.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente'}
-                                </span>
-                                <span className="text-[10px] text-gray-600">{new Date(r.created_at).toLocaleString("pt-BR")}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))
-            )}
-        </div>
-    );
+            {referrals.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-sm">Nenhuma indicação registrada ainda.</div>
+            ) : (
+                referrals.slice(0, 20).map(r => (
+                    <Card key={r.id} className="bg-[#0c0c0c] border-white/10">
+                        <CardContent className="p-3 space-y-2">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="text-xs text-gray-500 uppercase font-bold">Quem indicou</p>
+                                    <p className="text-sm font-bold text-indigo-400">{r.referrer_profile?.nickname || "Desconhecido"}</p>
+                                    <p className="text-[10px] text-gray-600">{r.referrer_profile?.email || ""}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-500 uppercase font-bold">Indicado</p>
+                                    <p className="text-sm font-bold text-white">{r.referred_profile?.nickname || "Desconhecido"}</p>
+                                    <p className="text-[10px] text-gray-600">{r.referred_profile?.email || ""}</p>
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-1 border-t border-white/5">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${r.status === 'confirmed' ? 'bg-green-900/30 text-green-400' : 'bg-yellow-900/30 text-yellow-400'}`}>
+                                    {r.status === 'confirmed' ? '✅ Confirmado' : '⏳ Pendente'}
+                                </span>
+                                <span className="text-[10px] text-gray-600">{new Date(r.created_at).toLocaleString("pt-BR")}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))
+            )}
+        </div>
+    );
 }
