@@ -98,15 +98,17 @@ function DepositTab() {
           body: { amount: val, user_id: user?.id, name: profile.full_name, cpf: profile.cpf }
         });
 
-        if (error || !data.invoiceUrl) throw new Error("Erro ao gerar PIX");
+        if (error) throw new Error(typeof error === 'string' ? error : error.message || 'Erro na chamada da função');
+        if (!data || data.error) throw new Error(data?.error || 'Resposta inválida da API');
 
-        setAsaasQrCode(data.qrCode); // Imagem em Base64
-        setAsaasCopyPaste(data.copyPaste); // Código longo
+        setAsaasQrCode(data.encodedImage || ""); // Base64 image
+        setAsaasCopyPaste(data.payload || ""); // PIX copia e cola
         setStep("pix");
-      } catch (err) {
-        console.error(err);
-        toast({ title: "Modo automático indisponível", description: "Usando modo manual de segurança." });
-        setAsaasCopyPaste(""); // Garante que vai usar a pixKey manual no fallback
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+        console.error('Erro create-pix-charge:', msg);
+        toast({ title: "Modo automático indisponível", description: msg });
+        setAsaasCopyPaste("");
         setStep("pix");
       } finally {
         setIsLoadingAsaas(false);
