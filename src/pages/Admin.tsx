@@ -85,6 +85,7 @@ export default function Admin() {
           <TabItem value="rooms" icon={Gamepad2} label="Salas Ao Vivo" />
           <TabItem value="users" icon={Users} label="Jogadores" />
           <TabItem value="finance" icon={Wallet} label="Financeiro" />
+          <TabItem value="auto_history" icon={Zap} label="Históricos Auto" />
           <TabItem value="payment_link" icon={LinkIcon} label="Link da Conta" />
           <TabItem value="support" icon={MessageSquare} label="Suporte" />
           <TabItem value="logs" icon={History} label="Registros" />
@@ -98,6 +99,7 @@ export default function Admin() {
             <TabsContent value="rooms"><AdminRooms /></TabsContent>
             <TabsContent value="users"><AdminUsers /></TabsContent>
             <TabsContent value="finance"><AdminFinance /></TabsContent>
+            <TabsContent value="auto_history"><AdminAutoHistory /></TabsContent>
             <TabsContent value="payment_link"><AdminPaymentLink /></TabsContent>
             <TabsContent value="support"><AdminSupport /></TabsContent>
             <TabsContent value="logs"><AdminLogs /></TabsContent>
@@ -1406,6 +1408,143 @@ function AdminSupport() {
     </Dialog>
     </>
   );
+}
+
+// --- HISTÓRICOS AUTOMÁTICOS (ASAAS WEBHOOK) ---
+function AdminAutoHistory() {
+    const [transactions, setTransactions] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [selectedTx, setSelectedTx] = useState<any | null>(null);
+
+    useEffect(() => {
+        const fetchAutoTx = async () => {
+            setLoading(true);
+            // Busca transações aprovadas automaticamente (source = 'automatic')
+            const { data } = await supabase
+                .from("transactions")
+                .select("*")
+                .eq("source", "automatic")
+                .order("created_at", { ascending: false })
+                .limit(200);
+
+            if (!data || data.length === 0) {
+                setTransactions([]);
+                setLoading(false);
+                return;
+            }
+
+            const userIds = [...new Set(data.map(tx => tx.user_id))];
+            const { data: profiles } = await supabase
+                .from("profiles")
+                .select("user_id, nickname, full_name, cpf, saldo, email")
+                .in("user_id", userIds);
+
+            const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+            const enriched = data.map(tx => ({
+                ...tx,
+                profile: profileMap.get(tx.user_id) || null,
+            }));
+            setTransactions(enriched);
+            setLoading(false);
+        };
+        fetchAutoTx();
+    }, []);
+
+    if (loading) return <div className="flex justify-center py-8"><Loader2 className="animate-spin h-6 w-6 text-neon-orange" /></div>;
+
+    return (
+        <div className="space-y-4">
+            <div className="bg-emerald-900/20 border border-emerald-500/30 p-3 rounded-lg flex items-center gap-3">
+                <Zap className="text-emerald-400 h-5 w-5" />
+                <p className="text-xs text-emerald-200">Transações processadas automaticamente pelo Webhook do Asaas.</p>
+            </div>
+
+            {transactions.length === 0 ? (
+                <div className="text-center py-10">
+                    <Zap className="h-10 w-10 text-gray-600 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">Nenhuma transação automática registrada ainda.</p>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {transactions.map(tx => (
+                        <div
+                            key={tx.id}
+                            onClick={() => setSelectedTx(tx)}
+                            className="bg-[#0c0c0c] border border-white/5 rounded-lg p-3 cursor-pointer hover:border-neon-green/30 transition-colors"
+                        >
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1.5 rounded-full bg-neon-green/10">
+                                        <Zap className="h-4 w-4 text-neon-green" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-white">{tx.profile?.nickname || "Desconhecido"}</p>
+                                        <p className="text-[10px] text-gray-500">
+                                            {new Date(tx.created_at).toLocaleDateString("pt-BR")} às {new Date(tx.created_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-sm font-bold text-neon-green">R$ {Number(tx.amount).toFixed(2)}</p>
+                                    <Badge className="bg-neon-green/20 text-neon-green border-neon-green/30 text-[9px]">
+                                        AUTO
+                                    </Badge>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Modal de Detalhes */}
+            <Dialog open={!!selectedTx} onOpenChange={() => setSelectedTx(null)}>
+                <DialogContent className="bg-[#111] border-neon-green/30 text-white w-[95%] rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-neon-green flex items-center gap-2"><Zap className="h-5 w-5" /> Detalhes da Transação</DialogTitle>
+                        <DialogDescription className="text-gray-500">Depósito aprovado automaticamente via Asaas.</DialogDescription>
+                    </DialogHeader>
+                    {selectedTx && (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div className="bg-black/30 p-3 rounded">
+                                    <span className="text-gray-500 text-[10px] uppercase block">Jogador</span>
+                                    <span className="text-white font-bold">{selectedTx.profile?.nickname || "?"}</span>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded">
+                                    <span className="text-gray-500 text-[10px] uppercase block">Saldo Atual</span>
+                                    <span className="text-neon-green font-bold">R$ {Number(selectedTx.profile?.saldo || 0).toFixed(2)}</span>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded">
+                                    <span className="text-gray-500 text-[10px] uppercase block">CPF</span>
+                                    <span className="text-white">{selectedTx.profile?.cpf || "-"}</span>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded">
+                                    <span className="text-gray-500 text-[10px] uppercase block">Valor</span>
+                                    <span className="text-neon-green font-bold">R$ {Number(selectedTx.amount).toFixed(2)}</span>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded col-span-2">
+                                    <span className="text-gray-500 text-[10px] uppercase block">ID Asaas (Payment)</span>
+                                    <span className="text-neon-orange font-mono text-xs break-all">{selectedTx.asaas_payment_id || "N/A"}</span>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded">
+                                    <span className="text-gray-500 text-[10px] uppercase block">Data/Hora</span>
+                                    <span className="text-white text-xs">{new Date(selectedTx.created_at).toLocaleString("pt-BR")}</span>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded">
+                                    <span className="text-gray-500 text-[10px] uppercase block">Status</span>
+                                    <Badge className="bg-neon-green/20 text-neon-green border-neon-green/30">{selectedTx.status}</Badge>
+                                </div>
+                                <div className="bg-black/30 p-3 rounded col-span-2">
+                                    <span className="text-gray-500 text-[10px] uppercase block">ID Transação</span>
+                                    <span className="text-gray-400 font-mono text-[10px] break-all">{selectedTx.id}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div>
+    );
 }
 
 // --- 7. REGISTROS ---
