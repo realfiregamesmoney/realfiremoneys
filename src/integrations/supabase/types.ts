@@ -456,27 +456,33 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          asaas_payment_id: string | null
           created_at: string
           id: string
           proof_url: string | null
+          source: string | null
           status: string
           type: string
           user_id: string
         }
         Insert: {
           amount: number
+          asaas_payment_id?: string | null
           created_at?: string
           id?: string
           proof_url?: string | null
+          source?: string | null
           status?: string
           type: string
           user_id: string
         }
         Update: {
           amount?: number
+          asaas_payment_id?: string | null
           created_at?: string
           id?: string
           proof_url?: string | null
+          source?: string | null
           status?: string
           type?: string
           user_id?: string

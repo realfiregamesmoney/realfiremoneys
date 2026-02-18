@@ -55,7 +55,6 @@ serve(async (req) => {
     }
 
     // 2. BUSCAR A TRANSAÇÃO PENDENTE MAIS RECENTE DESSE USUÁRIO COM ESSE VALOR
-    // Como não salvamos o ID do Asaas na tabela transactions ainda, usamos essa heurística segura.
     const { data: transactions } = await supabaseClient
         .from('transactions')
         .select('*')
@@ -73,10 +72,10 @@ serve(async (req) => {
     }
 
     // 3. APROVAR A TRANSAÇÃO E DAR O SALDO
-    // Atualiza status da transação
+    // Atualiza status da transação + salva o payment_id do Asaas + marca como automática
     await supabaseClient
         .from('transactions')
-        .update({ status: 'approved' })
+        .update({ status: 'approved', asaas_payment_id: payment.id, source: 'automatic' })
         .eq('id', transaction.id)
 
     // Pega saldo atual
