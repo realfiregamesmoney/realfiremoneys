@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Copy, CheckCircle, Wallet, ArrowUpCircle, ArrowDownCircle, Clock } from "lucide-react";
+import { ArrowLeft, Copy, CheckCircle, Wallet, ArrowUpCircle, ArrowDownCircle, Clock, QrCode, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,19 +46,35 @@ function DepositTab() {
   const [showKyc, setShowKyc] = useState(false);
   const [pixKey, setPixKey] = useState("realfiregamesmoney@gmail.com");
 
-  // Fetch dynamic payment link
+  // --- NOVOS ESTADOS PARA O ASAAS ---
+  const [useAsaas, setUseAsaas] = useState(false);
+  const [isLoadingAsaas, setIsLoadingAsaas] = useState(false);
+  const [asaasQrCode, setAsaasQrCode] = useState("");
+  const [asaasCopyPaste, setAsaasCopyPaste] = useState("");
+
+  // Fetch dynamic payment link AND Admin config
   useEffect(() => {
+    // 1. Pega o link manual original
     supabase.from("payment_links").select("link").order("created_at", { ascending: false }).limit(1).then(({ data }) => {
       if (data && data.length > 0 && data[0].link) setPixKey(data[0].link);
     });
+
+    // 2. Verifica se o Admin ativou o Modo Asaas
+    const checkConfig = async () => {
+      const { data } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'config_enable_asaas').maybeSingle();
+      if (data) setUseAsaas(data.is_enabled);
+    };
+    checkConfig();
   }, []);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(pixKey);
-    toast({ title: "Chave PIX copiada!" });
+    // Copia ou o código do Asaas ou a chave manual
+    const textToCopy = asaasCopyPaste || pixKey;
+    navigator.clipboard.writeText(textToCopy);
+    toast({ title: "Código PIX copiado!" });
   };
 
-  const handleContinueDeposit = () => {
+  const handleContinueDeposit = async () => {
     const val = parseFloat(amount);
     if (!amount || isNaN(val) || val <= 0) {
       toast({ variant: "destructive", title: "Digite um valor válido" });
@@ -73,7 +89,31 @@ function DepositTab() {
       setShowKyc(true);
       return;
     }
-    setStep("pix");
+
+    // --- LÓGICA ASAAS ACRESCENTADA ---
+    if (useAsaas) {
+      setIsLoadingAsaas(true);
+      try {
+        const { data, error } = await supabase.functions.invoke('create-pix-charge', {
+          body: { amount: val, user_id: user?.id, name: profile.full_name, cpf: profile.cpf }
+        });
+
+        if (error || !data.invoiceUrl) throw new Error("Erro ao gerar PIX");
+
+        setAsaasQrCode(data.qrCode); // Imagem em Base64
+        setAsaasCopyPaste(data.copyPaste); // Código longo
+        setStep("pix");
+      } catch (err) {
+        console.error(err);
+        toast({ title: "Modo automático indisponível", description: "Usando modo manual de segurança." });
+        setAsaasCopyPaste(""); // Garante que vai usar a pixKey manual no fallback
+        setStep("pix");
+      } finally {
+        setIsLoadingAsaas(false);
+      }
+    } else {
+      setStep("pix");
+    }
   };
 
   const handlePaid = async () => {
@@ -88,7 +128,7 @@ function DepositTab() {
       await supabase.from("audit_logs").insert({
         admin_id: user.id,
         action_type: "deposit_request",
-        details: `Jogador ${profile?.nickname} solicitou depósito de R$${parseFloat(amount).toFixed(2)}`
+        details: `Jogador ${profile?.nickname} solicitou depósito de R$${parseFloat(amount).toFixed(2)} ${useAsaas ? '(Automático)' : '(Manual)'}`
       });
       setStep("pending");
     }
@@ -103,7 +143,7 @@ function DepositTab() {
           Seu depósito de <span className="text-neon-green font-bold">R$ {parseFloat(amount).toFixed(2)}</span> está sendo analisado.
         </p>
         <p className="text-xs text-muted-foreground mt-1">O saldo será atualizado após a confirmação do admin.</p>
-        <Button onClick={() => { setStep("amount"); setAmount(""); }} variant="outline" className="mt-6 border-border">
+        <Button onClick={() => { setStep("amount"); setAmount(""); setAsaasCopyPaste(""); }} variant="outline" className="mt-6 border-border">
           Novo Depósito
         </Button>
       </div>
@@ -121,25 +161,43 @@ function DepositTab() {
         </Card>
 
         <Card className="border-border bg-card">
-          <CardContent className="p-4">
-            <p className="text-xs uppercase text-muted-foreground mb-2">Chave PIX (Email)</p>
-            <div className="flex items-center gap-2 rounded-lg bg-secondary p-3">
-              <p className="flex-1 text-sm text-foreground break-all">{pixKey}</p>
-              <button onClick={handleCopy} className="text-neon-orange">
+          <CardContent className="p-4 flex flex-col items-center">
+            {/* EXIBE QR CODE SE FOR ASAAS */}
+            {asaasQrCode ? (
+              <div className="mb-4 p-2 bg-white rounded-lg">
+                <img src={`data:image/png;base64,${asaasQrCode}`} alt="QR Code PIX" className="w-48 h-48" />
+              </div>
+            ) : (
+              <div className="mb-4 p-4 bg-secondary rounded-full">
+                <QrCode className="w-12 h-12 text-neon-orange" />
+              </div>
+            )}
+
+            <p className="text-xs uppercase text-muted-foreground mb-2">
+              {asaasCopyPaste ? "PIX Copia e Cola" : "Chave PIX (Email)"}
+            </p>
+            
+            <div className="flex items-center gap-2 rounded-lg bg-secondary p-3 w-full">
+              <p className="flex-1 text-[10px] sm:text-sm text-foreground break-all font-mono leading-tight">
+                {asaasCopyPaste || pixKey}
+              </p>
+              <button onClick={handleCopy} className="text-neon-orange shrink-0">
                 <Copy className="h-5 w-5" />
               </button>
             </div>
-            <p className="mt-3 text-xs text-muted-foreground text-center">
-              Envie o valor exato via PIX e clique em "Já Paguei"
+            <p className="mt-3 text-[10px] text-muted-foreground text-center">
+              {asaasCopyPaste 
+                ? "Após o pagamento, o saldo cairá automaticamente em instantes." 
+                : "Envie o valor exato via PIX e clique em 'Já Paguei'"}
             </p>
           </CardContent>
         </Card>
 
         <Button onClick={handlePaid} className="w-full gradient-orange font-bold uppercase glow-orange">
           <CheckCircle className="mr-2 h-5 w-5" />
-          Já Paguei
+          {asaasCopyPaste ? "Concluir" : "Já Paguei"}
         </Button>
-        <Button onClick={() => setStep("amount")} variant="outline" className="w-full border-border">
+        <Button onClick={() => { setStep("amount"); setAsaasCopyPaste(""); }} variant="outline" className="w-full border-border">
           Voltar
         </Button>
       </div>
@@ -151,7 +209,7 @@ function DepositTab() {
       <KycModal
         open={showKyc}
         onClose={() => setShowKyc(false)}
-        onSuccess={() => { setShowKyc(false); setStep("pix"); }}
+        onSuccess={() => { setShowKyc(false); handleContinueDeposit(); }}
       />
       <p className="text-sm text-muted-foreground">Escolha o valor para depositar (mínimo R$ 15):</p>
       <div className="grid grid-cols-3 gap-2">
@@ -176,11 +234,20 @@ function DepositTab() {
       />
       <Button
         onClick={handleContinueDeposit}
-        disabled={!amount || parseFloat(amount) <= 0}
+        disabled={!amount || parseFloat(amount) <= 0 || isLoadingAsaas}
         className="w-full gradient-orange font-bold uppercase glow-orange"
       >
-        <ArrowUpCircle className="mr-2 h-5 w-5" />
-        Continuar
+        {isLoadingAsaas ? (
+          <>
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Gerando PIX...
+          </>
+        ) : (
+          <>
+            <ArrowUpCircle className="mr-2 h-5 w-5" />
+            Continuar
+          </>
+        )}
       </Button>
     </div>
   );
