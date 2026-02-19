@@ -35,7 +35,7 @@ export default function TournamentLobby() {
     // --- CORREÇÃO EM TEMPO REAL ---
     if (!id) return;
 
-    // Escuta o banco de dados. Se o número de jogadores mudar (pelo Trigger), atualiza a tela.
+    // Escuta o banco de dados. Se o número de jogadores mudar (pelo Trigger), atualiza a tela automaticamente.
     const channel = supabase
       .channel('tournament_updates')
       .on(
@@ -88,14 +88,15 @@ export default function TournamentLobby() {
       user_id: user.id, type: "entry_fee", amount: Number(tournament.entry_fee), status: "approved",
     });
 
-    // 4. Cria a Inscrição (A MUDANÇA ESTÁ AQUI)
-    // Apenas inserimos na tabela enrollments. O Trigger do banco fará a contagem.
+    // 4. Cria a Inscrição
+    // SOLUÇÃO DEFINITIVA: Apenas inserimos na tabela enrollments. 
+    // O Trigger do banco de dados (que tem permissão de Admin) fará a contagem no tournaments.
     const { error: enrollErr } = await supabase.from("enrollments").insert({
       user_id: user.id, tournament_id: tournament.id,
     });
 
     if (enrollErr) {
-      // Se falhar a inscrição, devolve o dinheiro para evitar prejuízo ao usuário
+      // Estorno de segurança: Se falhar a inscrição, devolve o dinheiro
       await supabase.from("profiles").update({ saldo: Number(profile.saldo) }).eq("user_id", user.id);
       
       toast({ variant: "destructive", title: "Erro ao entrar", description: "Tente novamente mais tarde." });
@@ -103,7 +104,7 @@ export default function TournamentLobby() {
       return;
     }
 
-    // --- REMOVIDO O BLOCO QUE CAUSAVA ERRO (update tournaments) ---
+    // O BLOCO DE UPDATE DIRETO NO TOURNAMENTS FOI REMOVIDO PARA EVITAR BLOQUEIO DE PERMISSÃO (RLS)
 
     await refreshProfile();
     setIsEnrolled(true);
