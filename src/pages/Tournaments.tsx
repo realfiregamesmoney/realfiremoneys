@@ -30,7 +30,8 @@ export default function Tournaments() {
   const [nextTournament, setNextTournament] = useState<any>(null);
 
   const fetchData = async () => {
-    console.log("Atualizando dados dos torneios..."); // ACRESCIMO: Log de monitoramento
+    // ACRESCIMO: Log de monitoramento com timestamp para evitar cache do navegador
+    console.log(`[REAL FIRE DEBUG] Atualizando dados: ${new Date().toISOString()}`); 
     const { data: ts, error } = await supabase.from("tournaments").select("*").order("scheduled_at", { ascending: true });
     if (error) {
       console.error("Error fetching tournaments:", error);
@@ -56,12 +57,16 @@ export default function Tournaments() {
   useEffect(() => { fetchData(); }, [user]);
 
   useEffect(() => {
-    // ACRESCIMO: Escuta ativa para mudanças em QUALQUER coluna, incluindo current_players
+    // ACRESCIMO: Escuta ativa refinada para capturar o evento exato de UPDATE
     const channel = supabase
-      .channel("tournaments-realtime")
+      .channel("tournaments-realtime-v2")
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
-        console.log("Mudança detectada no banco:", payload);
-        fetchData();
+        console.log("Mudança detectada no banco (Payload):", payload);
+        // ACRESCIMO: Atualização seletiva imediata para velocidade máxima
+        if (payload.new) {
+           setTournaments(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+        }
+        fetchData(); 
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -197,7 +202,7 @@ export default function Tournaments() {
       toast({ title: "Inscrito com sucesso! 🎉" });
       navigate(`/tournament/${tournament.id}`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro na inscrição", description: err.message || "Tente novamente." });
+      toast({ variant: "destructive", title: "Erro na inscription", description: err.message || "Tente novamente." });
     }
   };
 
@@ -357,7 +362,6 @@ export default function Tournaments() {
         })}
       </div>
 
-      {/* --- 3. MODAL DE SALA CHEIA / REDIRECIONAMENTO (ACRESCENTADO) --- */}
       <Dialog open={fullRoomModal} onOpenChange={setFullRoomModal}>
         <DialogContent className="border-red-600/50 bg-[#0c0c0c] text-white w-[92%] rounded-2xl p-6">
             <DialogHeader>
