@@ -30,6 +30,7 @@ export default function Tournaments() {
   const [nextTournament, setNextTournament] = useState<any>(null);
 
   const fetchData = async () => {
+    console.log("Atualizando dados dos torneios..."); // ACRESCIMO: Log de monitoramento
     const { data: ts, error } = await supabase.from("tournaments").select("*").order("scheduled_at", { ascending: true });
     if (error) {
       console.error("Error fetching tournaments:", error);
@@ -55,9 +56,11 @@ export default function Tournaments() {
   useEffect(() => { fetchData(); }, [user]);
 
   useEffect(() => {
+    // ACRESCIMO: Escuta ativa para mudanças em QUALQUER coluna, incluindo current_players
     const channel = supabase
       .channel("tournaments-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
+        console.log("Mudança detectada no banco:", payload);
         fetchData();
       })
       .subscribe();
