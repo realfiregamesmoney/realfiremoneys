@@ -135,10 +135,14 @@ export default function Tournaments() {
           await supabase.from("transactions").insert({ user_id: user.id, type: "entry_fee", amount: Number(nextAvailable.entry_fee), status: "approved" });
           await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: nextAvailable.id, status: "paid" });
           await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: nextAvailable.id });
-          await supabase.from("tournaments").update({
+          
+          // ALTERAÇÃO: O banco agora atualiza o contador via Trigger (Robô) para evitar erro de permissão do jogador
+          /* await supabase.from("tournaments").update({
             current_players: nextAvailable.current_players + 1,
             status: nextAvailable.current_players + 1 >= nextAvailable.max_players ? "waiting" : "open",
           }).eq("id", nextAvailable.id);
+          */
+
           await refreshProfile();
           toast({ title: "Inscrito automaticamente no próximo torneio! 🎉", description: `Sala lotada. Você foi inscrito em "${nextAvailable.title}" e adicionado à fila de espera da sala original.` });
           fetchData();
@@ -165,7 +169,7 @@ export default function Tournaments() {
       const { error: balanceErr } = await supabase.from("profiles").update({ 
         saldo: newSaldo,
         tournaments_played: newTournamentsPlayed
-      }).eq("user_id", user.id);
+      }).eq("id", profile.id); // Ajustado para usar profile.id ou user_id conforme seu schema
       if (balanceErr) throw balanceErr;
 
       await supabase.from("transactions").insert({
@@ -181,10 +185,13 @@ export default function Tournaments() {
       });
       if (enrollErr) throw enrollErr;
 
+      // ALTERAÇÃO: Removido o update manual para evitar o erro de permissão que travava o contador
+      /*
       await supabase.from("tournaments").update({
         current_players: tournament.current_players + 1,
         status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
       }).eq("id", tournament.id);
+      */
 
       await refreshProfile();
       toast({ title: "Inscrito com sucesso! 🎉" });
@@ -309,7 +316,7 @@ export default function Tournaments() {
                      <span>Vagas Preenchidas</span>
                      <span className={percentage >= 100 ? "text-red-500" : "text-green-500"}>
                         {filled}/{max}
-                     </span>
+                      </span>
                    </div>
                    <div className="h-2 w-full bg-black rounded-full overflow-hidden border border-white/10">
                       <div 
@@ -350,7 +357,6 @@ export default function Tournaments() {
         })}
       </div>
 
-      {/* --- 3. MODAL DE SALA CHEIA / REDIRECIONAMENTO (ACRESCENTADO) --- */}
       <Dialog open={fullRoomModal} onOpenChange={setFullRoomModal}>
         <DialogContent className="border-red-600/50 bg-[#0c0c0c] text-white w-[92%] rounded-2xl p-6">
             <DialogHeader>
