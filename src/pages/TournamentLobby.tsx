@@ -31,6 +31,29 @@ export default function TournamentLobby() {
 
   useEffect(() => {
     fetchData();
+
+    // --- CÓDIGO INSERIDO PARA CORREÇÃO EM TEMPO REAL ---
+    if (!id) return;
+
+    // Canal para ouvir mudanças na tabela 'tournaments' (ex: número de jogadores mudou)
+    const channel = supabase
+      .channel('tournament_updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tournaments', filter: `id=eq.${id}` },
+        (payload) => {
+          // Atualiza o estado do torneio com os novos dados vindos do banco
+          setTournament((prev: any) => ({ ...prev, ...payload.new }));
+        }
+      )
+      .subscribe();
+
+    // Limpeza ao sair da página
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // --- FIM DA INSERÇÃO ---
+
   }, [id, user]);
 
   const handlePay = async () => {
@@ -76,6 +99,8 @@ export default function TournamentLobby() {
       return;
     }
 
+    // Nota: O update local aqui é útil para resposta instantânea, 
+    // mas o Realtime vai garantir que todos vejam a mudança.
     await supabase.from("tournaments").update({
       current_players: tournament.current_players + 1,
       status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
@@ -83,6 +108,7 @@ export default function TournamentLobby() {
 
     await refreshProfile();
     setIsEnrolled(true);
+    // O setTournament aqui é mantido para feedback imediato ao usuário que clicou
     setTournament((prev: any) => prev ? { ...prev, current_players: prev.current_players + 1 } : prev);
     toast({ title: "Inscrito com sucesso! 🎉" });
     setPaying(false);
