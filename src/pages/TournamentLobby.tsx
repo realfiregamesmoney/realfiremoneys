@@ -32,35 +32,31 @@ export default function TournamentLobby() {
   useEffect(() => {
     fetchData();
 
-    // --- CÓDIGO INSERIDO PARA CORREÇÃO EM TEMPO REAL ---
+    // --- CORREÇÃO EM TEMPO REAL ---
     if (!id) return;
 
-    // Canal para ouvir mudanças na tabela 'tournaments' (ex: número de jogadores mudou)
+    // Escuta o banco de dados. Se o número de jogadores mudar (pelo Trigger), atualiza a tela.
     const channel = supabase
       .channel('tournament_updates')
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'tournaments', filter: `id=eq.${id}` },
         (payload) => {
-          // Atualiza o estado do torneio com os novos dados vindos do banco
           setTournament((prev: any) => ({ ...prev, ...payload.new }));
         }
       )
       .subscribe();
 
-    // Limpeza ao sair da página
     return () => {
       supabase.removeChannel(channel);
     };
-    // --- FIM DA INSERÇÃO ---
-
   }, [id, user]);
 
   const handlePay = async () => {
     if (!user || !profile || !tournament) return;
     setPaying(true);
 
-    // Check if freefire_id is linked
+    // 1. Verificações de Segurança
     if (!profile.freefire_id) {
       toast({
         variant: "destructive",
@@ -78,6 +74,7 @@ export default function TournamentLobby() {
       return;
     }
 
+    // 2. Desconta o Saldo
     const newSaldo = Number(profile.saldo) - Number(tournament.entry_fee);
     const { error: balanceErr } = await supabase.from("profiles").update({ saldo: newSaldo }).eq("user_id", user.id);
     if (balanceErr) {
@@ -86,30 +83,30 @@ export default function TournamentLobby() {
       return;
     }
 
+    // 3. Registra a Transação
     await supabase.from("transactions").insert({
       user_id: user.id, type: "entry_fee", amount: Number(tournament.entry_fee), status: "approved",
     });
 
+    // 4. Cria a Inscrição (A MUDANÇA ESTÁ AQUI)
+    // Apenas inserimos na tabela enrollments. O Trigger do banco fará a contagem.
     const { error: enrollErr } = await supabase.from("enrollments").insert({
       user_id: user.id, tournament_id: tournament.id,
     });
+
     if (enrollErr) {
-      toast({ variant: "destructive", title: "Erro", description: enrollErr.message });
+      // Se falhar a inscrição, devolve o dinheiro para evitar prejuízo ao usuário
+      await supabase.from("profiles").update({ saldo: Number(profile.saldo) }).eq("user_id", user.id);
+      
+      toast({ variant: "destructive", title: "Erro ao entrar", description: "Tente novamente mais tarde." });
       setPaying(false);
       return;
     }
 
-    // Nota: O update local aqui é útil para resposta instantânea, 
-    // mas o Realtime vai garantir que todos vejam a mudança.
-    await supabase.from("tournaments").update({
-      current_players: tournament.current_players + 1,
-      status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
-    }).eq("id", tournament.id);
+    // --- REMOVIDO O BLOCO QUE CAUSAVA ERRO (update tournaments) ---
 
     await refreshProfile();
     setIsEnrolled(true);
-    // O setTournament aqui é mantido para feedback imediato ao usuário que clicou
-    setTournament((prev: any) => prev ? { ...prev, current_players: prev.current_players + 1 } : prev);
     toast({ title: "Inscrito com sucesso! 🎉" });
     setPaying(false);
   };
