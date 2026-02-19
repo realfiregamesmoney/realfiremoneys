@@ -136,12 +136,11 @@ export default function Tournaments() {
           await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: nextAvailable.id, status: "paid" });
           await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: nextAvailable.id });
           
-          // ALTERAÇÃO: O banco agora atualiza o contador via Trigger (Robô) para evitar erro de permissão do jogador
+          // --- LINHA COMENTADA PARA O CONTADOR FUNCIONAR VIA BANCO ---
           /* await supabase.from("tournaments").update({
             current_players: nextAvailable.current_players + 1,
             status: nextAvailable.current_players + 1 >= nextAvailable.max_players ? "waiting" : "open",
-          }).eq("id", nextAvailable.id);
-          */
+          }).eq("id", nextAvailable.id); */
 
           await refreshProfile();
           toast({ title: "Inscrito automaticamente no próximo torneio! 🎉", description: `Sala lotada. Você foi inscrito em "${nextAvailable.title}" e adicionado à fila de espera da sala original.` });
@@ -169,7 +168,7 @@ export default function Tournaments() {
       const { error: balanceErr } = await supabase.from("profiles").update({ 
         saldo: newSaldo,
         tournaments_played: newTournamentsPlayed
-      }).eq("id", profile.id); // Ajustado para usar profile.id ou user_id conforme seu schema
+      }).eq("user_id", user.id);
       if (balanceErr) throw balanceErr;
 
       await supabase.from("transactions").insert({
@@ -185,13 +184,11 @@ export default function Tournaments() {
       });
       if (enrollErr) throw enrollErr;
 
-      // ALTERAÇÃO: Removido o update manual para evitar o erro de permissão que travava o contador
-      /*
-      await supabase.from("tournaments").update({
+      // --- LINHA COMENTADA PARA O CONTADOR FUNCIONAR VIA BANCO ---
+      /* await supabase.from("tournaments").update({
         current_players: tournament.current_players + 1,
         status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
-      }).eq("id", tournament.id);
-      */
+      }).eq("id", tournament.id); */
 
       await refreshProfile();
       toast({ title: "Inscrito com sucesso! 🎉" });
@@ -357,6 +354,7 @@ export default function Tournaments() {
         })}
       </div>
 
+      {/* --- 3. MODAL DE SALA CHEIA / REDIRECIONAMENTO (ACRESCENTADO) --- */}
       <Dialog open={fullRoomModal} onOpenChange={setFullRoomModal}>
         <DialogContent className="border-red-600/50 bg-[#0c0c0c] text-white w-[92%] rounded-2xl p-6">
             <DialogHeader>
