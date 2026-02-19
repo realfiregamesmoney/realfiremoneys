@@ -18,6 +18,9 @@ export default function TournamentLobby() {
 
   const fetchData = async () => {
     if (!id || !user) return;
+    
+    // ACRESCIMO: Log para rastrear a atualização do contador no Lobby
+    console.log(`[LOBBY DEBUG] Buscando dados do torneio ${id}...`);
 
     const [{ data: t }, { data: enrollment }] = await Promise.all([
       supabase.from("tournaments").select("*").eq("id", id).single(),
@@ -35,13 +38,15 @@ export default function TournamentLobby() {
     // --- CORREÇÃO EM TEMPO REAL ---
     if (!id) return;
 
-    // Escuta o banco de dados. Se o número de jogadores mudar (pelo Trigger), atualiza a tela automaticamente.
+    // ACRESCIMO: Canal de escuta aprimorado para garantir que o 'SECURITY DEFINER' do banco reflita aqui
     const channel = supabase
-      .channel('tournament_updates')
+      .channel(`lobby-realtime-${id}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'tournaments', filter: `id=eq.${id}` },
         (payload) => {
+          console.log("Sincronização em tempo real recebida:", payload.new);
+          // ACRESCIMO: Atualiza o estado local imediatamente com os novos dados do banco
           setTournament((prev: any) => ({ ...prev, ...payload.new }));
         }
       )
@@ -110,6 +115,8 @@ export default function TournamentLobby() {
       status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
     }).eq("id", tournament.id); */
 
+    // ACRESCIMO: Força uma atualização de dados local imediatamente após a inscrição
+    await fetchData(); 
     await refreshProfile();
     setIsEnrolled(true);
     toast({ title: "Inscrito com sucesso! 🎉" });
