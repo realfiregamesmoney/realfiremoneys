@@ -104,7 +104,11 @@ export default function TournamentLobby() {
       return;
     }
 
-    // O BLOCO DE UPDATE DIRETO NO TOURNAMENTS FOI REMOVIDO PARA EVITAR BLOQUEIO DE PERMISSÃO (RLS)
+    // --- LINHA COMENTADA PARA O CONTADOR FUNCIONAR VIA BANCO ---
+    /* await supabase.from("tournaments").update({
+      current_players: tournament.current_players + 1,
+      status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
+    }).eq("id", tournament.id); */
 
     await refreshProfile();
     setIsEnrolled(true);
