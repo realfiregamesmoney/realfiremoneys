@@ -2,6 +2,13 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
+declare global {
+  interface Window {
+    OneSignal: any;
+    OneSignalDeferred: any[];
+  }
+}
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
@@ -32,8 +39,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   isAdmin: false,
   profile: null,
-  signOut: async () => {},
-  refreshProfile: async () => {},
+  signOut: async () => { },
+  refreshProfile: async () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -76,9 +83,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           fetchProfile(session.user.id);
           fetchRole(session.user.id);
         }, 0);
+        // Autentica o usuário no OneSignal para envio de campanhas ou notificações ativas
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(() => {
+          window.OneSignal.login(session.user.id);
+        });
       } else {
         setProfile(null);
         setIsAdmin(false);
+        // Informa ao OneSignal que o user deslogou
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(() => {
+          window.OneSignal.logout();
+        });
       }
       setLoading(false);
     });
@@ -89,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         fetchProfile(session.user.id);
         fetchRole(session.user.id);
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(() => {
+          window.OneSignal.login(session.user.id);
+        });
       }
       setLoading(false);
     });
@@ -136,6 +157,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const signOut = async () => {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(() => {
+      window.OneSignal.logout();
+    });
     await supabase.auth.signOut();
   };
 

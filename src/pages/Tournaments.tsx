@@ -31,14 +31,29 @@ export default function Tournaments() {
 
   const fetchData = async () => {
     // ACRESCIMO: Log de monitoramento com timestamp para evitar cache do navegador
-    console.log(`[REAL FIRE DEBUG] Atualizando dados: ${new Date().toISOString()}`); 
-    const { data: ts, error } = await supabase.from("tournaments").select("*").order("scheduled_at", { ascending: true });
+    console.log(`[REAL FIRE DEBUG] Atualizando dados: ${new Date().toISOString()}`);
+    const { data: ts, error } = await supabase.from("tournaments").select("*").not("title", "like", "%[ARQUIVADO]%").order("scheduled_at", { ascending: true });
     if (error) {
       console.error("Error fetching tournaments:", error);
       toast({ variant: "destructive", title: "Erro ao carregar torneios", description: error.message });
       return;
     }
-    if (ts) setTournaments(ts);
+    // ACRESCIMO: Contagem real baseada na tabela 'tournament_participants'
+    const { data: participants } = await supabase.from("tournament_participants").select("tournament_id").eq("status", "paid");
+
+    let accurateTs = ts || [];
+    if (ts && participants) {
+      const counts: Record<string, number> = {};
+      participants.forEach((p: any) => {
+        counts[p.tournament_id] = (counts[p.tournament_id] || 0) + 1;
+      });
+      accurateTs = ts.map(t => ({
+        ...t,
+        current_players: counts[t.id] || 0
+      }));
+    }
+
+    if (ts) setTournaments(accurateTs);
 
     if (user) {
       const { data: enrollments } = await supabase.from("enrollments").select("tournament_id, tournaments(room_link)").eq("user_id", user.id);
@@ -57,16 +72,27 @@ export default function Tournaments() {
   useEffect(() => { fetchData(); }, [user]);
 
   useEffect(() => {
-    // ACRESCIMO: Escuta ativa refinada para capturar o evento exato de UPDATE
+    // ACRESCIMO: Escuta ativa refinada para capturar o evento exato de UPDATE e novos pagamentos
     const channel = supabase
       .channel("tournaments-realtime-v2")
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
         console.log("Mudança detectada no banco (Payload):", payload);
-        // ACRESCIMO: Atualização seletiva imediata para velocidade máxima
-        if (payload.new) {
-           setTournaments(prev => prev.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t));
+        if (payload.eventType === "DELETE" || (payload.new?.title && payload.new.title.startsWith('[ARQUIVADO]'))) {
+          setTournaments(prev => prev.filter(t => t.id !== (payload.old?.id || payload.new?.id)));
         }
-        fetchData(); 
+        fetchData();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "tournament_participants" }, (payload) => {
+        console.log("[REAL FIRE] Novo participante pago (Realtime):", payload);
+        if (payload.new && payload.new.tournament_id && payload.new.status === 'paid') {
+          // Atualização otimista imediata para todos os usuários vendo a tela
+          setTournaments(prev => prev.map(t =>
+            t.id === payload.new.tournament_id
+              ? { ...t, current_players: (t.current_players || 0) + 1 }
+              : t
+          ));
+          fetchData(); // Garante o sync final
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -75,7 +101,7 @@ export default function Tournaments() {
   // --- 1. SISTEMA DE NOTIFICAÇÕES AUTOMÁTICAS PARA TODOS OS JOGADORES (10m, 5m, 1m) ---
   useEffect(() => {
     if (!user) return;
-    
+
     const checkNotifications = () => {
       const now = new Date();
       tournaments.forEach(t => {
@@ -122,9 +148,9 @@ export default function Tournaments() {
       }, { onConflict: 'user_id,tournament_id' });
 
       // Find next available tournament and auto-enroll
-      const nextAvailable = tournaments.find(t => 
-        t.id !== tournament.id && 
-        t.current_players < t.max_players && 
+      const nextAvailable = tournaments.find(t =>
+        t.id !== tournament.id &&
+        t.current_players < t.max_players &&
         t.status === 'open' &&
         !enrolledIds.has(t.id)
       );
@@ -134,7 +160,7 @@ export default function Tournaments() {
         setSelectedTournament(tournament);
         setNextTournament(nextAvailable);
         setFullRoomModal(true);
-        
+
         // Auto-enroll immediately
         try {
           const newSaldo = Number(profile.saldo) - Number(nextAvailable.entry_fee);
@@ -143,12 +169,16 @@ export default function Tournaments() {
           await supabase.from("transactions").insert({ user_id: user.id, type: "entry_fee", amount: Number(nextAvailable.entry_fee), status: "approved" });
           await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: nextAvailable.id, status: "paid" });
           await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: nextAvailable.id });
-          
-          // --- LINHA COMENTADA PARA O CONTADOR FUNCIONAR VIA BANCO ---
-          /* await supabase.from("tournaments").update({
-            current_players: nextAvailable.current_players + 1,
-            status: nextAvailable.current_players + 1 >= nextAvailable.max_players ? "waiting" : "open",
-          }).eq("id", nextAvailable.id); */
+
+          // --- ADIÇÃO EXATA: Chama a função RPC blindada no Supabase ---
+          const { error: rpcErrorNext } = await supabase.rpc("increment_tournament_players", { t_id: nextAvailable.id });
+          if (rpcErrorNext) console.error("Erro na RPC:", rpcErrorNext);
+          // --------------------------------------------------------------
+
+          // Atualização otimista imediata no estado local
+          setTournaments(prev => prev.map(t =>
+            t.id === nextAvailable.id ? { ...t, current_players: (t.current_players || 0) + 1 } : t
+          ));
 
           await refreshProfile();
           toast({ title: "Inscrito automaticamente no próximo torneio! 🎉", description: `Sala lotada. Você foi inscrito em "${nextAvailable.title}" e adicionado à fila de espera da sala original.` });
@@ -173,7 +203,7 @@ export default function Tournaments() {
     try {
       const newSaldo = Number(profile.saldo) - Number(tournament.entry_fee);
       const newTournamentsPlayed = (profile.tournaments_played || 0) + 1;
-      const { error: balanceErr } = await supabase.from("profiles").update({ 
+      const { error: balanceErr } = await supabase.from("profiles").update({
         saldo: newSaldo,
         tournaments_played: newTournamentsPlayed
       }).eq("user_id", user.id);
@@ -192,11 +222,15 @@ export default function Tournaments() {
       });
       if (enrollErr) throw enrollErr;
 
-      // --- LINHA COMENTADA PARA O CONTADOR FUNCIONAR VIA BANCO ---
-      /* await supabase.from("tournaments").update({
-        current_players: tournament.current_players + 1,
-        status: tournament.current_players + 1 >= tournament.max_players ? "waiting" : "open",
-      }).eq("id", tournament.id); */
+      // --- ADIÇÃO EXATA: Chama a função RPC blindada no Supabase ---
+      const { error: rpcError } = await supabase.rpc("increment_tournament_players", { t_id: tournament.id });
+      if (rpcError) console.error("Erro na RPC:", rpcError);
+      // --------------------------------------------------------------
+
+      // Atualização otimista imediata no estado local
+      setTournaments(prev => prev.map(t =>
+        t.id === tournament.id ? { ...t, current_players: (t.current_players || 0) + 1 } : t
+      ));
 
       await refreshProfile();
       toast({ title: "Inscrito com sucesso! 🎉" });
@@ -228,7 +262,7 @@ export default function Tournaments() {
 
   return (
     <div className="min-h-screen bg-[#050505] pb-24">
-      
+
       <div className="sticky top-0 z-40 bg-[#050505]/95 backdrop-blur-md border-b border-white/5 px-4 py-3 shadow-lg mb-4">
         <div className="flex items-center gap-3 mb-4">
           <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")} className="text-gray-400 hover:text-white hover:bg-white/10">
@@ -246,8 +280,8 @@ export default function Tournaments() {
               onClick={() => setFilter(aba)}
               className={`
                 whitespace-nowrap px-4 py-1.5 rounded-full text-[10px] font-bold tracking-wide transition-all border uppercase
-                ${filter === aba 
-                  ? "bg-orange-600 border-orange-600 text-white shadow-[0_0_15_rgba(234,88,12,0.4)]" 
+                ${filter === aba
+                  ? "bg-orange-600 border-orange-600 text-white shadow-[0_0_15_rgba(234,88,12,0.4)]"
                   : "bg-[#111] border-white/10 text-gray-400 hover:border-white/30 hover:text-white"}
               `}
             >
@@ -317,18 +351,18 @@ export default function Tournaments() {
                 </div>
 
                 <div className="mt-2 space-y-1">
-                   <div className="flex justify-between text-[10px] uppercase font-bold text-gray-400">
-                     <span>Vagas Preenchidas</span>
-                     <span className={percentage >= 100 ? "text-red-500" : "text-green-500"}>
-                        {filled}/{max}
-                      </span>
-                   </div>
-                   <div className="h-2 w-full bg-black rounded-full overflow-hidden border border-white/10">
-                      <div 
-                        className={`h-full transition-all duration-500 rounded-full ${barColor}`} 
-                        style={{ width: `${percentage}%` }}
-                      ></div>
-                   </div>
+                  <div className="flex justify-between text-[10px] uppercase font-bold text-gray-400">
+                    <span>Vagas Preenchidas</span>
+                    <span className={percentage >= 100 ? "text-red-500" : "text-green-500"}>
+                      {filled}/{max}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-black rounded-full overflow-hidden border border-white/10">
+                    <div
+                      className={`h-full transition-all duration-500 rounded-full ${barColor}`}
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-3 mt-1" style={{ borderTop: "1px solid #333" }}>
@@ -353,7 +387,7 @@ export default function Tournaments() {
                 {isEnrolled && revealedLink && (
                   <div className="rounded-lg p-3 text-center" style={{ background: "#1a1a1a" }}>
                     <p className="text-[10px] uppercase text-muted-foreground">Link da Sala</p>
-                    <p className="text-sm font-bold text-neon-orange break-all" style={{color: '#ff5500'}}>{revealedLink}</p>
+                    <p className="text-sm font-bold text-neon-orange break-all" style={{ color: '#ff5500' }}>{revealedLink}</p>
                   </div>
                 )}
               </div>
@@ -364,49 +398,49 @@ export default function Tournaments() {
 
       <Dialog open={fullRoomModal} onOpenChange={setFullRoomModal}>
         <DialogContent className="border-red-600/50 bg-[#0c0c0c] text-white w-[92%] rounded-2xl p-6">
-            <DialogHeader>
-                <div className="mx-auto bg-red-900/20 p-3 rounded-full mb-3 border border-red-900">
-                    <AlertTriangle className="h-8 w-8 text-red-500" />
-                </div>
-                <DialogTitle className="text-center text-xl font-black uppercase text-red-500 tracking-tighter">
-                    SALA LOTADA!
-                </DialogTitle>
-                <DialogDescription className="text-center text-gray-400 text-xs">
-                    As vagas para <strong>{selectedTournament?.title}</strong> esgotaram. Você foi adicionado à fila de espera e será notificado automaticamente quando uma vaga abrir.
-                </DialogDescription>
-            </DialogHeader>
+          <DialogHeader>
+            <div className="mx-auto bg-red-900/20 p-3 rounded-full mb-3 border border-red-900">
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+            <DialogTitle className="text-center text-xl font-black uppercase text-red-500 tracking-tighter">
+              SALA LOTADA!
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-400 text-xs">
+              As vagas para <strong>{selectedTournament?.title}</strong> esgotaram. Você foi adicionado à fila de espera e será notificado automaticamente quando uma vaga abrir.
+            </DialogDescription>
+          </DialogHeader>
 
-            <div className="space-y-4 py-2">
-                <div className="bg-green-900/20 p-3 rounded-xl border border-green-600/30 text-center">
-                    <p className="text-green-400 text-xs font-bold">✅ Você está na fila de espera</p>
-                    <p className="text-[10px] text-gray-500 mt-1">Quando uma vaga abrir, você será inscrito e cobrado automaticamente.</p>
-                </div>
-
-                {nextTournament ? (
-                    <div className="bg-orange-600/10 p-4 rounded-xl border border-orange-600/30">
-                        <p className="text-[10px] text-green-400 uppercase font-black mb-1">✅ Inscrito automaticamente:</p>
-                        <h4 className="font-bold text-sm text-white">{nextTournament.title}</h4>
-                        <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1">
-                            <Clock className="h-3 w-3" /> 
-                            {nextTournament.scheduled_at && new Date(nextTournament.scheduled_at).toLocaleTimeString("pt-BR", {hour: '2-digit', minute:'2-digit'})}
-                            <span className="bg-green-500/20 text-green-500 px-2 py-0.5 rounded ml-2">Já inscrito</span>
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-center text-xs text-gray-500">Não há próximos torneios disponíveis no momento.</p>
-                )}
+          <div className="space-y-4 py-2">
+            <div className="bg-green-900/20 p-3 rounded-xl border border-green-600/30 text-center">
+              <p className="text-green-400 text-xs font-bold">✅ Você está na fila de espera</p>
+              <p className="text-[10px] text-gray-500 mt-1">Quando uma vaga abrir, você será inscrito e cobrado automaticamente.</p>
             </div>
 
-            <DialogFooter className="flex flex-col gap-2 mt-2">
-                {nextTournament && (
-                    <Button onClick={handleJoinNext} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-6 rounded-xl">
-                        IR PARA A SALA <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                )}
-                <Button variant="outline" className="w-full border-white/5 bg-[#1a1a1a] text-gray-400 font-bold py-6 rounded-xl" onClick={() => setFullRoomModal(false)}>
-                    FECHAR
-                </Button>
-            </DialogFooter>
+            {nextTournament ? (
+              <div className="bg-orange-600/10 p-4 rounded-xl border border-orange-600/30">
+                <p className="text-[10px] text-green-400 uppercase font-black mb-1">✅ Inscrito automaticamente:</p>
+                <h4 className="font-bold text-sm text-white">{nextTournament.title}</h4>
+                <div className="flex items-center gap-2 text-[10px] text-gray-400 mt-1">
+                  <Clock className="h-3 w-3" />
+                  {nextTournament.scheduled_at && new Date(nextTournament.scheduled_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                  <span className="bg-green-500/20 text-green-500 px-2 py-0.5 rounded ml-2">Já inscrito</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-xs text-gray-500">Não há próximos torneios disponíveis no momento.</p>
+            )}
+          </div>
+
+          <DialogFooter className="flex flex-col gap-2 mt-2">
+            {nextTournament && (
+              <Button onClick={handleJoinNext} className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-6 rounded-xl">
+                IR PARA A SALA <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="outline" className="w-full border-white/5 bg-[#1a1a1a] text-gray-400 font-bold py-6 rounded-xl" onClick={() => setFullRoomModal(false)}>
+              FECHAR
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Trophy, Clock, Users, Flame, ExternalLink } from "lucide-react";
+import { ArrowLeft, Trophy, Clock, Users, Flame, ExternalLink, BellRing } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function TournamentLobby() {
   const { id } = useParams<{ id: string }>();
@@ -15,19 +17,26 @@ export default function TournamentLobby() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [showPushPrompt, setShowPushPrompt] = useState(false);
 
   const fetchData = async () => {
     if (!id || !user) return;
-    
+
     // ACRESCIMO: Log para rastrear a atualização do contador no Lobby
     console.log(`[LOBBY DEBUG] Buscando dados do torneio ${id}...`);
 
-    const [{ data: t }, { data: enrollment }] = await Promise.all([
+    const [{ data: t }, { data: enrollment }, { data: participants }] = await Promise.all([
       supabase.from("tournaments").select("*").eq("id", id).single(),
       supabase.from("enrollments").select("id").eq("tournament_id", id).eq("user_id", user.id).maybeSingle(),
+      supabase.from("tournament_participants").select("id").eq("tournament_id", id).eq("status", "paid")
     ]);
 
-    if (t) setTournament(t);
+    if (t) {
+      setTournament({
+        ...t,
+        current_players: participants ? participants.length : 0
+      });
+    }
     setIsEnrolled(!!enrollment);
     setLoading(false);
   };
@@ -48,6 +57,16 @@ export default function TournamentLobby() {
           console.log("Sincronização em tempo real recebida:", payload.new);
           // ACRESCIMO: Atualiza o estado local imediatamente com os novos dados do banco
           setTournament((prev: any) => ({ ...prev, ...payload.new }));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'tournament_participants', filter: `tournament_id=eq.${id}` },
+        (payload) => {
+          if (payload.new && payload.new.status === 'paid') {
+            setTournament((prev: any) => ({ ...prev, current_players: (prev.current_players || 0) + 1 }));
+            fetchData(); // recarrega pra garantir
+          }
         }
       )
       .subscribe();
@@ -103,7 +122,7 @@ export default function TournamentLobby() {
     if (enrollErr) {
       // Estorno de segurança: Se falhar a inscrição, devolve o dinheiro
       await supabase.from("profiles").update({ saldo: Number(profile.saldo) }).eq("user_id", user.id);
-      
+
       toast({ variant: "destructive", title: "Erro ao entrar", description: "Tente novamente mais tarde." });
       setPaying(false);
       return;
@@ -116,11 +135,16 @@ export default function TournamentLobby() {
     }).eq("id", tournament.id); */
 
     // ACRESCIMO: Força uma atualização de dados local imediatamente após a inscrição
-    await fetchData(); 
+    await fetchData();
     await refreshProfile();
     setIsEnrolled(true);
     toast({ title: "Inscrito com sucesso! 🎉" });
     setPaying(false);
+
+    // ESTRATÉGIA NO CONVITE PUSH: Aciona Modal Soft Prompt apenas se já não estiver inscrito
+    if ("Notification" in window && Notification.permission !== "granted") {
+      setShowPushPrompt(true);
+    }
   };
 
   const handleStartMatch = () => {
@@ -250,6 +274,43 @@ export default function TournamentLobby() {
           </button>
         )}
       </div>
+
+      <Dialog open={showPushPrompt} onOpenChange={setShowPushPrompt}>
+        <DialogContent className="border-orange-600/50 bg-[#0c0c0c] text-white w-[90%] max-w-sm rounded-2xl p-6">
+          <DialogHeader>
+            <div className="mx-auto bg-orange-900/20 p-4 rounded-full mb-4 border border-orange-900">
+              <BellRing className="h-8 w-8 text-orange-500 animate-bounce" />
+            </div>
+            <DialogTitle className="text-center text-xl font-black uppercase text-orange-500">
+              🔥 Não perca sua partida!
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-400 text-sm mt-3 leading-relaxed">
+              Ative os lembretes para ser avisado <strong>5 minutos antes</strong> do torneio começar e entrar na sala do Free Fire direto no seu celular.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-3 mt-4 sm:flex-col sm:space-x-0">
+            <Button
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-black uppercase tracking-widest text-base py-6 shadow-[0_0_15px_rgba(255,85,0,0.4)]"
+              onClick={() => {
+                setShowPushPrompt(false);
+                window.OneSignalDeferred = window.OneSignalDeferred || [];
+                window.OneSignalDeferred.push(() => {
+                  window.OneSignal.Slidedown.promptPush();
+                });
+              }}
+            >
+              Ativar Avisos
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full text-gray-500 hover:text-gray-300 font-bold uppercase text-xs"
+              onClick={() => setShowPushPrompt(false)}
+            >
+              Não me avise
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <style>{`
         @keyframes pulse {
