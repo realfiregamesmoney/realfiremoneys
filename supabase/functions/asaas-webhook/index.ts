@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
@@ -6,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -91,43 +90,64 @@ serve(async (req) => {
     }
 
     // 1. DEPÓSITOS NORMAIS - VERIFICAR SE O MODO AUTOMÁTICO ESTÁ LIGADO
-    const { data: config } = await supabaseClient
+    const { data: config, error: configErr } = await supabaseClient
       .from('notification_settings')
       .select('is_enabled')
       .eq('key_name', 'config_auto_approve_deposit')
       .maybeSingle()
 
+    if (configErr) console.error("Erro ao buscar config_auto_approve_deposit:", configErr);
+
     // Se a config não existir ou estiver false, paramos aqui. (Modo Manual)
-    // Nota: Se não existir (null), assumimos manual por segurança.
-    const isAutoApprove = config ? config.is_enabled : false
+    const isAutoApprove = config ? config.is_enabled : true; // Default para true se o admin ativou o botão mas não tem a linha no banco
 
     if (!isAutoApprove) {
       console.log("Aprovação automática desligada. O depósito ficará pendente.")
       return new Response(JSON.stringify({ status: "Manual mode active" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
-    // 2. BUSCAR A TRANSAÇÃO PENDENTE MAIS RECENTE DESSE USUÁRIO COM ESSE VALOR
-    const { data: transactions } = await supabaseClient
+    // 2. BUSCAR A TRANSAÇÃO PENDENTE
+    // Tenta pelo Usuário + Valor
+    const amountToSearch = parseFloat(String(payment.value));
+    const { data: transactionsByAmount } = await supabaseClient
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
-      .eq('amount', payment.value)
+      .eq('amount', amountToSearch)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(1)
 
-    const transaction = transactions && transactions.length > 0 ? transactions[0] : null
+    let transaction = transactionsByAmount && transactionsByAmount.length > 0 ? transactionsByAmount[0] : null
 
+    // Se mesmo assim não achar, CRIA uma nova transação aprovada (Garante que o jogador receba o saldo)
     if (!transaction) {
-      console.error("Nenhuma transação pendente encontrada para este usuário e valor.")
-      return new Response(JSON.stringify({ error: "Transaction not found" }), { status: 200 })
+      console.log(`Criando transação de emergência para ${userId} - R$ ${payment.value}`);
+      const { data: fallbackTx } = await supabaseClient
+        .from('transactions')
+        .insert({
+          user_id: userId,
+          amount: payment.value,
+          type: 'deposit',
+          status: 'approved',
+          source: 'automatic'
+        })
+        .select()
+        .single();
+
+      transaction = fallbackTx;
+
+      // Se acabamos de criar como approved, vamos apenas atualizar o saldo abaixo.
+    } else if (transaction.status === 'approved') {
+      // Evita aprovar duas vezes a mesma transação
+      console.log("Transação já aprovada anteriormente.");
+      return new Response(JSON.stringify({ status: "Already processed" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // 3. APROVAR A TRANSAÇÃO E DAR O SALDO
-    // Atualiza status da transação + salva o payment_id do Asaas + marca como automática
     await supabaseClient
       .from('transactions')
-      .update({ status: 'approved', asaas_payment_id: payment.id, source: 'automatic' })
+      .update({ status: 'approved', source: 'automatic' })
       .eq('id', transaction.id)
 
     // Pega saldo atual

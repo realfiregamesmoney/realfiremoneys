@@ -365,11 +365,9 @@ export default function Profile() {
 
     const nextAttempts = aiAttempts + 1;
 
-    // --- ESCALONAMENTO: chegou na 3ª tentativa ---
-    if (nextAttempts > 3) {
-      setChatPhase('escalate');
-      return;
-    }
+    // --- REMOVIDO ESCALONAMENTO AUTOMÁTICO NA 3ª TENTATIVA ---
+    // Agora o botão de humano só aparece DEPOIS de 3 tentativas, 
+    // mas não forçamos um fechamento / escalate automático.
 
     setLoadingAi(true);
     const userMsg = supportMessage.trim();
@@ -396,8 +394,13 @@ export default function Profile() {
 
       // Constroi prompt com histórico de tentativas
       const historyContext = chatHistory.map(h => `${h.role === 'user' ? 'Jogador' : 'Suporte'}: ${h.text}`).join('\n');
-      const attemptNote = nextAttempts > 1 ? `Esta é a ${nextAttempts}ª tentativa de resolver o problema. Tente uma abordagem diferente.` : '';
-      const prompt = `Você é o suporte automatizado do Real Fire (app de torneios de Free Fire). Jogador: ${formData.nickname || 'Jogador'}. ${historyContext ? 'Histórico:\n' + historyContext + '\n' : ''}Nova mensagem: "${userMsg}". ${attemptNote} Seja direto, amigável e conciso (máx 3 parágrafos).`;
+      const attemptNote = nextAttempts > 1 ? `Isto é o meio de uma conversa longa. Mantenha o contexto e não comece dando boas-vindas novamente. ` : '';
+      const prompt = `Você é um Atendente Humano do Real Fire (app de campeonatos de Free Fire). Jogador atual: ${formData.nickname || 'Jogador'}. 
+Histórico do Atendimento para contexto:
+${historyContext}
+Nova mensagem do jogador: "${userMsg}". 
+${attemptNote}
+Seja amigável, direto e aja com empatia. Sem respostas robóticas ou grandes listas. Se fizer sentido, pode usar girias leves do Free Fire (como 'Capa', 'Bora', 'Tmj', 'Mestre'). Máximo de 2 parágrafos. Aja sempre como se você estivesse genuinamente analisando a conta do jogador, passando segurança e sendo super humano.`;
 
       const result = await model.generateContent(prompt);
       aiReplyText = result.response.text();
@@ -417,7 +420,8 @@ export default function Profile() {
       setChatHistory(prev => [...prev, { role: 'user', text: userMsg }, { role: 'ai', text: aiReplyText }]);
       setAiAttempts(nextAttempts);
       setAiResponse(aiReplyText);
-      setChatPhase('ai_replied');
+      // Mantém no Input para ele poder voltar a perguntar ou ler os botões e clicar neles
+      setChatPhase('input');
 
       // Cria/atualiza ticket no BD
       if (!currentTicketId) {
@@ -1069,46 +1073,47 @@ export default function Profile() {
               </div>
             )}
 
-            {/* FASE: Input */}
+            {/* FASE: Input Continuo (IA Humanizada) */}
             {chatPhase === 'input' && !loadingAi && (
-              <div className="space-y-3">
-                {aiAttempts > 0 && (
-                  <div className="bg-yellow-900/10 border border-yellow-500/20 rounded-lg p-3 text-xs text-yellow-400">
-                    Tentativa {aiAttempts}/3 — Descreva o problema com mais detalhes para ajudarmos melhor.
+              <div className="space-y-4 pt-4 border-t border-white/5">
+
+                {chatHistory.length > 0 && (
+                  <div className="flex flex-col items-center gap-2 mb-4">
+                    <p className="text-gray-400 text-xs mt-2">O problema já foi resolvido?</p>
+                    <div className="flex gap-2">
+                      <Button onClick={() => setChatPhase('rating')} size="sm" className="bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600 hover:text-white">
+                        ✅ Sim, resolvido!
+                      </Button>
+                      {/* Libera falar com humano após 3 tentativas sem resultado positivo */}
+                      {aiAttempts >= 3 && (
+                        <Button onClick={() => setChatPhase('escalate')} size="sm" className="bg-orange-600/20 text-orange-400 border border-orange-500/30 hover:bg-orange-600 hover:text-white">
+                          🧑‍💼 Falar c/ Atendente Real
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
-                <Label className="text-xs text-gray-400">{aiAttempts === 0 ? 'Descreva seu problema:' : 'O que mais você pode nos contar?'}</Label>
-                <Textarea
-                  placeholder={aiAttempts === 0 ? 'Ex: Não recebi meus pontos após o torneio...' : 'Explique com mais detalhes o que está acontecendo...'}
-                  className="bg-white/5 border-white/10 min-h-[100px] text-sm focus:border-neon-orange"
-                  value={supportMessage}
-                  onChange={e => setSupportMessage(e.target.value)}
-                />
-              </div>
-            )}
 
-            {/* FASE: IA Respondeu → Botões de Resolução */}
-            {chatPhase === 'ai_replied' && !loadingAi && (
-              <div className="space-y-4 pt-2">
-                <p className="text-center text-xs text-gray-400">O problema foi resolvido? Se não, continue conversando com a IA abaixo:</p>
-                <Textarea
-                  placeholder="Descreva mais sobre seu problema para a IA continuar te ajudando..."
-                  className="bg-white/5 border-white/10 min-h-[80px] text-sm focus:border-neon-orange"
-                  value={supportMessage}
-                  onChange={e => setSupportMessage(e.target.value)}
-                />
-                <div className="grid grid-cols-2 gap-3 mt-4">
+                <Label className="text-xs text-gray-500 uppercase tracking-widest">{chatHistory.length === 0 ? 'Descreva o problema:' : 'Escreva sua mensagem abaixo para continuar:'}</Label>
+                <div className="relative">
+                  <Textarea
+                    placeholder={chatHistory.length === 0 ? 'Digite ou cole informações detalhadas aqui...' : 'Explique mais detalhes...'}
+                    className="bg-[#050505] border-white/10 min-h-[70px] text-sm focus:border-neon-orange pr-14 resize-none rounded-xl"
+                    value={supportMessage}
+                    onChange={e => setSupportMessage(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (supportMessage.trim()) handleAiChat();
+                      }
+                    }}
+                  />
                   <Button
-                    onClick={() => setChatPhase('rating')}
-                    className="bg-green-700 hover:bg-green-600 text-white font-bold py-3"
+                    size="icon"
+                    className="absolute bottom-2 right-2 h-8 w-8 rounded-full bg-neon-orange text-black hover:bg-orange-500"
+                    onClick={handleAiChat} disabled={!supportMessage.trim()}
                   >
-                    ✅ Resolvido!
-                  </Button>
-                  <Button
-                    onClick={() => setChatPhase('escalate')}
-                    className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 text-xs"
-                  >
-                    🧑‍💼 Falar c/ Humano
+                    <Send className="h-3 w-3" />
                   </Button>
                 </div>
               </div>
@@ -1179,9 +1184,9 @@ export default function Profile() {
             {(chatPhase === 'done' || chatPhase === 'escalated') && (
               <Button onClick={() => { setActiveModal("support"); resetChat(); }} className="w-full bg-neon-orange text-black font-bold">Fechar</Button>
             )}
-            {(chatPhase === 'input' || chatPhase === 'ai_replied') && !loadingAi && (
-              <Button onClick={handleAiChat} disabled={!supportMessage.trim()} className="w-full bg-neon-orange text-black font-bold hover:bg-orange-600">
-                <Send className="mr-2 h-4 w-4" /> Enviar Mensagem para IA
+            {(chatPhase === 'input') && !loadingAi && chatHistory.length === 0 && (
+              <Button onClick={handleAiChat} disabled={!supportMessage.trim()} className="w-full bg-neon-orange text-black font-bold hover:bg-orange-600 h-14 rounded-xl text-md mt-2">
+                <MessageSquare className="mr-2 h-5 w-5" /> Enviar Mensagem para Atendimento
               </Button>
             )}
           </DialogFooter>

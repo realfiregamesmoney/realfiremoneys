@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { playNotificationSound } from "@/utils/notificationSound";
 
-const typeColor = (type: string) => {
+const typeColor = (type?: string | null) => {
+  if (!type) return "bg-blue-600";
   const t = type.toLowerCase();
   if (t.includes("duplo") || t.includes("duo")) return "bg-purple-600";
   if (t.includes("squad")) return "bg-red-600";
@@ -135,10 +136,18 @@ export default function Tournaments() {
     checkNotifications(); // check immediately
     return () => clearInterval(interval);
   }, [tournaments, enrolledIds, user]);
-
   // --- 2. LÓGICA DE INSCRIÇÃO COM REDIRECIONAMENTO SE CHEIO ---
   const handleEnroll = async (tournament: any, bypassPassCheck: boolean = false) => {
     if (!user || !profile) return;
+
+    if ((profile as any).is_balance_locked) {
+      toast({
+        variant: "destructive",
+        title: "Saldo Trancado",
+        description: "Seu saldo está temporariamente trancado por questões administrativas."
+      });
+      return;
+    }
 
     // Verificar se a sala possui trava de nível
     if (tournament.max_level) {
@@ -399,9 +408,6 @@ export default function Tournaments() {
                         ? "LOTADA — AGUARDAR SALA DE ESPERA"
                         : `ENTRAR - R$ ${Number(t.entry_fee).toFixed(2).replace(".", ",")}`}
                     </button>
-                    <p className="text-[8px] text-center text-gray-500 bg-black/60 py-1.5 px-2 leading-tight">
-                      O prêmio final é dinâmico. Se a lotação de {max} jogadores não for atingida, o valor será reajustado automaticamente e de forma proporcional ao número de inscritos antes do início da partida.
-                    </p>
                   </div>
                 )
               ) : (
@@ -436,12 +442,22 @@ export default function Tournaments() {
                     <p className="text-[10px] text-gray-400 font-bold uppercase">
                       {isStarted && isDynamic ? "(PRÊMIO DINÂMICO ATUALIZADO)" : "(PRÊMIO MÁXIMO ESTIMADO)"}
                     </p>
-                    <p className="text-lg font-extrabold tracking-tight" style={{ color: "#00FF00", textShadow: "0 0 10px rgba(0,255,0,0.4)" }}>
-                      R$ {displayPrize.toFixed(2).replace(".", ",")}
-                    </p>
-                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color: t.prize_distribution === 'podium' ? '#FBBF24' : '#60A5FA' }}>
-                      {t.prize_distribution === 'podium' ? "🏆 Divisão: Pódio (Top 3)" : "🥇 Divisão: Vencedor Leva Tudo"}
-                    </p>
+                    {t.prize_distribution === 'podium' ? (
+                      <div className="flex flex-col gap-0.5 mt-1 border border-white/10 bg-black/40 p-1.5 rounded text-[9px] uppercase font-bold text-yellow-500">
+                        <div className="flex justify-between"><span>1º LUGAR ({t.prize_first || 50}%):</span> <span className="text-[#00FF00]">R$ {((displayPrize * (t.prize_first || 50)) / 100).toFixed(2).replace(".", ",")}</span></div>
+                        <div className="flex justify-between text-zinc-400"><span>2º LUGAR ({t.prize_second || 30}%):</span> <span className="text-[#00FF00]">R$ {((displayPrize * (t.prize_second || 30)) / 100).toFixed(2).replace(".", ",")}</span></div>
+                        <div className="flex justify-between text-orange-400"><span>3º LUGAR ({t.prize_third || 20}%):</span> <span className="text-[#00FF00]">R$ {((displayPrize * (t.prize_third || 20)) / 100).toFixed(2).replace(".", ",")}</span></div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-lg font-extrabold tracking-tight" style={{ color: "#00FF00", textShadow: "0 0 10px rgba(0,255,0,0.4)" }}>
+                          R$ {((displayPrize * (t.prize_first || 100)) / 100).toFixed(2).replace(".", ",")}
+                        </p>
+                        <p className="text-[10px] uppercase font-bold mt-0.5 text-blue-400">
+                          🥇 1º LUGAR LEVA TUDO
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
 

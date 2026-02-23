@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
     Shield, Trophy, Wallet, Users, MessageSquare, Plus, Check, X, Star, ExternalLink, Loader2,
     Edit, Save, Calendar, Link as LinkIcon, Trash2, Send, Lightbulb, Archive, Gamepad2, Search,
@@ -252,7 +252,8 @@ function AdminTournaments() {
     const [formData, setFormData] = useState({
         title: "", type: "SQUAD", entry_fee: "", prize_pool: "",
         room_link: "", scheduled_at: "", is_open: true, open_time: "", close_time: "",
-        max_players: "48", extra_text: "", max_level: "", prize_distribution: "winner", button_color: "orange"
+        max_players: "48", extra_text: "", max_level: "", prize_distribution: "winner", button_color: "orange",
+        prize_first: "100", prize_second: "0", prize_third: "0"
     });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editData, setEditData] = useState<any>({});
@@ -303,11 +304,16 @@ function AdminTournaments() {
             room_link: formData.room_link || null,
             scheduled_at: fixedDate,
             status: formData.is_open ? 'open' : 'closed',
+            open_time: formData.open_time || null,
+            close_time: formData.close_time || null,
             max_players: parseInt(String(formData.max_players)) || 48,
             extra_text: formData.extra_text || null,
             max_level: formData.max_level ? parseInt(String(formData.max_level)) : null,
             prize_distribution: formData.prize_distribution || "winner",
-            button_color: formData.button_color || "orange"
+            button_color: formData.button_color || "orange",
+            prize_first: parseInt(String(formData.prize_first)) || 100,
+            prize_second: parseInt(String(formData.prize_second)) || 0,
+            prize_third: parseInt(String(formData.prize_third)) || 0
         };
 
         let currentPayload: any = { ...payload };
@@ -366,7 +372,8 @@ function AdminTournaments() {
             setFormData({
                 title: "", type: "SQUAD", entry_fee: "", prize_pool: "",
                 room_link: "", scheduled_at: "", is_open: true, open_time: "", close_time: "",
-                max_players: "48", extra_text: "", max_level: "", prize_distribution: "winner", button_color: "orange"
+                max_players: "48", extra_text: "", max_level: "", prize_distribution: "winner", button_color: "orange",
+                prize_first: "100", prize_second: "0", prize_third: "0"
             });
         }
     };
@@ -434,11 +441,16 @@ function AdminTournaments() {
             room_link: t.room_link || "",
             scheduled_at: formattedDate,
             is_open: t.status === 'open',
+            open_time: t.open_time || "",
+            close_time: t.close_time || "",
             max_players: String(t.max_players || 48),
             extra_text: t.extra_text || "",
             max_level: String(t.max_level || ""),
             prize_distribution: t.prize_distribution || "winner",
-            button_color: t.button_color || "orange"
+            button_color: t.button_color || "orange",
+            prize_first: String(t.prize_first ?? 100),
+            prize_second: String(t.prize_second ?? 0),
+            prize_third: String(t.prize_third ?? 0)
         });
     };
 
@@ -465,11 +477,16 @@ function AdminTournaments() {
             room_link: editData.room_link || null,
             scheduled_at: fixedDateEdit,
             status: editData.is_open ? 'open' : 'closed',
+            open_time: editData.open_time || null,
+            close_time: editData.close_time || null,
             max_players: parseInt(String(editData.max_players)) || 48,
             extra_text: editData.extra_text || null,
             max_level: editData.max_level && editData.max_level !== "" ? parseInt(String(editData.max_level)) : null,
             prize_distribution: editData.prize_distribution || "winner",
-            button_color: editData.button_color || "orange"
+            button_color: editData.button_color || "orange",
+            prize_first: parseInt(String(editData.prize_first)) || 100,
+            prize_second: parseInt(String(editData.prize_second)) || 0,
+            prize_third: parseInt(String(editData.prize_third)) || 0
         };
 
         let currentPayloadEdit: any = { ...payloadEdit };
@@ -537,11 +554,24 @@ function AdminTournaments() {
                         <div className="space-y-1"><Label className="text-[10px]">Jogadores</Label><Input type="number" min="0" max="48" className="bg-black/50 border-white/10" value={formData.max_players} onChange={e => setFormData({ ...formData, max_players: e.target.value })} placeholder="48" /></div>
                         <div className="space-y-1">
                             <Label className="text-[10px]">Distribuição</Label>
-                            <select className="bg-black border border-white/10 text-xs rounded-md px-1 h-10 text-white w-full" value={formData.prize_distribution} onChange={e => setFormData({ ...formData, prize_distribution: e.target.value })}>
+                            <select className="bg-black border border-white/10 text-xs rounded-md px-1 h-10 text-white w-full" value={formData.prize_distribution} onChange={e => {
+                                const val = e.target.value;
+                                setFormData({ ...formData, prize_distribution: val, prize_first: val === 'podium' ? "50" : "100", prize_second: val === 'podium' ? "30" : "0", prize_third: val === 'podium' ? "20" : "0" })
+                            }}>
                                 <option value="winner">Único</option>
                                 <option value="podium">Pódio</option>
                             </select>
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 bg-black/30 p-3 rounded-lg border border-white/5">
+                        <div className="space-y-1"><Label className="text-[10px] text-green-400">1º Lugar (%)</Label><Input type="number" min="0" max="100" className="bg-black/80 border-white/10" value={formData.prize_first} onChange={e => setFormData({ ...formData, prize_first: e.target.value })} /></div>
+                        {formData.prize_distribution === 'podium' && (
+                            <>
+                                <div className="space-y-1"><Label className="text-[10px] text-zinc-400">2º Lugar (%)</Label><Input type="number" min="0" max="100" className="bg-black/80 border-white/10" value={formData.prize_second} onChange={e => setFormData({ ...formData, prize_second: e.target.value })} /></div>
+                                <div className="space-y-1"><Label className="text-[10px] text-orange-400">3º Lugar (%)</Label><Input type="number" min="0" max="100" className="bg-black/80 border-white/10" value={formData.prize_third} onChange={e => setFormData({ ...formData, prize_third: e.target.value })} /></div>
+                            </>
+                        )}
                     </div>
 
                     <div className="p-3 border border-white/10 rounded-lg bg-white/5 space-y-3">
@@ -603,10 +633,22 @@ function AdminTournaments() {
                                         <Input type="number" value={editData.entry_fee} onChange={(e) => setEditData({ ...editData, entry_fee: e.target.value })} placeholder="Entrada" />
                                         <Input type="number" value={editData.prize_pool} onChange={(e) => setEditData({ ...editData, prize_pool: e.target.value })} placeholder="Prêmio" />
                                         <Input type="number" min="0" max="48" value={editData.max_players} onChange={(e) => setEditData({ ...editData, max_players: e.target.value })} placeholder="Vagas" />
-                                        <select className="bg-black border border-white/10 text-[10px] rounded-md text-white w-full h-10 px-1" value={editData.prize_distribution} onChange={e => setEditData({ ...editData, prize_distribution: e.target.value })}>
+                                        <select className="bg-black border border-white/10 text-[10px] rounded-md text-white w-full h-10 px-1" value={editData.prize_distribution} onChange={e => {
+                                            const val = e.target.value;
+                                            setEditData({ ...editData, prize_distribution: val, prize_first: val === 'podium' ? "50" : "100", prize_second: val === 'podium' ? "30" : "0", prize_third: val === 'podium' ? "20" : "0" });
+                                        }}>
                                             <option value="winner">Único</option>
                                             <option value="podium">Pódio</option>
                                         </select>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 bg-black/40 p-2 rounded border border-white/5">
+                                        <Input type="number" min="0" max="100" value={editData.prize_first} onChange={(e) => setEditData({ ...editData, prize_first: e.target.value })} placeholder="1º (%)" />
+                                        {editData.prize_distribution === 'podium' && (
+                                            <>
+                                                <Input type="number" min="0" max="100" value={editData.prize_second} onChange={(e) => setEditData({ ...editData, prize_second: e.target.value })} placeholder="2º (%)" />
+                                                <Input type="number" min="0" max="100" value={editData.prize_third} onChange={(e) => setEditData({ ...editData, prize_third: e.target.value })} placeholder="3º (%)" />
+                                            </>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
                                         <Input value={editData.extra_text} onChange={(e) => setEditData({ ...editData, extra_text: e.target.value })} placeholder="Texto Opcional" />
@@ -623,7 +665,11 @@ function AdminTournaments() {
                                             <option value="purple">Roxo</option>
                                         </select>
                                     </div>
-                                    <div className="flex items-center gap-2"><Switch checked={editData.is_open} onCheckedChange={c => setEditData({ ...editData, is_open: c })} /><Label>Sala Aberta?</Label></div>
+                                    <div className="flex items-center gap-2">
+                                        <Switch checked={editData.is_open} onCheckedChange={c => setEditData({ ...editData, is_open: c })} /><Label>Aberta?</Label>
+                                        <Input type="time" placeholder="Abre" value={editData.open_time} onChange={(e) => setEditData({ ...editData, open_time: e.target.value })} className="w-24 text-xs h-8 ml-2" />
+                                        <Input type="time" placeholder="Fecha" value={editData.close_time} onChange={(e) => setEditData({ ...editData, close_time: e.target.value })} className="w-24 text-xs h-8" />
+                                    </div>
                                     <Button onClick={handleSaveEdit} className="w-full bg-green-600">Salvar</Button>
                                 </div>
                             ) : (
@@ -634,13 +680,22 @@ function AdminTournaments() {
                                             <span className={`w-2 h-2 rounded-full ${t.status === 'open' ? 'bg-neon-green shadow-[0_0_8px_#00ff00]' : 'bg-red-600 shadow-[0_0_8px_#ff0000]'}`}></span>
                                         </p>
                                         <p className="text-[10px] text-gray-500 mb-1">{t.scheduled_at ? new Date(t.scheduled_at).toLocaleString() : 'Sem data'} • {t.current_players}/{t.max_players} jogadores</p>
-                                        <div className="flex gap-2">
+                                        <div className="flex flex-wrap gap-2 mt-1">
                                             <Badge variant="outline" className={`text-[8px] px-1 py-0 h-4 border-white/20 ${t.button_color === 'green' ? 'text-green-500' : t.button_color === 'blue' ? 'text-blue-500' : t.button_color === 'pink' ? 'text-pink-500' : t.button_color === 'purple' ? 'text-purple-500' : 'text-orange-500'}`}>
                                                 COR: {t.button_color || 'orange'}
                                             </Badge>
-                                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400">
-                                                {t.prize_distribution === 'podium' ? 'TOP 3 (PÓDIO)' : 'VENCEDOR LEVA TUDO'}
-                                            </Badge>
+                                            {t.prize_distribution === 'podium' && (
+                                                <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-yellow-400">1º: {t.prize_first}% | 2º: {t.prize_second}% | 3º: {t.prize_third}%</Badge>
+                                            )}
+                                            {t.prize_distribution !== 'podium' && (
+                                                <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-blue-400">1º: {t.prize_first}%</Badge>
+                                            )}
+                                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400">MODO: {t.type || 'SQUAD'}</Badge>
+                                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400">ENTRADA: R${t.entry_fee}</Badge>
+                                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400">PRÊMIO: R${t.prize_pool}</Badge>
+                                            {t.max_level && <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400">NV MÁX: {t.max_level}</Badge>}
+                                            {t.open_time && <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-green-400">{t.open_time} as {t.close_time}</Badge>}
+                                            {t.extra_text && <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400 max-w-[200px] truncate" title={t.extra_text}>{t.extra_text}</Badge>}
                                         </div>
                                     </div>
                                     <div className="flex gap-1">
@@ -712,12 +767,13 @@ function AdminRooms() {
     const [calculatedPrize, setCalculatedPrize] = useState(0);
     const [uploadingPrint, setUploadingPrint] = useState(false);
     const [printUrl, setPrintUrl] = useState("");
+    const [podiumPrints, setPodiumPrints] = useState({ first: "", second: "", third: "" });
     const [historyModal, setHistoryModal] = useState<any | null>(null);
     const [resultHistory, setResultHistory] = useState<any[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
 
     const fetchRooms = async () => {
-        const { data } = await supabase.from("tournaments").select("*").neq('status', 'finished').order("scheduled_at", { ascending: true });
+        const { data } = await supabase.from("tournaments").select("*").order("scheduled_at", { ascending: false });
         if (data) setRooms(data);
     };
 
@@ -783,6 +839,7 @@ function AdminRooms() {
         setWinnerId("");
         setPodiumIds({ first: "", second: "", third: "" });
         setPrintUrl("");
+        setPodiumPrints({ first: "", second: "", third: "" });
 
         // Dynamic Prize Recalculation
         const count = roomPlayerCounts[room.id] ?? room.current_players;
@@ -807,33 +864,54 @@ function AdminRooms() {
         return () => { supabase.removeChannel(channel); };
     }, [resultModal]);
 
-    const handlePrintUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handlePrintUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'single' | 'first' | 'second' | 'third' = 'single') => {
         try {
             setUploadingPrint(true);
             const file = e.target.files?.[0];
-            if (!file) return;
-            const fileExt = file.name.split('.').pop();
-            const filePath = `results/${resultModal.id}_${Date.now()}.${fileExt}`;
-            const { error } = await supabase.storage.from('profile_proofs').upload(filePath, file);
-            if (error) throw error;
+            if (!file) {
+                setUploadingPrint(false);
+                return;
+            }
+
+            const fileExt = file.name.split('.').pop() || 'png';
+            const filePath = `${user?.id}/result_${resultModal.id}_${target}_${Date.now()}.${fileExt}`;
+
+            const { error } = await supabase.storage.from('profile_proofs').upload(filePath, file, {
+                upsert: true,
+                contentType: file.type || 'image/png'
+            });
+
+            if (error) {
+                console.error("Storage upload details:", error);
+                throw error;
+            }
+
             const { data } = supabase.storage.from('profile_proofs').getPublicUrl(filePath);
-            setPrintUrl(data.publicUrl);
-            toast({ title: "Print Carregado!" });
-        } catch (err) { toast({ variant: "destructive", title: "Erro no upload" }); }
+
+            if (target === 'single') setPrintUrl(data.publicUrl);
+            else setPodiumPrints(prev => ({ ...prev, [target]: data.publicUrl }));
+
+            toast({ title: "Arquivo Carregado!" });
+        } catch (err: any) {
+            console.error("Upload process error:", err);
+            toast({ variant: "destructive", title: "Erro no upload da imagem", description: err.message || "Tente novamente mais tarde." });
+        }
         finally { setUploadingPrint(false); }
     };
 
     const handleConfirmResult = async () => {
         let winnersData = [];
         if (resultModal.prize_distribution === 'podium') {
-            if (!podiumIds.first || !podiumIds.second || !podiumIds.third || !printUrl) return toast({ variant: "destructive", title: "Selecione o pódio completo e envie o print." });
+            if (!podiumIds.first || !podiumIds.second || !podiumIds.third || !podiumPrints.first || !podiumPrints.second || !podiumPrints.third) {
+                return toast({ variant: "destructive", title: "Selecione o pódio e envie as 3 fotos." });
+            }
             if (new Set([podiumIds.first, podiumIds.second, podiumIds.third]).size !== 3) return toast({ variant: "destructive", title: "Jogadores duplicados no pódio." });
-            winnersData.push({ id: podiumIds.first, amount: calculatedPrize * 0.60, place: 1 });
-            winnersData.push({ id: podiumIds.second, amount: calculatedPrize * 0.25, place: 2 });
-            winnersData.push({ id: podiumIds.third, amount: calculatedPrize * 0.15, place: 3 });
+            winnersData.push({ id: podiumIds.first, amount: calculatedPrize * (resultModal.prize_first / 100 || 0.60), place: 1, print: podiumPrints.first });
+            winnersData.push({ id: podiumIds.second, amount: calculatedPrize * (resultModal.prize_second / 100 || 0.25), place: 2, print: podiumPrints.second });
+            winnersData.push({ id: podiumIds.third, amount: calculatedPrize * (resultModal.prize_third / 100 || 0.15), place: 3, print: podiumPrints.third });
         } else {
             if (!winnerId || !printUrl) return toast({ variant: "destructive", title: "Selecione o vencedor e envie o print." });
-            winnersData.push({ id: winnerId, amount: calculatedPrize, place: 1 });
+            winnersData.push({ id: winnerId, amount: calculatedPrize, place: 1, print: printUrl });
         }
 
         const count = roomPlayerCounts[resultModal.id] ?? resultModal.current_players;
@@ -864,14 +942,19 @@ function AdminRooms() {
                 }
 
                 // 2. SALVA NO HISTÓRICO
-                await (supabase as any).from("tournament_results").insert({
+                const { error: insertErr } = await (supabase as any).from("tournament_results").insert({
                     tournament_id: resultModal.id,
                     winner_user_id: win.id,
-                    print_url: printUrl,
+                    print_url: win.print,
                     prize_amount: win.amount,
                     admin_id: user?.id,
                     place: win.place
                 });
+
+                if (insertErr) {
+                    console.error("Erro do Banco no Histórico:", insertErr);
+                    throw new Error("Erro de permissão no Banco (RLS) ao salvar histórico.");
+                }
 
                 // 4. Registra no Log de Auditoria
                 await supabase.from("audit_logs").insert({
@@ -889,8 +972,14 @@ function AdminRooms() {
                 );
             }
 
-            // 3. Marca o Torneio como finalizado
-            await supabase.from("tournaments").update({ status: 'finished' }).eq("id", resultModal.id);
+            // 3. Marca o Torneio como finalizado e ARQUIVA
+            await supabase.from("tournaments").update({
+                status: 'finished',
+                title: `[ARQUIVADO] ${resultModal.title}`
+            }).eq("id", resultModal.id);
+
+            // Atualiza estado local para refletir na aba Histórico imediatamente
+            setRooms(prevRooms => prevRooms.map(r => r.id === resultModal.id ? { ...r, status: 'finished', title: `[ARQUIVADO] ${resultModal.title}` } : r));
 
             toast({ title: "Resultado Lançado!", description: "Prêmio enviado, histórico salvo e caixa registrado." });
             setResultModal(null);
@@ -1090,18 +1179,48 @@ function AdminRooms() {
                             </div>
                         )}
 
-                        <div className="space-y-2 pt-2">
-                            <Label className="text-xs">Print do Resultado (Obrigatório)</Label>
-                            <div className="border border-dashed border-white/20 rounded-lg p-4 text-center cursor-pointer hover:bg-white/5 relative">
-                                <Input type="file" accept="image/*" className="opacity-0 absolute inset-0 cursor-pointer" onChange={handlePrintUpload} disabled={uploadingPrint} />
-                                {uploadingPrint ? <Loader2 className="animate-spin h-6 w-6 mx-auto text-yellow-500" /> : printUrl ? <p className="text-green-500 text-xs">Imagem Carregada!</p> : <div className="text-gray-500 text-xs"><Upload className="h-6 w-6 mx-auto mb-1" />Toque para enviar</div>}
+                        {resultModal?.prize_distribution === 'podium' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                {(['first', 'second', 'third'] as const).map((pos, idx) => (
+                                    <div key={pos} className="space-y-1">
+                                        <Label className="text-[10px] text-gray-500 uppercase">{idx + 1}º Lugar Print</Label>
+                                        <div className="border border-dashed border-white/20 rounded-lg p-2 text-center hover:bg-white/5 relative h-20 flex items-center justify-center overflow-hidden group">
+                                            <input type="file" accept="image/*" className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 block" onChange={(e) => handlePrintUpload(e, pos)} disabled={uploadingPrint} />
+                                            {podiumPrints[pos] ? <p className="text-green-500 text-[10px] font-bold relative z-10">OK</p> : <div className="text-gray-500 text-[9px] relative z-10 group-hover:text-white transition-colors"><Upload className="h-4 w-4 mx-auto mb-1" />Upload</div>}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
+                        ) : (
+                            <div className="space-y-2 pt-2">
+                                <Label className="text-xs font-bold uppercase text-gray-400">Print da Vitória (Obrigatório)</Label>
+                                <div className="border border-dashed border-white/20 rounded-xl p-6 text-center hover:bg-white/5 relative group transition-all overflow-hidden">
+                                    <input type="file" accept="image/*" className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-50 block" onChange={(e) => handlePrintUpload(e, 'single')} disabled={uploadingPrint} />
+                                    {uploadingPrint ? (
+                                        <Loader2 className="animate-spin h-6 w-6 mx-auto text-neon-orange relative z-10" />
+                                    ) : printUrl ? (
+                                        <div className="flex flex-col items-center relative z-10">
+                                            <Check className="h-8 w-8 text-neon-green mb-1" />
+                                            <p className="text-neon-green text-[10px] font-black uppercase">Imagem Carregada!</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-500 group-hover:text-white transition-colors relative z-10">
+                                            <Upload className="h-8 w-8 mx-auto mb-2 opacity-30 group-hover:opacity-100" />
+                                            <p className="text-[10px] font-black uppercase tracking-tighter">Clique para enviar o resultado</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <DialogFooter>
-                        <Button onClick={handleConfirmResult} className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-bold" disabled={((resultModal?.prize_distribution !== 'podium' && !winnerId) || (resultModal?.prize_distribution === 'podium' && (!podiumIds.first || !podiumIds.second || !podiumIds.third))) || !printUrl}>
-                            CONFIRMAR E PAGAR PRÊMIO
+                        <Button
+                            onClick={handleConfirmResult}
+                            className="w-full bg-neon-orange hover:bg-orange-600 text-white font-black uppercase py-6 rounded-2xl shadow-[0_0_20px_rgba(255,85,0,0.3)]"
+                            disabled={uploadingPrint || ((resultModal?.prize_distribution !== 'podium' && (!winnerId || !printUrl)) || (resultModal?.prize_distribution === 'podium' && (!podiumIds.first || !podiumIds.second || !podiumIds.third || !podiumPrints.first || !podiumPrints.second || !podiumPrints.third)))}
+                        >
+                            {uploadingPrint ? "AGUARDE UPLOAD..." : "FINALIZAR E PAGAR PRÊMIOS"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1140,8 +1259,10 @@ function AdminRooms() {
                                             <p className="text-[10px] text-gray-400">ID: {result.winner_profile?.freefire_id || "N/A"}</p>
                                         </div>
                                         <div className="text-right shrink-0">
-                                            <p className="text-neon-green font-bold text-sm">R$ {Number(result.prize_amount).toFixed(2)}</p>
-                                            <p className="text-[10px] text-gray-500">{new Date(result.created_at).toLocaleDateString("pt-BR")}</p>
+                                            <p className="text-neon-green font-bold text-sm bg-black/50 px-2 py-0.5 rounded-md inline-block">Pago: R$ {Number(result.prize_amount).toFixed(2)}</p>
+                                            <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold tracking-tighter">
+                                                Finalização: {new Date(result.created_at).toLocaleString("pt-BR", { dateStyle: 'short', timeStyle: 'short' })}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -1160,22 +1281,52 @@ function AdminUsers() {
     const [searchTerm, setSearchTerm] = useState("");
     const [users, setUsers] = useState<any[]>([]);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
+    const [activeFilter, setActiveFilter] = useState<"all" | "banned" | "chat_banned" | "locked">("all");
     const [editMode, setEditMode] = useState(false);
-    const [editFields, setEditFields] = useState({ full_name: "", cpf: "", email: "", nickname: "", freefire_id: "", freefire_level: "" });
+    const [editFields, setEditFields] = useState({
+        full_name: "",
+        cpf: "",
+        email: "",
+        nickname: "",
+        freefire_id: "",
+        freefire_level: "",
+        saldo: "",
+        avatar_url: "",
+        freefire_proof_url: ""
+    });
+
+    const [totalCounts, setTotalCounts] = useState({ all: 0, banned: 0, chat_banned: 0, locked: 0 });
+
+    const fetchStats = async () => {
+        const { count: all } = await supabase.from("profiles").select("*", { count: 'exact', head: true });
+        const { count: banned } = await supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("is_app_banned", true);
+        const { count: chat_banned } = await supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("is_chat_banned", true);
+        const { count: locked } = await supabase.from("profiles").select("*", { count: 'exact', head: true }).eq("is_balance_locked", true);
+        setTotalCounts({ all: all || 0, banned: banned || 0, chat_banned: chat_banned || 0, locked: locked || 0 });
+    };
 
     const fetchUsers = async () => {
         let query = supabase.from("profiles").select("*");
+
+        // Aplicar busca se houver termo
         if (searchTerm) {
             query = query.or(`nickname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,freefire_id.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%`);
         }
-        const { data } = await query.order("created_at", { ascending: false }).limit(50);
+
+        // Aplicar filtros de situação (Pastas)
+        if (activeFilter === "banned") query = query.eq("is_app_banned", true);
+        else if (activeFilter === "chat_banned") query = query.eq("is_chat_banned", true);
+        else if (activeFilter === "locked") query = query.eq("is_balance_locked", true);
+
+        const { data } = await query.order("created_at", { ascending: false }).limit(100);
         if (data) setUsers(data);
+        fetchStats();
     };
 
     useEffect(() => {
         const timer = setTimeout(fetchUsers, 500);
         return () => clearTimeout(timer);
-    }, [searchTerm]);
+    }, [searchTerm, activeFilter]);
 
     const openUser = (user: any) => {
         setSelectedUser(user);
@@ -1187,6 +1338,9 @@ function AdminUsers() {
             nickname: user.nickname || "",
             freefire_id: user.freefire_id || "",
             freefire_level: String(user.freefire_level || ""),
+            saldo: String(user.saldo || 0),
+            avatar_url: user.avatar_url || "",
+            freefire_proof_url: user.freefire_proof_url || "",
         });
     };
 
@@ -1199,6 +1353,9 @@ function AdminUsers() {
             nickname: editFields.nickname,
             freefire_id: editFields.freefire_id,
             freefire_level: editFields.freefire_level ? parseInt(editFields.freefire_level) : null,
+            saldo: parseFloat(editFields.saldo) || 0,
+            avatar_url: editFields.avatar_url,
+            freefire_proof_url: editFields.freefire_proof_url,
         }).eq("user_id", selectedUser.user_id);
         if (error) return toast({ variant: "destructive", title: "Erro", description: error.message });
 
@@ -1209,8 +1366,19 @@ function AdminUsers() {
         });
         toast({ title: "Perfil atualizado!" });
         setEditMode(false);
-        setSelectedUser(null);
-        fetchUsers();
+
+        const updatedUser = {
+            ...selectedUser,
+            ...editFields,
+            freefire_level: editFields.freefire_level ? parseInt(editFields.freefire_level) : null,
+            saldo: parseFloat(editFields.saldo) || 0
+        };
+
+        // Atualiza o usuário selecionado no modal sem fechar
+        setSelectedUser(updatedUser);
+
+        // Atualiza a grid atrás sem precisar recarregar tudo bruscamente do server
+        setUsers(users.map(u => u.user_id === selectedUser.user_id ? updatedUser : u));
     };
 
     const handleDeleteUser = async () => {
@@ -1235,7 +1403,7 @@ function AdminUsers() {
             details: `Admin bloqueou saldo de ${selectedUser.nickname} (R$${Number(selectedUser.saldo).toFixed(2)} → R$0.00)`
         });
         toast({ title: "Saldo bloqueado (zerado)" });
-        setSelectedUser(null);
+        setSelectedUser({ ...selectedUser, saldo: 0 });
         fetchUsers();
     };
 
@@ -1254,107 +1422,201 @@ function AdminUsers() {
         fetchUsers();
     };
 
-    const handleBanUser = async () => {
-        if (!selectedUser || !confirm(`Tem certeza que deseja BANIR o jogador ${selectedUser.nickname}? Esta ação zera o saldo.`)) return;
-        await supabase.from("profiles").update({ saldo: 0, nickname: `[BANIDO] ${selectedUser.nickname}` }).eq("user_id", selectedUser.user_id);
+    const handleToggleAppBan = async () => {
+        if (!selectedUser) return;
+        const newStatus = !selectedUser.is_app_banned;
+        if (!confirm(`Tem certeza que deseja ${newStatus ? 'BANIR O ACESSO' : 'RESTAURAR O ACESSO'} do jogador ${selectedUser.nickname} do aplicativo?`)) return;
+
+        let updateData: any = { is_app_banned: newStatus };
+        if (newStatus) updateData.saldo = 0;
+
+        await supabase.from("profiles").update(updateData).eq("user_id", selectedUser.user_id);
         await supabase.from("audit_logs").insert({
             admin_id: (await supabase.auth.getUser()).data.user?.id,
-            action_type: "admin_ban_user",
-            details: `Admin baniu jogador ${selectedUser.nickname} (${selectedUser.email})`
+            action_type: newStatus ? "admin_app_ban" : "admin_app_unban",
+            details: `Admin ${newStatus ? 'BANIU' : 'RESTAUROU'} o acesso de ${selectedUser.nickname} no Aplicativo Inteiro`
         });
-        toast({ variant: "destructive", title: "Jogador banido!" });
-        setSelectedUser(null);
+        toast({ title: `Acesso ao aplicativo ${newStatus ? 'bloqueado' : 'restaurado'}!` });
+        setSelectedUser({ ...selectedUser, is_app_banned: newStatus, saldo: newStatus ? 0 : selectedUser.saldo });
         fetchUsers();
+    };
+
+    const handleToggleBalanceLock = async () => {
+        if (!selectedUser) return;
+        const newStatus = !selectedUser.is_balance_locked;
+        if (!confirm(`Tem certeza que deseja ${newStatus ? 'TRANCAR' : 'DESTRANCAR'} o saldo do jogador ${selectedUser.nickname}? Ele não poderá jogar nem sacar.`)) return;
+
+        await supabase.from("profiles").update({ is_balance_locked: newStatus }).eq("user_id", selectedUser.user_id);
+        await supabase.from("audit_logs").insert({
+            admin_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: newStatus ? "admin_lock_balance" : "admin_unlock_balance",
+            details: `Admin ${newStatus ? 'TRANCOU' : 'DESTRANCOU'} o saldo de ${selectedUser.nickname}`
+        });
+        toast({ title: `Saldo ${newStatus ? 'Trancado' : 'Livre para uso'}!` });
+        setSelectedUser({ ...selectedUser, is_balance_locked: newStatus });
+        fetchUsers();
+    };
+
+    const filteredUsers = users.filter(user => {
+        if (activeFilter === "banned") return user.is_app_banned;
+        if (activeFilter === "chat_banned") return user.is_chat_banned;
+        if (activeFilter === "locked") return user.is_balance_locked;
+        return true;
+    });
+
+    const stats = {
+        all: totalCounts.all,
+        banned: totalCounts.banned,
+        chat_banned: totalCounts.chat_banned,
+        locked: totalCounts.locked
     };
 
     return (
         <div className="space-y-6">
-            {/* Header / Search Area */}
-            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-black uppercase italic text-white flex items-center gap-2">
-                        <Users className="text-neon-orange h-6 w-6" /> Gestão de Jogadores
-                    </h2>
-                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Base de dados em tempo real</p>
+            {/* Punishment Boxes / Information Boxes */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div
+                    onClick={() => setActiveFilter("all")}
+                    className={`p-4 rounded-3xl border ${activeFilter === "all" ? 'bg-white/10 border-white/20' : 'bg-black/40 border-white/5'} cursor-pointer transition-all hover:bg-white/5`}
+                >
+                    <div className="flex items-center gap-2 mb-1">
+                        <Users className="h-4 w-4 text-gray-400" />
+                        <span className="text-[10px] font-black uppercase text-gray-500">Todos os Jogadores</span>
+                    </div>
+                    <p className="text-xl font-black text-white">{stats.all}</p>
                 </div>
-                <div className="relative w-full md:w-96 group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-neon-orange transition-colors" />
-                    <Input
-                        placeholder="Nome, Nick, ID, CPF ou Email..."
-                        className="pl-12 bg-black/40 border-white/5 h-12 rounded-2xl focus:border-neon-orange/50 transition-all shadow-2xl"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
+                <div
+                    onClick={() => setActiveFilter("banned")}
+                    className={`p-4 rounded-3xl border ${activeFilter === "banned" ? 'bg-red-900/20 border-red-500' : 'bg-black/40 border-white/5'} cursor-pointer transition-all hover:bg-red-500/10`}
+                >
+                    <div className="flex items-center gap-2 mb-1">
+                        <Ban className="h-4 w-4 text-red-500" />
+                        <span className="text-[10px] font-black uppercase text-red-500">Banidos App</span>
+                    </div>
+                    <p className="text-xl font-black text-white">{stats.banned}</p>
                 </div>
+                <div
+                    onClick={() => setActiveFilter("chat_banned")}
+                    className={`p-4 rounded-3xl border ${activeFilter === "chat_banned" ? 'bg-orange-900/20 border-orange-500' : 'bg-black/40 border-white/5'} cursor-pointer transition-all hover:bg-orange-500/10`}
+                >
+                    <div className="flex items-center gap-2 mb-1">
+                        <MessageSquare className="h-4 w-4 text-orange-500" />
+                        <span className="text-[10px] font-black uppercase text-orange-500">Mudos Chat</span>
+                    </div>
+                    <p className="text-xl font-black text-white">{stats.chat_banned}</p>
+                </div>
+                <div
+                    onClick={() => setActiveFilter("locked")}
+                    className={`p-4 rounded-3xl border ${activeFilter === "locked" ? 'bg-yellow-900/20 border-yellow-500' : 'bg-black/40 border-white/5'} cursor-pointer transition-all hover:bg-yellow-500/10`}
+                >
+                    <div className="flex items-center gap-2 mb-1">
+                        <Lock className="h-4 w-4 text-yellow-500" />
+                        <span className="text-[10px] font-black uppercase text-yellow-500">Trancados</span>
+                    </div>
+                    <p className="text-xl font-black text-white">{stats.locked}</p>
+                </div>
+            </div>
+
+            {/* BARRA DE PESQUISA */}
+            <div className="relative mt-8 mb-4">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Input
+                    placeholder="Pesquisar por Nome, Nick, Email, CPF ou FreeFire ID..."
+                    className="pl-14 bg-black/40 border-white/10 text-white rounded-2xl h-14 font-medium text-sm focus:border-neon-orange/50 transition-all shadow-inner"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
             </div>
 
             {/* Players List Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {users.map(user => (
-                    <Card
-                        key={user.id}
-                        className={`group bg-[#0a0a0a] border-white/5 hover:border-neon-orange/20 transition-all cursor-pointer overflow-hidden rounded-[2rem] shadow-xl ${user.nickname?.includes('[BANIDO]') ? 'opacity-50 grayscale' : ''}`}
-                        onClick={() => openUser(user)}
-                    >
-                        <CardContent className="p-0">
-                            <div className="p-5 flex items-start gap-4">
-                                <div className="relative shrink-0">
-                                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
-                                        {user.avatar_url ? (
-                                            <img src={user.avatar_url} className="h-full w-full object-cover" alt={user.nickname} />
-                                        ) : (
-                                            <div className="h-full w-full flex items-center justify-center text-gray-600 bg-white/5">
-                                                <Users size={24} />
+                {filteredUsers.length === 0 ? (
+                    <div className="col-span-full py-20 text-center">
+                        <Search className="h-10 w-10 text-gray-600 mx-auto mb-4 opacity-20" />
+                        <p className="text-gray-500 font-bold uppercase text-[10px]">Nenhum jogador encontrado nesta categoria</p>
+                    </div>
+                ) : (
+                    filteredUsers.map(user => (
+                        <Card
+                            key={user.id}
+                            className={`group bg-[#0a0a0a] border-white/5 hover:border-neon-orange/20 transition-all cursor-pointer overflow-hidden rounded-[2rem] shadow-xl ${user.nickname?.includes('[BANIDO]') ? 'opacity-50 grayscale' : ''}`}
+                            onClick={() => openUser(user)}
+                        >
+                            <CardContent className="p-0">
+                                <div className="p-5 flex items-start gap-4">
+                                    <div className="relative shrink-0">
+                                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
+                                            {user.avatar_url ? (
+                                                <img src={user.avatar_url} className="h-full w-full object-cover" alt={user.nickname} />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-gray-600 bg-white/5">
+                                                    <Users size={24} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        {user.is_app_banned && (
+                                            <div className="absolute top-0 right-0 left-0 bottom-0 bg-red-900/80 backdrop-blur-[2px] rounded-2xl border-4 border-[#0a0a0a] flex items-center justify-center flex-col" title="Banido do App">
+                                                <Ban className="h-6 w-6 text-white mb-1 drop-shadow-md" />
+                                                <span className="text-[8px] font-black tracking-widest text-white uppercase bg-black/50 px-2 py-0.5 rounded-full">Exilado</span>
+                                            </div>
+                                        )}
+                                        {user.is_chat_banned && !user.is_app_banned && (
+                                            <div className="absolute -top-1 -right-1 bg-red-600 rounded-full p-1.5 border-2 border-[#0a0a0a] shadow-[0_0_10px_rgba(255,0,0,0.5)]" title="Banido do Chat">
+                                                <MessageSquare className="h-3 w-3 text-white" />
+                                            </div>
+                                        )}
+                                        {user.is_balance_locked && !user.is_app_banned && (
+                                            <div className="absolute -bottom-1 -right-1 bg-yellow-600 rounded-full p-1.5 border-2 border-[#0a0a0a] shadow-[0_0_10px_rgba(255,150,0,0.5)]" title="Saldo Trancado">
+                                                <Lock className="h-3 w-3 text-white" />
                                             </div>
                                         )}
                                     </div>
-                                    {user.is_chat_banned && (
-                                        <div className="absolute -top-1 -right-1 bg-red-600 rounded-full p-1 border-2 border-[#0a0a0a]" title="Banido do Chat">
-                                            <MessageSquare className="h-2 w-2 text-white" />
-                                        </div>
-                                    )}
-                                </div>
 
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <h4 className="font-black text-white uppercase italic truncate text-base leading-none group-hover:text-neon-orange transition-colors">
-                                            {user.nickname || "N/A"}
-                                        </h4>
-                                        <Badge variant="outline" className="text-[9px] font-black uppercase text-neon-green border-neon-green/20 bg-neon-green/5">
-                                            R$ {Number(user.saldo).toFixed(2)}
-                                        </Badge>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase truncate mt-1">{user.email}</p>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <h4 className="font-black text-white uppercase italic truncate text-base leading-none group-hover:text-neon-orange transition-colors">
+                                                {user.nickname || "N/A"}
+                                            </h4>
+                                            <Badge variant="outline" className="text-[9px] font-black uppercase text-neon-green border-neon-green/20 bg-neon-green/5">
+                                                R$ {Number(user.saldo).toFixed(2)}
+                                            </Badge>
+                                        </div>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase truncate mt-1">{user.email}</p>
 
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t border-white/5">
-                                        <div className="flex items-center gap-1">
-                                            <Shield className="h-3 w-3 text-neon-orange" />
-                                            <span className="text-[10px] font-mono text-white/70">ID: {user.freefire_id || "?"}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Zap className="h-3 w-3 text-yellow-500" />
-                                            <span className="text-[10px] font-bold text-white/50">NV.{user.freefire_level || 0}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Trophy className="h-3 w-3 text-neon-green" />
-                                            <span className="text-[10px] font-black text-neon-green">{user.victories || 0}V</span>
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t border-white/5">
+                                            <div className="flex items-center gap-1">
+                                                <Shield className="h-3 w-3 text-neon-orange" />
+                                                <span className="text-[10px] font-mono text-white/70">ID: {user.freefire_id || "?"}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Zap className="h-3 w-3 text-yellow-500" />
+                                                <span className="text-[10px] font-bold text-white/50">NV.{user.freefire_level || 0}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Trophy className="h-3 w-3 text-neon-green" />
+                                                <span className="text-[10px] font-black text-neon-green">{user.victories || 0}V</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
             </div>
 
             {/* Dossier Dialog */}
             <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-                <DialogContent className="bg-[#050505] border-white/5 text-white w-[98%] max-w-4xl rounded-[2.5rem] max-h-[92vh] overflow-y-auto shadow-2xl p-0 overflow-hidden">
+                <DialogContent className="bg-[#050505] border-white/5 text-white w-[98%] max-w-4xl rounded-[2.5rem] max-h-[92vh] overflow-y-auto shadow-2xl p-0">
                     {selectedUser && (
                         <div className="flex flex-col">
                             {/* Injected Header for Accessibility */}
-                            <DialogHeader className="sr-only">
-                                <DialogTitle>Dossiê do Jogador: {selectedUser.nickname}</DialogTitle>
+                            <DialogHeader className="p-8 pb-0 flex flex-row items-center justify-between gap-4">
+                                <div className="flex-1 min-w-0">
+                                    <DialogTitle className="text-2xl font-black uppercase text-white truncate">Dossiê do Jogador</DialogTitle>
+                                    <DialogDescription className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Controle Administrativo Total</DialogDescription>
+                                </div>
+                                <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)} className="h-10 w-10 rounded-full hover:bg-white/5 border border-white/5"><X size={18} /></Button>
                             </DialogHeader>
 
                             {/* Dialog Header / Profile Hero */}
@@ -1376,11 +1638,11 @@ function AdminUsers() {
                                         </Badge>
                                     </div>
                                     <div className="mb-2">
-                                        <h2 className="text-3xl font-black uppercase italic text-white flex items-center gap-2 leading-none">
+                                        <h2 className="text-3xl font-black uppercase italic text-white flex gap-2 leading-none items-center flex-wrap">
                                             {selectedUser.nickname || "N/A"}
-                                            {selectedUser.nickname?.includes('[BANIDO]') && <Badge variant="destructive" className="ml-2">BANIDO</Badge>}
+                                            {selectedUser.is_app_banned && <Badge variant="destructive" className="ml-2 font-black tracking-widest shadow-[0_0_15px_rgba(255,0,0,0.5)] animate-pulse">BANIDO APP</Badge>}
                                         </h2>
-                                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">{selectedUser.email || selectedUser.user_id}</p>
+                                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">{selectedUser.email || "E-mail não informado"}</p>
                                     </div>
                                 </div>
                                 <Button
@@ -1393,9 +1655,28 @@ function AdminUsers() {
                                 </Button>
                             </div>
 
-                            <div className="pt-20 px-8 pb-8 space-y-8">
+                            <div className="pt-24 px-8 pb-10 space-y-8">
                                 {!editMode ? (
                                     <>
+                                        {/* EMERGENCY ACTIONS - FORCED TOP VISIBILITY */}
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            <Button
+                                                onClick={() => setEditMode(true)}
+                                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-16 rounded-[1.5rem] font-black uppercase text-sm tracking-widest flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(37,99,235,0.3)] transition-all border-b-4 border-blue-800 active:border-b-0 active:translate-y-1"
+                                            >
+                                                <Edit size={22} /> Editar Perfil e Dados
+                                            </Button>
+                                            <Button
+                                                onClick={handleBlockBalance}
+                                                variant="outline"
+                                                className="flex-1 border-2 border-red-500/50 text-red-500 hover:bg-red-500/10 h-16 rounded-[1.5rem] font-black uppercase text-sm tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-red-900/10"
+                                            >
+                                                <DollarSign size={22} /> Zerar Saldo Total
+                                            </Button>
+                                        </div>
+
+                                        <div className="h-4"></div> {/* Spacer */}
+
                                         {/* Stats Grid */}
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                             <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
@@ -1457,12 +1738,20 @@ function AdminUsers() {
                                                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nick do Jogo</span>
                                                         <span className="text-xs font-black text-white italic truncate ml-4">{selectedUser.freefire_nick || "—"}</span>
                                                     </div>
-                                                    {selectedUser.is_chat_banned && (
-                                                        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex justify-between items-center">
-                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Status Chat</span>
-                                                            <span className="text-xs font-black text-red-500 uppercase italic flex items-center gap-1">
-                                                                <Ban size={12} /> BANIDO
-                                                            </span>
+                                                    {(selectedUser.is_chat_banned || selectedUser.is_app_banned || selectedUser.is_balance_locked) && (
+                                                        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex flex-col justify-between items-start gap-2">
+                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Penalidades Ativas na Conta</span>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {selectedUser.is_app_banned && (
+                                                                    <Badge className="bg-red-900 border border-red-500 text-white font-black uppercase text-[10px]"><Ban size={10} className="mr-1" /> Banido Entrada App</Badge>
+                                                                )}
+                                                                {selectedUser.is_chat_banned && (
+                                                                    <Badge className="bg-red-600 border border-red-400 text-white font-black uppercase text-[10px]"><MessageSquare size={10} className="mr-1" /> Mudo no Chat</Badge>
+                                                                )}
+                                                                {selectedUser.is_balance_locked && (
+                                                                    <Badge className="bg-yellow-600 border border-yellow-400 text-black font-black uppercase text-[10px]"><Lock size={10} className="mr-1" /> Saldo Trancado no Banco</Badge>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1489,24 +1778,31 @@ function AdminUsers() {
                                             </div>
                                         )}
 
-                                        {/* Advanced Actions Bar */}
-                                        <div className="pt-8 border-t border-white/5 flex flex-wrap gap-3">
-                                            <Button onClick={() => setEditMode(true)} className="bg-blue-600 hover:bg-blue-500 text-white h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-lg shadow-blue-900/20">
-                                                <Edit size={14} /> Editar Perfil
-                                            </Button>
-                                            <Button onClick={handleBlockBalance} variant="outline" className="border-yellow-600/30 text-yellow-500 hover:bg-yellow-500/10 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2">
-                                                <Lock size={14} /> Bloquear Saldo (Zerar)
-                                            </Button>
-                                            <Button onClick={handleToggleChatBan} variant="outline" className={`border-red-600/30 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ${selectedUser.is_chat_banned ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'text-red-500 hover:bg-red-500/10'}`}>
-                                                {selectedUser.is_chat_banned ? <Unlock size={14} /> : <MessageSquare size={14} />}
-                                                {selectedUser.is_chat_banned ? "Desbanir Chat" : "Banir do Chat"}
-                                            </Button>
-                                            <Button onClick={handleBanUser} variant="destructive" className="bg-red-800 hover:bg-red-700 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-lg shadow-red-900/40">
-                                                <Ban size={14} /> Banir do App
-                                            </Button>
-                                            <Button onClick={handleDeleteUser} variant="ghost" className="text-gray-600 hover:text-red-600 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ml-auto">
-                                                <Trash2 size={14} /> Excluir Permanentemente
-                                            </Button>
+
+                                        <div className="space-y-4 pt-4 border-t border-red-500/20 bg-red-950/10 p-4 rounded-[2rem] border mt-8">
+                                            <h5 className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] flex items-center gap-2"><Lock size={12} /> Sala de Punições do Admin</h5>
+                                            <div className="flex flex-wrap gap-3">
+                                                <Button onClick={handleToggleBalanceLock} variant="outline" className={`h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ${selectedUser.is_balance_locked ? 'bg-yellow-500 border-yellow-500 text-black shadow-[0_0_15px_rgba(255,200,0,0.4)] hover:bg-yellow-400' : 'border-yellow-600/30 text-yellow-500 hover:bg-yellow-500/10'}`}>
+                                                    {selectedUser.is_balance_locked ? <Unlock size={14} /> : <Lock size={14} />}
+                                                    {selectedUser.is_balance_locked ? "Destrancar Dinheiro" : "Trancar Saque/Jogo"}
+                                                </Button>
+
+                                                <Button onClick={handleToggleChatBan} variant="outline" className={`h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ${selectedUser.is_chat_banned ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'text-red-500 border-red-600/30 hover:bg-red-500/10'}`}>
+                                                    {selectedUser.is_chat_banned ? <MessageSquare size={14} /> : <Ban size={14} />}
+                                                    {selectedUser.is_chat_banned ? "Tirar Mudo do Chat" : "Mudo no Global"}
+                                                </Button>
+
+                                                <Button onClick={handleToggleAppBan} variant="destructive" className={`h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${selectedUser.is_app_banned ? 'bg-black text-red-500 border border-red-500/50' : 'bg-red-800 hover:bg-red-700 shadow-[0_0_20px_rgba(255,0,0,0.5)] border border-red-500'}`}>
+                                                    <Ban size={14} />
+                                                    {selectedUser.is_app_banned ? "Restaurar Acesso de App" : "Banir do App Inteiro (Exílio)"}
+                                                </Button>
+
+                                            </div>
+                                            <div className="flex justify-end pt-4 border-t border-red-500/10 mt-4">
+                                                <Button onClick={handleDeleteUser} variant="ghost" className="text-gray-600 hover:text-red-600 hover:bg-red-950/20 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shrink-0">
+                                                    <Trash2 size={14} /> Apagar do Banco de Dados
+                                                </Button>
+                                            </div>
                                         </div>
                                     </>
                                 ) : (
@@ -1545,10 +1841,22 @@ function AdminUsers() {
                                                         <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">ID Free Fire</Label><Input value={editFields.freefire_id} onChange={e => setEditFields({ ...editFields, freefire_id: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
                                                         <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nível Jogo</Label><Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({ ...editFields, freefire_level: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
                                                     </div>
+                                                    <div><Label className="text-[10px] uppercase font-black text-neon-green mb-1 block">Saldo (R$)</Label><Input type="number" step="0.01" value={editFields.saldo} onChange={e => setEditFields({ ...editFields, saldo: e.target.value })} className="bg-neon-green/5 border-neon-green/20 h-11 rounded-xl focus:border-neon-green text-neon-green font-black" /></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5 md:col-span-2">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <History size={12} /> Imagens (URLs Externas)
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">URL Foto de Perfil</Label><Input value={editFields.avatar_url} onChange={e => setEditFields({ ...editFields, avatar_url: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">URL Print de Nível</Label><Input value={editFields.freefire_proof_url} onChange={e => setEditFields({ ...editFields, freefire_proof_url: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
+
                                 )}
                             </div>
                         </div>
@@ -1564,35 +1872,60 @@ function AdminUsers() {
 // --- 4. FINANCEIRO (COM CONTROLE DE APROVAÇÃO AUTOMÁTICA) ---
 function AdminFinance() {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [transactions, setTransactions] = useState<any[]>([]);
+    const [historyTx, setHistoryTx] = useState<any[]>([]);
+
+    // GUARDA OS IDS APROVADOS/REJEITADOS PARA NUNCA MAIS APARECEREM MESMO SE TIVER DELAY NO BANCO
+    const [hiddenTxIds, setHiddenTxIds] = useState<Set<string>>(new Set());
 
     // Novo estado para o botão de Automático/Manual
     const [autoApprove, setAutoApprove] = useState(true);
     const [loadingSettings, setLoadingSettings] = useState(true);
 
     const fetchTx = async () => {
-        const { data } = await supabase
+        // Fetch pendentes
+        const { data: pendData } = await supabase
             .from("transactions")
             .select("*")
             .eq("status", "pending")
             .order("created_at", { ascending: false });
 
-        if (!data) return;
+        // Fetch historico
+        const { data: histData } = await supabase
+            .from("transactions")
+            .select("*")
+            .in("status", ["approved", "rejected"])
+            .order("created_at", { ascending: false })
+            .limit(50);
 
-        const userIds = [...new Set(data.map(tx => tx.user_id))];
-        if (userIds.length === 0) { setTransactions([]); return; }
-        const { data: profiles } = await supabase
-            .from("profiles")
-            .select("user_id, nickname, full_name, cpf, email")
-            .in("user_id", userIds);
+        const allUserIds = [...new Set([...(pendData || []), ...(histData || [])].map(tx => tx.user_id))];
 
-        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
-        const enriched = data.map(tx => {
+        let profileMap = new Map();
+        if (allUserIds.length > 0) {
+            const { data: profiles } = await supabase
+                .from("profiles")
+                .select("user_id, nickname, full_name, cpf, email")
+                .in("user_id", allUserIds);
+            profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+        }
+
+        const enrich = (list: any[]) => (list || []).map(tx => {
             const prof = profileMap.get(tx.user_id);
             return { ...tx, nickname: prof?.nickname || "Desconhecido", full_name: prof?.full_name || "-", cpf: prof?.cpf || "-", email: prof?.email || "-" };
         });
-        setTransactions(enriched);
+
+        // Filtra agressivamente usando a referência atualizada do React para realtime event race-conditions
+        setTransactions(enrich(pendData || []).filter(tx => !hiddenTxIdsRef.current.has(tx.id)));
+        setHistoryTx(enrich(histData || []));
     };
+
+    const hiddenTxIdsRef = React.useRef(hiddenTxIds);
+    // Força refiltragem se hiddenTxIds mudar ou fetchTx trazer delay
+    useEffect(() => {
+        hiddenTxIdsRef.current = hiddenTxIds;
+        setTransactions(prev => prev.filter(tx => !hiddenTxIds.has(tx.id)));
+    }, [hiddenTxIds]);
 
     // Busca a configuração atual ao abrir a tela
     const fetchSettings = async () => {
@@ -1644,98 +1977,156 @@ function AdminFinance() {
         if (tx.type === 'deposit' && tx.amount < 15) return toast({ variant: "destructive", title: "Bloqueado", description: "Depósito mínimo é R$ 15,00" });
         if (tx.type === 'withdraw' && tx.amount < 20) return toast({ variant: "destructive", title: "Bloqueado", description: "Saque mínimo é R$ 20,00" });
 
-        // Validate CPF and name for deposits
-        if (tx.type === 'deposit' && (!tx.full_name || tx.full_name === '-' || !tx.cpf || tx.cpf === '-')) {
-            return toast({ variant: "destructive", title: "Bloqueado", description: "Depósito requer Nome e CPF cadastrados." });
-        }
+        if (!confirm(`Confirma a aprovação deste ${tx.type === 'deposit' ? 'depósito' : 'saque'} no valor de R$ ${tx.amount}?`)) return;
 
-        const { data: profile } = await supabase.from("profiles").select("saldo").eq("user_id", tx.user_id).single();
-        if (!profile) return;
+        // FORÇA A REMOÇÃO IMEDIATA E BLINDA CONTRA REAPARECIMENTO
+        setHiddenTxIds(prev => new Set(prev).add(tx.id));
+        setTransactions(prev => prev.filter(t => t.id !== tx.id));
+        setHistoryTx(prev => [{ ...tx, status: 'approved', created_at: new Date().toISOString() }, ...prev]);
 
-        let newBalance = Number(profile.saldo);
-        if (tx.type === 'deposit') newBalance += Number(tx.amount);
-        if (tx.type === 'withdraw') {
-            if (newBalance < tx.amount) return toast({ variant: "destructive", title: "Saldo Insuficiente do Usuário" });
-            newBalance -= Number(tx.amount);
-        }
-        if (newBalance < 0) return toast({ variant: "destructive", title: "Erro: saldo ficaria negativo" });
+        try {
+            const { data: profile, error: profileErr } = await supabase.from("profiles").select("saldo").eq("user_id", tx.user_id).single();
+            if (profileErr || !profile) throw new Error("Perfil do usuário não encontrado.");
 
-        await supabase.from("profiles").update({ saldo: newBalance }).eq("user_id", tx.user_id);
-        await supabase.from("transactions").update({ status: 'approved' }).eq("id", tx.id);
+            let newBalance = Number(profile.saldo);
+            if (tx.type === 'deposit') newBalance += Number(tx.amount);
+            if (tx.type === 'withdraw') {
+                if (newBalance < tx.amount) throw new Error("Saldo Insuficiente do Usuário");
+                newBalance -= Number(tx.amount);
+            }
+            if (newBalance < 0) throw new Error("Erro: saldo ficaria negativo");
 
-        const adminId = (await supabase.auth.getUser()).data.user?.id;
+            // 1. Atualizar Saldo
+            const { error: updErr } = await supabase.from("profiles").update({ saldo: newBalance }).eq("user_id", tx.user_id);
+            if (updErr) throw updErr;
 
-        await supabase.from("audit_logs").insert({
-            admin_id: adminId,
-            action_type: 'finance_approve',
-            details: `Aprovou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name}, CPF: ${tx.cpf})`
-        });
+            // 2. Atualizar Transação
+            const { error: txErr } = await supabase.from("transactions").update({ status: 'approved' }).eq("id", tx.id);
+            if (txErr) throw txErr;
 
-        // --- LÓGICA DE RECOMPENSA POR INDICAÇÃO ---
-        if (tx.type === 'deposit') {
-            const { data: referral } = await supabase
-                .from("referrals")
-                .select("*")
-                .eq("referred_id", tx.user_id)
-                .eq("status", "pending")
-                .maybeSingle();
+            // 3. Registrar Log
+            await supabase.from("audit_logs").insert({
+                admin_id: user?.id,
+                action_type: 'finance_approve',
+                details: `Aprovou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name}, CPF: ${tx.cpf})`
+            });
 
-            if (referral) {
-                await supabase.from("referrals").update({ status: "confirmed" }).eq("id", referral.id);
+            // 4. Notificar
+            await supabase.from("notifications").insert({
+                user_id: tx.user_id,
+                title: tx.type === 'deposit' ? 'Depósito Confirmado 🚀' : 'Saque Efetuado 💸',
+                message: tx.type === 'deposit'
+                    ? `Seu depósito de R$ ${Number(tx.amount).toFixed(2)} já está no seu saldo!`
+                    : `Seu saque de R$ ${Number(tx.amount).toFixed(2)} foi aprovado e enviado.`,
+                type: 'payment_confirmed'
+            });
 
-                const { count } = await supabase
+            // --- LÓGICA DE RECOMPENSA POR INDICAÇÃO ---
+            if (tx.type === 'deposit') {
+                const { data: referral } = await supabase
                     .from("referrals")
-                    .select("*", { count: "exact", head: true })
-                    .eq("referrer_id", referral.referrer_id)
-                    .eq("status", "confirmed");
+                    .select("*")
+                    .eq("referred_id", tx.user_id)
+                    .eq("status", "pending")
+                    .maybeSingle();
 
-                if (count && count >= 10 && count % 10 === 0) {
-                    const rewardAmount = 10;
-                    const { data: referrerProfile } = await supabase.from("profiles").select("saldo").eq("user_id", referral.referrer_id).single();
-                    if (referrerProfile) {
-                        const newReferrerBalance = Number(referrerProfile.saldo) + rewardAmount;
-                        await supabase.from("profiles").update({ saldo: newReferrerBalance }).eq("user_id", referral.referrer_id);
+                if (referral) {
+                    await supabase.from("referrals").update({ status: "confirmed" }).eq("id", referral.id);
 
-                        await supabase.from("audit_logs").insert({
-                            admin_id: adminId,
-                            action_type: "referral_reward",
-                            details: `Recompensa automática de R$${rewardAmount.toFixed(2)} creditada por atingir ${count} indicações confirmadas.`
-                        });
+                    const { count } = await supabase
+                        .from("referrals")
+                        .select("*", { count: "exact", head: true })
+                        .eq("referrer_id", referral.referrer_id)
+                        .eq("status", "confirmed");
+
+                    if (count && count >= 10 && count % 10 === 0) {
+                        const rewardAmount = 10;
+                        const { data: referrerProfile } = await supabase.from("profiles").select("saldo").eq("user_id", referral.referrer_id).single();
+                        if (referrerProfile) {
+                            const newReferrerBalance = Number(referrerProfile.saldo) + rewardAmount;
+                            await supabase.from("profiles").update({ saldo: newReferrerBalance }).eq("user_id", referral.referrer_id);
+
+                            await supabase.from("audit_logs").insert({
+                                admin_id: user?.id,
+                                action_type: "referral_reward",
+                                details: `Recompensa automática de R$${rewardAmount.toFixed(2)} creditada por atingir ${count} indicações confirmadas.`
+                            });
+                        }
                     }
                 }
             }
+
+            toast({ title: "Transação Aprovada!" });
+
+            // DISPARO DE PUSH
+            try {
+                let labelMsg = tx.type === 'deposit' ? 'Depósito Caiu! 💰' : 'Saque Efetuado! 💸';
+                let bodyMsg = tx.type === 'deposit'
+                    ? `Seu depósito de R$ ${Number(tx.amount).toFixed(2)} já está no seu saldo. Vá jogar!`
+                    : `Seu saque de R$ ${Number(tx.amount).toFixed(2)} foi aprovado e enviado para você!`;
+
+                // Usando unknown para driblar checagem
+                await (window as any).sendPushNotification?.('ply_finance_done', labelMsg, bodyMsg, [tx.user_id]);
+            } catch (pushErr) {
+                console.error("Erro ao enviar push (não crítico):", pushErr);
+            }
+            // REMOVI O fetchTx() daqui para evitar race condition. O Realtime já faz isso ou o otimismo basta.
+        } catch (err: any) {
+            console.error("Erro ao aprovar transação:", err);
+            toast({ variant: "destructive", title: "Erro na Operação", description: err.message || "Tente novamente." });
+            // Se der erro de verdade, desfaz o otimismo
+            setHiddenTxIds(prev => { const n = new Set(prev); n.delete(tx.id); return n; });
+            fetchTx();
         }
-
-        toast({ title: "Transação Aprovada!" });
-        fetchTx();
-
-        // DISPARO DE PUSH: Notificar o usuário que pediu específico
-        let labelMsg = tx.type === 'deposit' ? 'Depósito Caiu! 💰' : 'Saque Efetuado! 💸';
-        let bodyMsg = tx.type === 'deposit'
-            ? `Seu depósito de R$ ${Number(tx.amount).toFixed(2)} já está no seu saldo. Vá jogar!`
-            : `Seu saque de R$ ${Number(tx.amount).toFixed(2)} foi aprovado e enviado para você!`;
-
-        await sendPushNotification('ply_finance_done', labelMsg, bodyMsg, [tx.user_id]);
     };
 
     const handleReject = async (tx: any) => {
         if (!confirm("Tem certeza que deseja rejeitar esta transação?")) return;
-        await supabase.from("transactions").update({ status: 'rejected' }).eq("id", tx.id);
-        await supabase.from("audit_logs").insert({
-            admin_id: (await supabase.auth.getUser()).data.user?.id,
-            action_type: 'finance_reject',
-            details: `Rejeitou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name})`
-        });
-        toast({ variant: "destructive", title: "Transação Rejeitada!" });
-        fetchTx();
 
-        // DISPARO DE PUSH: Notificar recusa
-        await sendPushNotification(
-            'ply_finance_done',
-            'Transação Recusada ❌',
-            `Seu ${tx.type === 'deposit' ? 'depósito' : 'saque'} de R$ ${Number(tx.amount).toFixed(2)} foi recusado. Contate o suporte.`,
-            [tx.user_id]
-        );
+        // FORÇA A REMOÇÃO IMEDIATA E BLINDA CONTRA REAPARECIMENTO
+        setHiddenTxIds(prev => new Set(prev).add(tx.id));
+        setTransactions(prev => prev.filter(t => t.id !== tx.id));
+        setHistoryTx(prev => [{ ...tx, status: 'rejected', created_at: new Date().toISOString() }, ...prev]);
+
+        try {
+            const { error: txErr } = await supabase.from("transactions").update({ status: 'rejected' }).eq("id", tx.id);
+            if (txErr) throw txErr;
+
+            await supabase.from("audit_logs").insert({
+                admin_id: user?.id,
+                action_type: 'finance_reject',
+                details: `Rejeitou ${tx.type === 'deposit' ? 'Depósito' : 'Saque'} de R$${Number(tx.amount).toFixed(2)} para ${tx.nickname} (${tx.full_name})`
+            });
+
+            // Notificação interna pro sistema de sininho
+            await supabase.from("notifications").insert({
+                user_id: tx.user_id,
+                title: 'Transação Rejeitada ❌',
+                message: `Seu ${tx.type === 'deposit' ? 'depósito' : 'saque'} de R$ ${Number(tx.amount).toFixed(2)} foi recusado. Contate o suporte.`,
+                type: 'payment_failed'
+            });
+
+            toast({ variant: "destructive", title: "Transação Rejeitada!" });
+
+            // DISPARO DE PUSH
+            try {
+                await (window as any).sendPushNotification?.(
+                    'ply_finance_done',
+                    'Transação Recusada ❌',
+                    `Seu ${tx.type === 'deposit' ? 'depósito' : 'saque'} de R$ ${Number(tx.amount).toFixed(2)} foi recusado. Contate o suporte.`,
+                    [tx.user_id]
+                );
+            } catch (pushErr) {
+                console.error("Erro ao enviar push (não crítico):", pushErr);
+            }
+            // REMOVI O fetchTx() daqui para evitar race condition.
+        } catch (err: any) {
+            console.error("Erro ao rejeitar transação:", err);
+            toast({ variant: "destructive", title: "Erro na Operação", description: err.message || "Tente novamente." });
+            // Desfaz o otimismo em caso de erro
+            setHiddenTxIds(prev => { const n = new Set(prev); n.delete(tx.id); return n; });
+            fetchTx();
+        }
     };
 
     return (
@@ -1749,11 +2140,11 @@ function AdminFinance() {
                 <CardContent>
                     <div className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
                         <div className="space-y-0.5">
-                            <Label className="text-base text-white">Aprovar Automaticamente</Label>
+                            <Label className="text-base text-white">Aprovar Automaticamente as PIX Asaas</Label>
                             <p className="text-xs text-gray-400">
                                 {autoApprove
                                     ? "Ligado: O saldo cai na conta do jogador assim que o banco confirmar."
-                                    : "Desligado: Você precisa aprovar manualmente cada depósito abaixo."}
+                                    : "Desligado: Todos os depósitos aguardarão a sua aprovação manual."}
                             </p>
                         </div>
                         <Switch
@@ -1766,38 +2157,81 @@ function AdminFinance() {
                 </CardContent>
             </Card>
 
-            <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase text-gray-500">Solicitações Pendentes</h3>
-                {transactions.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Tudo limpo por aqui.</p>}
-                {transactions.map(tx => (
-                    <Card key={tx.id} className="bg-[#0c0c0c] border-white/5">
-                        <CardContent className="p-3 space-y-2">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <Badge className={tx.type === 'deposit' ? "bg-green-600" : "bg-red-600"}>
-                                            {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
-                                        </Badge>
-                                        <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
+            <Tabs defaultValue="pendentes">
+                <TabsList className="grid w-full grid-cols-2 bg-secondary">
+                    <TabsTrigger value="pendentes" className="text-xs font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex gap-2">
+                        Pendentes
+                        {transactions.length > 0 && <span className="bg-red-500 text-white rounded-full px-2 py-0.5 text-[9px]">{transactions.length}</span>}
+                    </TabsTrigger>
+                    <TabsTrigger value="historico" className="text-xs font-bold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex gap-2">
+                        Histórico
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="pendentes" className="mt-4 space-y-3">
+                    <h3 className="text-xs font-bold uppercase text-gray-500">Solicitações Aguardando Ação</h3>
+                    {transactions.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Tudo limpo por aqui.</p>}
+                    {transactions.map(tx => (
+                        <Card key={tx.id} className="bg-[#0c0c0c] border-white/5">
+                            <CardContent className="p-3 space-y-2">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={tx.type === 'deposit' ? "bg-green-600" : "bg-red-600"}>
+                                                {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
+                                            </Badge>
+                                            <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
+                                        <p className="text-[9px] text-gray-600 font-mono mt-0.5">ID: {tx.id}</p>
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
-                                    <p className="text-[9px] text-gray-600 font-mono mt-0.5">ID: {tx.id}</p>
+                                    <div className="flex gap-2">
+                                        <Button size="icon" className="bg-green-600 h-8 w-8 hover:bg-green-700" onClick={() => handleApprove(tx)}><Check className="h-4 w-4" /></Button>
+                                        <Button size="icon" variant="destructive" className="h-8 w-8 hover:bg-red-700" onClick={() => handleReject(tx)}><X className="h-4 w-4" /></Button>
+                                    </div>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button size="icon" className="bg-green-600 h-8 w-8 hover:bg-green-700" onClick={() => handleApprove(tx)}><Check className="h-4 w-4" /></Button>
-                                    <Button size="icon" variant="destructive" className="h-8 w-8 hover:bg-red-700" onClick={() => handleReject(tx)}><X className="h-4 w-4" /></Button>
+                                <div className="grid grid-cols-2 gap-1 text-[10px] text-gray-500 bg-white/5 rounded p-2">
+                                    <span>Nome: <span className="text-gray-300">{tx.full_name}</span></span>
+                                    <span>CPF: <span className="text-gray-300">{tx.cpf}</span></span>
+                                    <span>Email: <span className="text-gray-300">{tx.email}</span></span>
+                                    <span>Horário: <span className="text-gray-300">{new Date(tx.created_at).toLocaleString("pt-BR")}</span></span>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-1 text-[10px] text-gray-500 bg-white/5 rounded p-2">
-                                <span>Nome: <span className="text-gray-300">{tx.full_name}</span></span>
-                                <span>CPF: <span className="text-gray-300">{tx.cpf}</span></span>
-                                <span>Email: <span className="text-gray-300">{tx.email}</span></span>
-                                <span>Horário: <span className="text-gray-300">{new Date(tx.created_at).toLocaleString("pt-BR")}</span></span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </TabsContent>
+
+                <TabsContent value="historico" className="mt-4 space-y-3">
+                    <h3 className="text-xs font-bold uppercase text-gray-500">Últimas Movimentações Finalizadas</h3>
+                    {historyTx.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Histórico vazio.</p>}
+                    {historyTx.map(tx => (
+                        <Card key={tx.id} className="bg-[#0c0c0c] border-white/5 opacity-80 hover:opacity-100 transition-opacity">
+                            <CardContent className="p-3 space-y-2">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <Badge className={tx.type === 'deposit' ? "bg-green-600/50" : "bg-red-600/50"}>
+                                                {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
+                                            </Badge>
+                                            <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
+                                    </div>
+                                    <div>
+                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${tx.status === 'approved' ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-500'}`}>
+                                            {tx.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-1 text-[10px] text-gray-500 bg-white/5 rounded p-2">
+                                    <span>Nome: <span className="text-gray-300">{tx.full_name}</span></span>
+                                    <span>Horário: <span className="text-gray-300">{new Date(tx.created_at).toLocaleString("pt-BR")}</span></span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
@@ -1806,7 +2240,9 @@ function AdminFinance() {
 function AdminPaymentLink() {
     const { toast } = useToast();
     const [currentLink, setCurrentLink] = useState("");
+    const [currentName, setCurrentName] = useState("Empresa Exemplo LTDA");
     const [newLink, setNewLink] = useState("");
+    const [newName, setNewName] = useState("");
     const [history, setHistory] = useState<any[]>([]);
 
     // Novo estado para controlar o Gateway
@@ -1822,9 +2258,14 @@ function AdminPaymentLink() {
     };
 
     const fetchSettings = async () => {
-        const { data } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'config_enable_asaas').maybeSingle();
-        // Se existir a configuração, usa. Se não, assume true (ligado).
-        if (data) setUseAsaas(data.is_enabled);
+        const { data: asaasData } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'config_enable_asaas').maybeSingle();
+        if (asaasData) setUseAsaas(asaasData.is_enabled);
+
+        const { data: nameData } = await (supabase as any).from('notification_settings').select('label').eq('key_name', 'config_manual_pix_name').maybeSingle();
+        if (nameData && nameData.label) {
+            setCurrentName(nameData.label);
+        }
+
         setLoadingSettings(false);
     };
 
@@ -1834,25 +2275,45 @@ function AdminPaymentLink() {
     }, []);
 
     const handleSaveLink = async () => {
-        if (!newLink.trim()) return toast({ variant: "destructive", title: "Digite o novo link" });
+        if (!newLink.trim() && !newName.trim()) return toast({ variant: "destructive", title: "Preencha a chave ou o nome" });
         const adminId = (await supabase.auth.getUser()).data.user?.id;
-        const { error } = await supabase.from("payment_links").insert({ link: newLink.trim(), created_by: adminId });
-        if (error) return toast({ variant: "destructive", title: "Erro", description: error.message });
 
-        await supabase.from("audit_logs").insert({
-            admin_id: adminId,
-            action_type: "payment_link_change",
-            details: `Admin alterou link de pagamento para: ${newLink.trim()}`
-        });
+        if (newLink.trim()) {
+            const { error: linkErr } = await supabase.from("payment_links").insert({ link: newLink.trim(), created_by: adminId });
+            if (linkErr) return toast({ variant: "destructive", title: "Erro na Chave", description: linkErr.message });
+            await supabase.from("audit_logs").insert({
+                admin_id: adminId,
+                action_type: "payment_link_change",
+                details: `Admin alterou chave de pagamento para: ${newLink.trim()}`
+            });
+            setNewLink("");
+        }
 
-        toast({ title: "Link atualizado!" });
-        setNewLink("");
+        if (newName.trim()) {
+            const { error: nameErr } = await (supabase as any).from('notification_settings').upsert({
+                key_name: 'config_manual_pix_name',
+                category: 'system',
+                label: newName.trim(),
+                is_enabled: true
+            }, { onConflict: 'key_name' });
+
+            if (nameErr) return toast({ variant: "destructive", title: "Erro no Nome", description: nameErr.message });
+
+            await supabase.from("audit_logs").insert({
+                admin_id: adminId,
+                action_type: "payment_name_change",
+                details: `Admin alterou nome do PIX para: ${newName.trim()}`
+            });
+            setCurrentName(newName.trim());
+            setNewName("");
+        }
+
+        toast({ title: "Dados do PIX atualizados!" });
         fetchLinks();
     };
 
     const handleToggleAsaas = async (val: boolean) => {
         setUseAsaas(val);
-        // Usa a tabela de settings para guardar essa config global
         const { error } = await (supabase as any).from('notification_settings').upsert({
             key_name: 'config_enable_asaas',
             is_enabled: val,
@@ -1862,7 +2323,7 @@ function AdminPaymentLink() {
 
         if (error) {
             toast({ variant: 'destructive', title: 'Erro ao salvar configuração' });
-            setUseAsaas(!val); // Reverte visualmente se falhar
+            setUseAsaas(!val);
         } else {
             toast({ title: val ? "Modo Automático Ativado" : "Modo Manual Ativado" });
         }
@@ -1871,7 +2332,7 @@ function AdminPaymentLink() {
     return (
         <div className="space-y-4">
 
-            {/* NOVO: SWITCH DE CONTROLE DO GATEWAY */}
+            {/* SWITCH DE CONTROLE DO GATEWAY */}
             <Card className="border-neon-orange/30 bg-[#0c0c0c]">
                 <CardHeader className="pb-2">
                     <CardTitle className="text-sm text-neon-orange uppercase flex items-center gap-2"><Zap className="h-4 w-4" /> Modo de Operação</CardTitle>
@@ -1883,7 +2344,7 @@ function AdminPaymentLink() {
                             <p className="text-xs text-gray-400">
                                 {useAsaas
                                     ? "Ligado: O sistema gera PIX Copia e Cola automático."
-                                    : "Desligado: O sistema usa o link manual abaixo."}
+                                    : "Desligado: O sistema usa a Chave Manual configurada abaixo."}
                             </p>
                         </div>
                         <Switch
@@ -1898,19 +2359,37 @@ function AdminPaymentLink() {
 
             <Card className={`border-white/10 bg-[#0c0c0c] ${useAsaas ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
                 <CardHeader className="pb-2">
-                    <CardTitle className="text-sm text-gray-400 uppercase flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Link Manual (Emergência)</CardTitle>
+                    <CardTitle className="text-sm text-gray-400 uppercase flex items-center gap-2"><LinkIcon className="h-4 w-4" /> Configuração PIX Manual (Emergência)</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <div className="bg-black/50 p-3 rounded border border-white/10">
-                        <p className="text-sm text-white break-all font-mono">{currentLink || "Nenhum link configurado"}</p>
+                    <div className="bg-black/50 p-3 rounded border border-white/10 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Chave Atual</span>
+                            <p className="text-sm text-white break-all font-mono">{currentLink || "Nenhuma chave configurada"}</p>
+                        </div>
+                        <div>
+                            <span className="text-[10px] text-gray-500 font-bold uppercase block mb-1">Nome Beneficiário Atual</span>
+                            <p className="text-sm text-white break-all font-mono">{currentName}</p>
+                        </div>
                     </div>
-                    <Input placeholder="Novo link de pagamento (PIX, email, etc.)" value={newLink} onChange={e => setNewLink(e.target.value)} className="bg-black/50 border-white/10" />
-                    <Button onClick={handleSaveLink} className="w-full bg-gray-700 hover:bg-gray-600 font-bold">Atualizar Link Manual</Button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase font-bold text-gray-400">Nova Chave PIX</Label>
+                            <Input placeholder="E-mail, CPF, Telefone ou Aleatória" value={newLink} onChange={e => setNewLink(e.target.value)} className="bg-black/50 border-white/10" />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] uppercase font-bold text-gray-400">Novo Nome Beneficiário</Label>
+                            <Input placeholder="Nome exato que aparece no PIX" value={newName} onChange={e => setNewName(e.target.value)} className="bg-black/50 border-white/10" />
+                        </div>
+                    </div>
+
+                    <Button onClick={handleSaveLink} className="w-full bg-gray-700 hover:bg-gray-600 font-bold mt-2">Atualizar Dados PIX Manual</Button>
                 </CardContent>
             </Card>
 
             <div className="space-y-2">
-                <h3 className="text-xs font-bold uppercase text-gray-500">Histórico de Links</h3>
+                <h3 className="text-xs font-bold uppercase text-gray-500">Histórico de Chaves</h3>
                 {history.map(h => (
                     <div key={h.id} className="bg-[#111] p-2 rounded border border-white/5 flex justify-between items-center">
                         <p className="text-xs text-gray-300 break-all flex-1">{h.link}</p>
@@ -3411,11 +3890,14 @@ const AdminPassesUsers = () => {
 }
 
 // --- 11. CARTEIRA E LUCRO DA EMPRESA ---
+// --- 11. CARTEIRA E LUCRO DA EMPRESA ---
 function AdminCompanyWallet() {
     const [period, setPeriod] = useState<'hoje' | 'semana' | 'mes' | 'tudo'>('semana');
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ totalProfit: 0, totalMatches: 0, highestProfit: 0 });
+    const [stats, setStats] = useState({ totalProfit: 0, totalDeposits: 0, totalWithdrawals: 0, totalPrizes: 0, matchesFinished: 0 });
     const [chartData, setChartData] = useState<any[]>([]);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const { toast } = useToast();
 
     useEffect(() => {
         const fetchWallet = async () => {
@@ -3428,139 +3910,267 @@ function AdminCompanyWallet() {
             else if (period === 'semana') startRange = startOfWeek(now, { weekStartsOn: 0 });
             else if (period === 'mes') startRange = startOfMonth(now);
 
-            let query = supabase.from("tournaments").select("updated_at, platform_tax").eq("status", "finished");
+            // Fetch wallet reset date
+            const { data: resetData } = await (supabase as any)
+                .from("notification_settings")
+                .select("label")
+                .eq("key_name", "WALLET_RESET_DATE")
+                .maybeSingle();
 
-            if (startRange) {
-                query = query.gte("updated_at", startRange.toISOString()).lte("updated_at", endRange.toISOString());
+            let resetDate: Date | null = null;
+            if (resetData && resetData.label) {
+                resetDate = new Date(resetData.label);
             }
 
-            const { data } = await query;
-            if (data) {
-                let sTotal = 0;
-                let sMatches = 0;
-                let sHighest = 0;
-                const daily: Record<string, number> = {};
+            if (resetDate) {
+                if (!startRange || resetDate > startRange) {
+                    startRange = resetDate;
+                }
+            }
 
-                data.forEach(t => {
+            let queryTournaments = supabase.from("tournaments").select("updated_at, platform_tax, prize_pool").eq("status", "finished");
+            if (startRange) {
+                queryTournaments = queryTournaments.gte("updated_at", startRange.toISOString()).lte("updated_at", endRange.toISOString());
+            }
+
+            let queryTx = supabase.from("transactions").select("created_at, amount, type").in("status", ["approved"]);
+            if (startRange) {
+                queryTx = queryTx.gte("created_at", startRange.toISOString()).lte("created_at", endRange.toISOString());
+            }
+
+            const [tRes, txRes] = await Promise.all([queryTournaments, queryTx]);
+
+            let sTotal = 0;
+            let sMatches = 0;
+            let sDep = 0;
+            let sWith = 0;
+            let sPrize = 0;
+            const daily: Record<string, any> = {};
+
+            const initDay = (d: string) => {
+                if (!daily[d]) daily[d] = { name: d, lucro: 0, deposit: 0, withdraw: 0, prizes: 0 };
+            };
+
+            if (tRes.data) {
+                tRes.data.forEach(t => {
                     const profit = Number(t.platform_tax || 0);
+                    const prize = Number(t.prize_pool || 0);
                     sTotal += profit;
                     sMatches += 1;
-                    if (profit > sHighest) sHighest = profit;
-
+                    sPrize += prize;
                     const dateKey = format(new Date(t.updated_at), "dd/MM");
-                    daily[dateKey] = (daily[dateKey] || 0) + profit;
+                    initDay(dateKey);
+                    daily[dateKey].lucro += profit;
+                    daily[dateKey].prizes += prize;
                 });
-
-                // Generate array for chart (ensuring all days in range for 'semana' or 'mes')
-                const formattedChartData = [];
-                if (period === 'semana') {
-                    for (let i = 6; i >= 0; i--) {
-                        const d = format(subDays(now, i), "dd/MM");
-                        formattedChartData.push({ name: d, lucro: daily[d] || 0 });
-                    }
-                } else if (period === 'mes') {
-                    for (let i = 29; i >= 0; i--) {
-                        const d = format(subDays(now, i), "dd/MM");
-                        formattedChartData.push({ name: d, lucro: daily[d] || 0 });
-                    }
-                } else {
-                    Object.keys(daily).sort().forEach(k => {
-                        formattedChartData.push({ name: k, lucro: daily[k] });
-                    });
-                }
-
-                setStats({ totalProfit: sTotal, totalMatches: sMatches, highestProfit: sHighest });
-                setChartData(formattedChartData);
             }
+
+            if (txRes.data) {
+                txRes.data.forEach(tx => {
+                    const val = Number(tx.amount || 0);
+                    const isDep = tx.type === 'deposit';
+                    if (isDep) sDep += val;
+                    else sWith += val;
+
+                    const dateKey = format(new Date(tx.created_at), "dd/MM");
+                    initDay(dateKey);
+                    if (isDep) daily[dateKey].deposit += val;
+                    else daily[dateKey].withdraw += val;
+                });
+            }
+
+            const formattedChartData = [];
+            if (period === 'semana') {
+                for (let i = 6; i >= 0; i--) {
+                    const d = format(subDays(now, i), "dd/MM");
+                    formattedChartData.push(daily[d] || { name: d, lucro: 0, deposit: 0, withdraw: 0, prizes: 0 });
+                }
+            } else if (period === 'mes') {
+                for (let i = 29; i >= 0; i--) {
+                    const d = format(subDays(now, i), "dd/MM");
+                    formattedChartData.push(daily[d] || { name: d, lucro: 0, deposit: 0, withdraw: 0, prizes: 0 });
+                }
+            } else {
+                Object.keys(daily).sort().forEach(k => {
+                    formattedChartData.push(daily[k]);
+                });
+            }
+
+            setStats({ totalProfit: sTotal, totalDeposits: sDep, totalWithdrawals: sWith, totalPrizes: sPrize, matchesFinished: sMatches });
+            setChartData(formattedChartData);
             setLoading(false);
         };
         fetchWallet();
-    }, [period]);
+    }, [period, refreshTrigger]);
+
+    const handleResetWallet = async () => {
+        if (!confirm("ATENÇÃO: Você tem certeza que deseja RESETAR a carteira? Isso vai definir a data inicial de todos os gráficos desta aba para AGORA, zerando o painel para iniciar um novo ciclo financeiro. O histórico real de transações no banco de dados não será apagado, esta ação apenas afeta a visualização móvel.")) return;
+
+        await (supabase as any).from("notification_settings").upsert({
+            key_name: "WALLET_RESET_DATE",
+            category: "system_data",
+            label: new Date().toISOString(),
+            is_enabled: true
+        }, { onConflict: 'key_name' });
+
+        toast({ title: "Carteira zerada com sucesso!", description: "Seu painel inicia um novo ciclo contábil." });
+        setRefreshTrigger(prev => prev + 1);
+    };
 
     return (
         <div className="space-y-6">
-            <div className="bg-gradient-to-r from-green-900/30 to-green-900/10 border border-green-500/30 p-4 rounded-xl flex items-center justify-between">
-                <div>
-                    <h3 className="text-sm font-black uppercase text-green-400 flex items-center gap-2"><Wallet className="h-5 w-5" /> Carteira da Plataforma</h3>
-                    <p className="text-xs text-gray-400 mt-1">Lucro acumulado gerado pela taxa de 30% nas salas fechadas.</p>
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-green-900 via-emerald-900 to-black border border-green-500/30 p-8 shadow-2xl">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/20 rounded-full blur-[100px] pointer-events-none transform translate-x-1/2 -translate-y-1/2"></div>
+                <div className="absolute bottom-0 left-0 w-64 h-64 bg-emerald-500/20 rounded-full blur-[100px] pointer-events-none transform -translate-x-1/2 translate-y-1/2"></div>
+
+                <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="bg-green-500/20 p-3 rounded-2xl border border-green-500/30">
+                                <Wallet className="h-8 w-8 text-green-400" />
+                            </div>
+                            <h3 className="text-3xl font-black uppercase text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-200 tracking-tight">Painel Financeiro & Lucro</h3>
+                        </div>
+                        <p className="text-sm text-green-100/70 font-medium tracking-tight">Análise de caixa, entradas, saídas e lucro retido da plataforma (Taxa de 30%).</p>
+                    </div>
+
+                    <div className="flex bg-black/40 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 w-full md:w-auto overflow-x-auto">
+                        {['hoje', 'semana', 'mes', 'tudo'].map(p => (
+                            <button
+                                key={p}
+                                onClick={() => setPeriod(p as any)}
+                                className={`text-[10px] md:text-sm font-black uppercase px-6 py-3 rounded-xl transition-all duration-300 ${period === p ? 'bg-green-500 text-black shadow-[0_0_20px_rgba(34,197,94,0.4)]' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            >
+                                {p}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Filter */}
-            <div className="flex bg-[#111] p-1 rounded-lg border border-white/5 w-max">
-                {['hoje', 'semana', 'mes', 'tudo'].map(p => (
-                    <button
-                        key={p}
-                        onClick={() => setPeriod(p as any)}
-                        className={`text-xs font-bold uppercase px-4 py-2 rounded-md transition-all ${period === p ? 'bg-green-600 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-                    >
-                        {p}
-                    </button>
-                ))}
-            </div>
-
             {loading ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-green-500" /></div>
+                <div className="flex justify-center items-center py-20 min-h-[400px]">
+                    <div className="relative flex items-center justify-center">
+                        <div className="absolute w-24 h-24 border-4 border-green-500/20 rounded-full animate-ping"></div>
+                        <Loader2 className="animate-spin h-12 w-12 text-green-500 relative z-10" />
+                    </div>
+                </div>
             ) : (
-                <>
-                    {/* KPIs */}
-                    <div className="grid grid-cols-3 gap-3">
-                        <Card className="bg-[#111] border-white/10 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 rounded-bl-full"></div>
-                            <CardContent className="p-4">
-                                <p className="text-[10px] text-gray-500 font-bold uppercase">Faturamento (Período)</p>
-                                <p className="text-2xl font-black text-green-400 mt-1">R$ {stats.totalProfit.toFixed(2)}</p>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Card className="bg-black/60 backdrop-blur-xl border border-white/5 relative overflow-hidden group hover:border-green-500/50 transition-all duration-300 rounded-[2rem]">
+                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"></div>
+                            <CardContent className="p-6 relative z-10 flex flex-col items-center justify-center text-center">
+                                <div className="p-3 bg-green-500/10 rounded-2xl mb-3 group-hover:scale-110 transition-transform"><Wallet className="h-6 w-6 text-green-400" /></div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Lucro Retido (30%)</p>
+                                <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-200">R$ {stats.totalProfit.toFixed(2)}</p>
                             </CardContent>
                         </Card>
-                        <Card className="bg-[#111] border-white/10 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full"></div>
-                            <CardContent className="p-4">
-                                <p className="text-[10px] text-gray-500 font-bold uppercase">Partidas Finalizadas</p>
-                                <p className="text-2xl font-black text-white mt-1">{stats.totalMatches}</p>
+
+                        <Card className="bg-black/60 backdrop-blur-xl border border-white/5 relative overflow-hidden group hover:border-blue-500/50 transition-all duration-300 rounded-[2rem]">
+                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"></div>
+                            <CardContent className="p-6 relative z-10 flex flex-col items-center justify-center text-center">
+                                <div className="p-3 bg-blue-500/10 rounded-2xl mb-3 group-hover:scale-110 transition-transform"><Upload className="h-6 w-6 text-blue-400" /></div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Depósitos Totais</p>
+                                <p className="text-3xl font-black text-blue-400">R$ {stats.totalDeposits.toFixed(2)}</p>
                             </CardContent>
                         </Card>
-                        <Card className="bg-[#111] border-white/10 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-bl-full"></div>
-                            <CardContent className="p-4">
-                                <p className="text-[10px] text-gray-500 font-bold uppercase">Maior Lucro (Unitário)</p>
-                                <p className="text-2xl font-black text-yellow-400 mt-1">R$ {stats.highestProfit.toFixed(2)}</p>
+
+                        <Card className="bg-black/60 backdrop-blur-xl border border-white/5 relative overflow-hidden group hover:border-red-500/50 transition-all duration-300 rounded-[2rem]">
+                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-red-500/10 rounded-full blur-2xl group-hover:bg-red-500/20 transition-all"></div>
+                            <CardContent className="p-6 relative z-10 flex flex-col items-center justify-center text-center">
+                                <div className="p-3 bg-red-500/10 rounded-2xl mb-3 group-hover:scale-110 transition-transform"><DollarSign className="h-6 w-6 text-red-400" /></div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Saques Realizados</p>
+                                <p className="text-3xl font-black text-red-400">R$ {stats.totalWithdrawals.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-black/60 backdrop-blur-xl border border-white/5 relative overflow-hidden group hover:border-yellow-500/50 transition-all duration-300 rounded-[2rem]">
+                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition-all"></div>
+                            <CardContent className="p-6 relative z-10 flex flex-col items-center justify-center text-center">
+                                <div className="p-3 bg-yellow-500/10 rounded-2xl mb-3 group-hover:scale-110 transition-transform"><Trophy className="h-6 w-6 text-yellow-400" /></div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Prêmios Pagos</p>
+                                <p className="text-3xl font-black text-yellow-400">R$ {stats.totalPrizes.toFixed(2)}</p>
                             </CardContent>
                         </Card>
                     </div>
 
-                    {/* Chart */}
-                    <Card className="bg-[#111] border-white/10 pt-4">
-                        <CardHeader className="pb-2 pt-0">
-                            <CardTitle className="text-xs uppercase text-gray-500">Curva de Faturamento</CardTitle>
-                        </CardHeader>
-                        <CardContent className="h-64 px-2">
-                            {chartData.length === 0 ? (
-                                <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado para exibir neste período.</div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
-                                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                                        <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
-                                        <RechartsTooltip
-                                            contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px', fontSize: '12px' }}
-                                            itemStyle={{ color: '#22c55e', fontWeight: 'bold' }}
-                                            formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Lucro']}
-                                            labelStyle={{ color: '#888', marginBottom: '4px' }}
-                                        />
-                                        <Area type="monotone" dataKey="lucro" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            )}
-                        </CardContent>
-                    </Card>
-                </>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Card className="bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
+                            <CardHeader className="border-b border-white/5 bg-white/[0.02]">
+                                <CardTitle className="text-sm uppercase text-gray-400 flex items-center gap-2">
+                                    <BarChart2 className="h-4 w-4 text-green-500" /> Crescimento do Lucro (Retenção 30%)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-72 p-6">
+                                {chartData.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado financeiro.</div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                            <defs>
+                                                <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#22c55e" stopOpacity={0.5} />
+                                                    <stop offset="95%" stopColor="#22c55e" stopOpacity={0.0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                                            <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
+                                            <RechartsTooltip
+                                                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', padding: '12px' }}
+                                                itemStyle={{ color: '#22c55e', fontWeight: 'bold' }}
+                                                formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Lucro']}
+                                                labelStyle={{ color: '#888', marginBottom: '8px', fontWeight: 'bold' }}
+                                            />
+                                            <Area type="monotone" dataKey="lucro" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
+                            <CardHeader className="border-b border-white/5 bg-white/[0.02]">
+                                <CardTitle className="text-sm uppercase text-gray-400 flex items-center gap-2">
+                                    <BarChart2 className="h-4 w-4 text-blue-500" /> Fluxo de Caixa (Depósitos vs Saques)
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="h-72 p-6">
+                                {chartData.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado financeiro.</div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                                            <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                                            <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
+                                            <RechartsTooltip
+                                                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', padding: '12px' }}
+                                                formatter={(value: number, name: string) => [`R$ ${value.toFixed(2)}`, name === 'deposit' ? 'Depósito' : 'Saque']}
+                                                labelStyle={{ color: '#888', marginBottom: '8px', fontWeight: 'bold' }}
+                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                            />
+                                            <Bar dataKey="deposit" name="deposit" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                                            <Bar dataKey="withdraw" name="withdraw" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Botão de Reset */}
+                    <div className="flex justify-end pt-8 pb-4">
+                        <Button
+                            variant="outline"
+                            onClick={handleResetWallet}
+                            className="bg-red-900/10 border-red-500/30 text-red-500 hover:bg-red-900/40 hover:text-red-400 font-bold uppercase tracking-widest text-xs h-12 px-6 rounded-xl transition-all shadow-[0_0_15px_rgba(239,68,68,0.1)]"
+                        >
+                            <Trash2 className="h-4 w-4 mr-2" /> Zarar Dados e Recomeçar Gráficos
+                        </Button>
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -3635,20 +4245,40 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
         });
     };
 
+    const handleClearChat = async () => {
+        if (!confirm("Tem certeza que deseja LIMPAR TODO o histórico do Chat Global?")) return;
+        const { error } = await supabase.from('global_chat_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        if (!error) {
+            toast({ title: "Chat limpo com sucesso!" });
+            // Broadcast reload command to everyone
+            await supabase.from('global_chat_messages').insert({
+                sender_id: profile?.user_id,
+                message: 'SYS_CMD_RELOAD',
+                is_admin: true
+            });
+        } else {
+            toast({ variant: "destructive", title: "Erro ao limpar", description: error.message });
+        }
+    };
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() || !profile) return;
 
-        await supabase.from('global_chat_messages').insert({
-            sender_id: profile.user_id,
-            message: newMessage,
-            is_admin: true
-        });
-
         if (sendPush) {
+            await supabase.from('global_chat_messages').insert({
+                sender_id: profile.user_id,
+                message: `📢 [PRIORIDADE] ${newMessage}`,
+                is_admin: true
+            });
             await sendPushNotification('push_announcements', 'Mensagem do Admin 🚨', newMessage);
             toast({ title: "Mensagem e Push enviados com sucesso!" });
         } else {
+            await supabase.from('global_chat_messages').insert({
+                sender_id: profile.user_id,
+                message: newMessage,
+                is_admin: true
+            });
             toast({ title: "Mensagem enviada com sucesso!" });
         }
 
@@ -3667,17 +4297,35 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
 
         if (!error) {
             toast({ title: "Mensagem fixada atualizada!" });
-
-            // Using guaranteed realtime pipeline to broadcast change
             await supabase.from('global_chat_messages').insert({
                 sender_id: profile?.user_id,
                 message: 'SYS_CMD_UPDATE_PIN',
                 is_admin: true
             });
-
         } else {
             console.error("Save pinned error:", error);
             toast({ title: "Erro ao atualizar mensagem fixada.", description: error.message });
+        }
+        setIsSavingPinned(false);
+    };
+
+    const handleClearPinned = async () => {
+        setIsSavingPinned(true);
+        const { error } = await supabase.from('notification_settings').upsert({
+            key_name: 'global_chat_pinned_message',
+            category: 'chat',
+            label: '',
+            is_enabled: false
+        }, { onConflict: 'key_name' });
+
+        if (!error) {
+            setPinnedMsg("");
+            toast({ title: "Mensagem fixada removida!" });
+            await supabase.from('global_chat_messages').insert({
+                sender_id: profile?.user_id,
+                message: 'SYS_CMD_UPDATE_PIN',
+                is_admin: true
+            });
         }
         setIsSavingPinned(false);
     };
@@ -3741,6 +4389,9 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
                                     {isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                                     {isLocked ? "Destrancar Chat (Permitir Todos)" : "Trancar Chat (Apenas você fala)"}
                                 </Button>
+                                <Button onClick={handleClearChat} variant="destructive" className="w-full font-black uppercase text-[10px] tracking-widest h-10 mt-2 bg-red-900/20 text-red-500 border border-red-500/30 hover:bg-red-900/40">
+                                    <Trash2 className="h-3 w-3 mr-2" /> Limpar Histórico do Chat
+                                </Button>
                             </div>
 
                             <div className="pt-4 border-t border-white/5">
@@ -3774,7 +4425,7 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
                                     {isSavingPinned ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar Fixação"}
                                 </Button>
                                 {pinnedMsg && (
-                                    <Button onClick={() => { setPinnedMsg(""); }} variant="outline" className="border-red-500/50 text-red-500 hover:bg-red-500/10">
+                                    <Button onClick={handleClearPinned} variant="outline" className="border-red-500/50 text-red-500 hover:bg-red-500/10 h-10 font-bold">
                                         Limpar
                                     </Button>
                                 )}

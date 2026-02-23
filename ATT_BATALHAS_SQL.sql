@@ -1,0 +1,1 @@
+ALTER TABLE public.chat_battles ADD COLUMN IF NOT EXISTS platform_tax NUMERIC DEFAULT 30;

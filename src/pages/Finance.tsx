@@ -45,6 +45,7 @@ function DepositTab() {
   const [step, setStep] = useState<"amount" | "pix" | "pending">("amount");
   const [showKyc, setShowKyc] = useState(false);
   const [pixKey, setPixKey] = useState("realfiregamesmoney@gmail.com");
+  const [pixName, setPixName] = useState("Beneficiário Indefinido");
 
   // --- NOVOS ESTADOS PARA O ASAAS ---
   const [useAsaas, setUseAsaas] = useState(false);
@@ -59,10 +60,15 @@ function DepositTab() {
       if (data && data.length > 0 && data[0].link) setPixKey(data[0].link);
     });
 
-    // 2. Verifica se o Admin ativou o Modo Asaas
+    // 2. Verifica se o Admin ativou o Modo Asaas e pega o nome manual
     const checkConfig = async () => {
-      const { data } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'config_enable_asaas').maybeSingle();
-      if (data) setUseAsaas(data.is_enabled);
+      const { data: asaasData } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'config_enable_asaas').maybeSingle();
+      setUseAsaas(asaasData ? asaasData.is_enabled : true);
+
+      const { data: nameData } = await (supabase as any).from('notification_settings').select('label').eq('key_name', 'config_manual_pix_name').maybeSingle();
+      if (nameData && nameData.label) {
+        setPixName(nameData.label);
+      }
     };
     checkConfig();
   }, []);
@@ -71,7 +77,7 @@ function DepositTab() {
     // Copia ou o código do Asaas ou a chave manual
     const textToCopy = asaasCopyPaste || pixKey;
     navigator.clipboard.writeText(textToCopy);
-    toast({ title: "Código PIX copiado!" });
+    toast({ title: "Código PIX copiado!", description: "Agora basta pagar no seu banco." });
   };
 
   const handleContinueDeposit = async () => {
@@ -103,11 +109,33 @@ function DepositTab() {
 
         setAsaasQrCode(data.encodedImage || ""); // Base64 image
         setAsaasCopyPaste(data.payload || ""); // PIX copia e cola
+
+        // NOVO: Registra a transação PENDENTE imediatamente no banco
+        await supabase.from("transactions").insert({
+          user_id: user?.id,
+          type: "deposit",
+          amount: val,
+          status: "pending"
+        });
+
+        // Log da geração
+        await supabase.from("audit_logs").insert({
+          admin_id: user?.id,
+          action_type: "deposit_pix_generated",
+          details: `Jogador ${profile?.nickname} gerou PIX de R$${val.toFixed(2)} (Asaas ID: ${data.paymentId})`
+        });
+
         setStep("pix");
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      } catch (err: any) {
+        const msg = err.message || 'Erro desconhecido';
         console.error('Erro create-pix-charge:', msg);
-        toast({ title: "Modo automático indisponível", description: msg });
+
+        toast({
+          variant: "destructive",
+          title: "Falha no PIX Automático",
+          description: msg.includes("ASAAS_API_KEY") ? "O Administrador ainda não configurou a Chave Asaas." : msg
+        });
+
         setAsaasCopyPaste("");
         setStep("pix");
       } finally {
@@ -120,17 +148,25 @@ function DepositTab() {
 
   const handlePaid = async () => {
     if (!user) return;
+
+    if (useAsaas && asaasCopyPaste) {
+      setStep("pending");
+      return;
+    }
+
     const { error } = await supabase.from("transactions").insert({
-      user_id: user.id, type: "deposit", amount: parseFloat(amount), status: "pending",
+      user_id: user.id,
+      type: "deposit",
+      amount: parseFloat(amount),
+      status: "pending"
     });
     if (error) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     } else {
-      // Log deposit request
       await supabase.from("audit_logs").insert({
         admin_id: user.id,
         action_type: "deposit_request",
-        details: `Jogador ${profile?.nickname} solicitou depósito de R$${parseFloat(amount).toFixed(2)} ${useAsaas ? '(Automático)' : '(Manual)'}`
+        details: `Jogador ${profile?.nickname} solicitou depósito de R$${parseFloat(amount).toFixed(2)} ${useAsaas ? '(Automático Asaas)' : '(Manual PIX)'}`
       });
       setStep("pending");
     }
@@ -176,9 +212,17 @@ function DepositTab() {
             )}
 
             <p className="text-xs uppercase text-muted-foreground mb-2">
-              {asaasCopyPaste ? "PIX Copia e Cola" : "Chave PIX (Email)"}
+              {asaasCopyPaste ? "PIX Copia e Cola" : "Chave PIX"}
             </p>
-            
+
+            {/* SE FOR PIX MANUAL, EXIBE O NOME DO BENEFICIÁRIO QUE O ADMIN CADASTROU */}
+            {!asaasCopyPaste && (
+              <div className="bg-neon-orange/10 border border-neon-orange/20 rounded-lg p-2 mb-3 w-full text-center">
+                <p className="text-[10px] text-neon-orange uppercase font-bold mb-0.5">Nome do Beneficiário</p>
+                <p className="text-sm text-foreground font-bold">{pixName}</p>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 rounded-lg bg-secondary p-3 w-full">
               <p className="flex-1 text-[10px] sm:text-sm text-foreground break-all font-mono leading-tight">
                 {asaasCopyPaste || pixKey}
@@ -188,8 +232,8 @@ function DepositTab() {
               </button>
             </div>
             <p className="mt-3 text-[10px] text-muted-foreground text-center">
-              {asaasCopyPaste 
-                ? "Após o pagamento, o saldo cairá automaticamente em instantes." 
+              {asaasCopyPaste
+                ? "Após o pagamento, o saldo cairá automaticamente em instantes."
                 : "Envie o valor exato via PIX e clique em 'Já Paguei'"}
             </p>
           </CardContent>
@@ -263,6 +307,14 @@ function WithdrawTab() {
 
   const handleWithdraw = async () => {
     if (!user) return;
+    if ((profile as any).is_balance_locked) {
+      toast({
+        variant: "destructive",
+        title: "Saldo Trancado",
+        description: "Seu saldo está temporariamente trancado e não pode ser sacado no momento."
+      });
+      return;
+    }
     const val = parseFloat(amount);
     if (isNaN(val) || val <= 0) {
       toast({ variant: "destructive", title: "Preencha um valor válido" });

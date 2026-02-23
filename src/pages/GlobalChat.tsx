@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, Lock, Star, MessageSquare, Smile, X, Pin } from "lucide-react";
+import { Send, Lock, Star, MessageSquare, Smile, X, Pin, CheckCheck, Trash2, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import ChatBattleCard from "@/components/chat/ChatBattleCard";
 
 const ALL_EMOJIS = [
     // Rosto e Emoções
@@ -46,6 +47,11 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
     const [pinnedMsg, setPinnedMsg] = useState("");
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const [openBattleOptions, setOpenBattleOptions] = useState(false);
+    const [battleFormat, setBattleFormat] = useState('1x1');
+    const [battleFee, setBattleFee] = useState('10');
+    const [battleTax, setBattleTax] = useState('30');
+    const [battleLink, setBattleLink] = useState('');
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
@@ -111,6 +117,10 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "global_chat_messages" }, async (payload) => {
 
                 // Intercept system commands
+                if (payload.new.message === 'SYS_CMD_RELOAD') {
+                    setMessages([]);
+                    return;
+                }
                 if (payload.new.message === 'SYS_CMD_UPDATE_PIN') {
                     const { data: fetchPinned } = await supabase.from("notification_settings").select("label, is_enabled").eq("key_name", "global_chat_pinned_message").maybeSingle();
                     if (fetchPinned && fetchPinned.is_enabled) setPinnedMsg(fetchPinned.label);
@@ -127,7 +137,11 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                 const { data: sender } = await supabase.from("profiles").select("nickname, avatar_url").eq("user_id", payload.new.sender_id).single();
                 const msgWithSender = { ...payload.new, sender };
                 setMessages((prev) => [...prev, msgWithSender]);
-            }).subscribe();
+            })
+            .on("postgres_changes", { event: "DELETE", schema: "public", table: "global_chat_messages" }, (payload) => {
+                setMessages((prev) => prev.filter(m => m.id !== payload.old.id));
+            })
+            .subscribe();
 
         const reactionsChannel = supabase.channel("realtime_reactions")
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "global_chat_reactions" }, (payload) => {
@@ -170,6 +184,35 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
         }
     };
 
+    const handleGenerateBattle = async () => {
+        if (!isAdmin || !profile) return;
+        const maxPlayers = parseInt(battleFormat.split('x')[0]);
+
+        const { data: battle, error: bError } = await supabase.from('chat_battles').insert({
+            admin_id: profile.user_id,
+            format_type: battleFormat,
+            max_players_per_team: maxPlayers,
+            entry_fee: parseFloat(battleFee),
+            platform_tax: parseFloat(battleTax),
+            room_link: battleLink.trim() ? battleLink.trim() : null,
+            status: 'open'
+        }).select().single();
+
+        if (bError) {
+            console.error(bError);
+            return toast.error("Erro ao criar batalha.");
+        }
+
+        await supabase.from('global_chat_messages').insert({
+            sender_id: profile.user_id,
+            message: `SYS_BATTLE:${battle.id}`,
+            is_admin: true
+        });
+
+        setOpenBattleOptions(false);
+        toast.success("Batalha Lançada no Chat!");
+    };
+
     const addEmoji = (emoji: string) => {
         setNewMessage(prev => prev + emoji);
     };
@@ -187,6 +230,15 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
             emoji: emoji,
         });
         if (error && error.code !== '23505') console.error(error);
+    };
+
+    const deleteMessage = async (msgId: string) => {
+        if (!isAdmin) return;
+        const { error } = await supabase.from("global_chat_messages").delete().eq("id", msgId);
+        if (error) {
+            toast.error("Erro ao apagar mensagem");
+            console.error(error);
+        }
     };
 
     const stringToHslColor = (str: string = "") => {
@@ -240,7 +292,8 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
             {/* Messages Area */}
             <div className="relative z-10 flex-1 overflow-y-auto px-4 py-6 scroll-smooth hide-scrollbar flex flex-col gap-4">
                 {messages.map((msg, idx) => {
-                    const isMe = msg.sender_id === profile?.user_id;
+                    // Admin sees all messages (including their own) exactly identical to how players see them
+                    const isMe = msg.sender_id === profile?.user_id && !isAdmin;
                     const showHeader = idx === 0 || messages[idx - 1].sender_id !== msg.sender_id || msg.is_admin || messages[idx - 1].is_admin;
                     const msgReactions = reactions.filter(r => r.message_id === msg.id);
                     const reactionCounts = msgReactions.reduce((acc, curr) => {
@@ -248,7 +301,8 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                         return acc;
                     }, {} as Record<string, number>);
 
-                    if (msg.is_admin) {
+                    const isPriorityAdminMessage = msg.is_admin && msg.message.startsWith('📢 [PRIORIDADE]');
+                    if (isPriorityAdminMessage) {
                         return (
                             <div key={msg.id} className="w-full flex justify-center py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="bg-gradient-to-br from-orange-600/30 via-orange-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 max-w-[90%] shadow-[0_10px_30px_rgba(255,100,0,0.15)] relative group transition-all hover:scale-[1.01]">
@@ -258,6 +312,11 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                         </div>
                                         <span className="font-black text-[11px] uppercase tracking-[0.2em] text-orange-400 drop-shadow-sm">Aviso do Administrador</span>
                                         <span className="text-[9px] text-gray-500/80 font-mono ml-auto bg-black/40 px-2 py-0.5 rounded-full">{format(new Date(msg.created_at), "HH:mm")}</span>
+                                        {isAdmin && (
+                                            <button onClick={() => deleteMessage(msg.id)} className="text-red-500 hover:text-red-400 p-1 ml-1 bg-black/40 rounded-full transition-colors" title="Apagar Aviso">
+                                                <Trash2 size={12} />
+                                            </button>
+                                        )}
                                     </div>
                                     <p className="text-sm font-bold text-white leading-relaxed mb-4 pl-1">{msg.message}</p>
 
@@ -274,6 +333,20 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                         ))}
                                     </div>
                                 </div>
+                            </div>
+                        );
+                    }
+
+                    if (msg.message.startsWith('SYS_BATTLE:')) {
+                        const bId = msg.message.replace('SYS_BATTLE:', '').trim();
+                        return (
+                            <div key={msg.id} className="relative">
+                                {isAdmin && (
+                                    <button onClick={() => deleteMessage(msg.id)} className="absolute -top-3 right-4 z-50 text-red-500 hover:text-red-400 bg-black/60 border border-red-500/20 rounded-full p-2 transition-transform hover:scale-110" title="Deletar Tela de Batalha">
+                                        <Trash2 size={16} />
+                                    </button>
+                                )}
+                                <ChatBattleCard battleId={bId} />
                             </div>
                         );
                     }
@@ -296,17 +369,27 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                         <div className={`absolute top-0 w-2 h-2 ${isMe ? '-right-1.5 bg-neon-orange/20' : '-left-1.5 bg-[#1a1a1a]'} clip-path-triangle`}></div>
                                     )}
 
-                                    {!isMe && showHeader && (
-                                        <span className="font-black text-[10px] uppercase tracking-wider mb-1 block drop-shadow-sm" style={{ color: nickColor }}>
+                                    {showHeader && msg.is_admin && (
+                                        <span className="font-black text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1 text-orange-400 drop-shadow-sm">
+                                            <Star className="h-3 w-3 fill-orange-400" /> ADMIN REAL FIRE
+                                        </span>
+                                    )}
+                                    {!isMe && showHeader && !msg.is_admin && (
+                                        <span className="font-black text-[10px] uppercase tracking-wider mb-1 block drop-shadow-sm text-white">
                                             {msg.sender?.nickname || 'Jogador'}
                                         </span>
                                     )}
                                     <p className="text-[13px] font-medium text-gray-100 break-words leading-relaxed">
                                         {msg.message}
                                     </p>
-                                    <div className="flex items-center justify-end gap-1.5 mt-1 opacity-40">
-                                        <span className="text-[9px] font-mono text-white text-right">{format(new Date(msg.created_at), "HH:mm")}</span>
-                                        {isMe && <CheckCheck className="h-2.5 w-2.5 text-neon-orange" />}
+                                    <div className="flex items-center justify-end gap-1.5 mt-1">
+                                        {isAdmin && (
+                                            <button onClick={() => deleteMessage(msg.id)} className={`text-red-500/50 hover:text-red-400 p-0.5 transition-colors ${isMe ? 'ml-auto' : 'mr-auto'}`} title="Apagar Mensagem">
+                                                <Trash2 size={10} />
+                                            </button>
+                                        )}
+                                        <span className="text-[9px] font-mono text-white/40 text-right">{format(new Date(msg.created_at), "HH:mm")}</span>
+                                        {isMe && <CheckCheck className="h-2.5 w-2.5 text-neon-orange/40" />}
                                     </div>
                                 </div>
                             </div>
@@ -359,6 +442,48 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                     >
                         <Send className="h-5 w-5 text-white" />
                     </Button>
+
+                    {isAdmin && (
+                        <Popover open={openBattleOptions} onOpenChange={setOpenBattleOptions}>
+                            <PopoverTrigger asChild>
+                                <Button type="button" className="bg-red-600 hover:bg-red-700 h-11 w-11 rounded-2xl p-0 ml-1 shadow-[0_0_15px_rgba(255,0,0,0.4)]">
+                                    <Swords className="h-5 w-5 text-white" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 bg-[#0a0a0a] border-white/10 p-4 rounded-3xl z-50 shadow-2xl" side="top" align="end">
+                                <h4 className="text-white font-black uppercase text-sm mb-3.5 flex items-center justify-center gap-2">
+                                    <Swords size={16} className="text-red-500" /> Batalha Relâmpago
+                                </h4>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-[10px] uppercase font-black tracking-widest text-gray-400 block mb-1.5">Formato</label>
+                                        <div className="grid grid-cols-4 gap-1">
+                                            {['1x1', '2x2', '3x3', '4x4'].map(f => (
+                                                <button key={f} onClick={() => setBattleFormat(f)} className={`py-1.5 text-[10px] font-black rounded-lg transition-colors border ${battleFormat === f ? 'bg-red-600 border-red-500 text-white' : 'bg-transparent border-white/10 text-gray-500'}`}>{f}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="text-[10px] uppercase font-black tracking-widest text-gray-400 block mb-1.5">Taxa Plat. (%)</label>
+                                            <Input type="number" value={battleTax} onChange={e => setBattleTax(e.target.value)} className="bg-black border-white/10 text-center font-bold text-red-500 h-9" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] uppercase font-black tracking-widest text-gray-400 block mb-1.5">Entrada/P (R$)</label>
+                                            <Input type="number" value={battleFee} onChange={e => setBattleFee(e.target.value)} className="bg-black border-white/10 text-center font-bold text-neon-green h-9" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] uppercase font-black tracking-widest text-gray-400 block mb-1.5">Link da Sala (Opcional)</label>
+                                        <Input type="text" value={battleLink} onChange={e => setBattleLink(e.target.value)} placeholder="https://..." className="bg-black border-white/10 text-center font-bold text-white h-9" />
+                                    </div>
+                                    <Button onClick={handleGenerateBattle} className="w-full h-10 bg-gradient-to-r from-red-600 to-orange-600 uppercase font-black tracking-widest text-[10px] text-white rounded-xl shadow-[0_0_15px_rgba(255,50,0,0.3)]">
+                                        Lançar Batalha no Chat
+                                    </Button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    )}
                 </form>
             </div>
         </div>
