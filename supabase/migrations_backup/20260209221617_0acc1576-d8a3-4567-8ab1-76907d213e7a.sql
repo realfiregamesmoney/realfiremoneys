@@ -1,9 +1,12 @@
 
 -- Create app_role enum
-CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+DO $$ BEGIN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'user');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
 
 -- User roles table (separate from profiles for security)
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL DEFAULT 'user',
@@ -26,7 +29,7 @@ AS $$
 $$;
 
 -- Profiles table
-CREATE TABLE public.profiles (
+CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
   email TEXT,
@@ -40,7 +43,7 @@ CREATE TABLE public.profiles (
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- Tournaments table
-CREATE TABLE public.tournaments (
+CREATE TABLE IF NOT EXISTS public.tournaments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   type TEXT NOT NULL DEFAULT 'Squad',
@@ -57,7 +60,7 @@ CREATE TABLE public.tournaments (
 ALTER TABLE public.tournaments ENABLE ROW LEVEL SECURITY;
 
 -- Transactions table
-CREATE TABLE public.transactions (
+CREATE TABLE IF NOT EXISTS public.transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('deposit', 'withdraw', 'entry_fee')),
@@ -69,7 +72,7 @@ CREATE TABLE public.transactions (
 ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
 -- Enrollments table
-CREATE TABLE public.enrollments (
+CREATE TABLE IF NOT EXISTS public.enrollments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   tournament_id UUID REFERENCES public.tournaments(id) ON DELETE CASCADE NOT NULL,

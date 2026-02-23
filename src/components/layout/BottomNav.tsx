@@ -1,4 +1,4 @@
-import { LayoutDashboard, Trophy, ShoppingBag, User, Shield } from "lucide-react";
+import { LayoutDashboard, Trophy, ShoppingBag, User, Shield, MessageSquare, Zap } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,6 +8,8 @@ const baseNavItems = [
   { icon: Trophy, label: "Torneios", path: "/tournaments" },
   { icon: ShoppingBag, label: "Loja", path: "/store" },
   { icon: User, label: "Perfil", path: "/profile" },
+  { icon: MessageSquare, label: "Chat", path: "/chat" },
+  { icon: Zap, label: "Quiz Premiado", path: "/quiz" },
 ];
 
 export function BottomNav() {

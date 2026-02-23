@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Wallet, Edit, Trophy, Medal, Coins, LogOut, Settings, HelpCircle, MessageSquare, List, Shield, Lock, Upload, Camera, Bell, Mail, Volume2, Key, FileText, ChevronRight, Star, PlusCircle, Send, ArrowLeft, Loader2 } from "lucide-react";
+import { User, Wallet, Edit, Trophy, Medal, Coins, LogOut, Settings, HelpCircle, MessageSquare, List, Shield, Lock, Upload, Camera, Bell, Mail, Volume2, Key, FileText, ChevronRight, Star, PlusCircle, Send, ArrowLeft, Loader2, Ticket, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -11,11 +11,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client"; // Importação vital
+import { Badge } from "@/components/ui/badge";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Itens do Menu Principal
 const menuItems = [
   { icon: Edit, label: "Editar Perfil", action: "edit_profile" },
+  { icon: Ticket, label: "Passes Livres", action: "free_passes" },
   { icon: List, label: "Suas Inscrições", action: "inscriptions" },
   { icon: Settings, label: "Configurações", action: "settings" },
   { icon: MessageSquare, label: "Sugestão de Melhorias", action: "feedback" },
@@ -374,8 +376,8 @@ export default function Profile() {
     setSupportMessage("");
 
     // VERIFICAR IA
-    const { data: aiSettingValue } = await supabase.rpc('get_app_setting', { p_key: 'gemini_ai_support' });
-    const isAiEnabled = aiSettingValue === 'true';
+    const { data: aiSetting } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'gemini_ai_support').maybeSingle();
+    const isAiEnabled = aiSetting?.is_enabled === true;
 
     if (!isAiEnabled) {
       // Fallback direto para humano sem IA
@@ -390,7 +392,7 @@ export default function Profile() {
       const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       if (!apiKey) throw new Error("Key não encontrada");
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       // Constroi prompt com histórico de tentativas
       const historyContext = chatHistory.map(h => `${h.role === 'user' ? 'Jogador' : 'Suporte'}: ${h.text}`).join('\n');
@@ -492,8 +494,8 @@ export default function Profile() {
   // Fluxo original para tickets sem IA
   const handleSubmitTicket = async () => {
     if (!supportMessage.trim()) return toast.error("Descreva seu problema.");
-    const { data: aiSettingValue } = await supabase.rpc('get_app_setting', { p_key: 'gemini_ai_support' });
-    const isAiEnabled = aiSettingValue === 'true';
+    const { data: aiSetting } = await (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'gemini_ai_support').maybeSingle();
+    const isAiEnabled = aiSetting?.is_enabled === true;
     if (isAiEnabled) { await handleAiChat(); return; }
 
     // Fallback Humano original
@@ -536,104 +538,252 @@ export default function Profile() {
   };
 
   return (
-    <div className="space-y-5 px-4 py-4 pb-24">
+    <div className="min-h-screen bg-[#050505] space-y-8 px-4 py-8 pb-32">
 
-      {/* 1. BOTÃO PAINEL ADMIN (TOPO) */}
+      {/* 1. BOTÃO PAINEL ADMIN (TOPO) - ULTRA PREMIUM */}
       {isAdmin && (
-        <Button
-          onClick={() => navigate("/admin")}
-          className="w-full bg-black border border-neon-orange text-neon-orange font-bold uppercase tracking-widest hover:bg-orange-500/10 shadow-[0_0_10px_rgba(249,115,22,0.3)] mb-4 h-12"
-        >
-          <Shield className="mr-2 h-5 w-5" /> Painel do Admin
-        </Button>
+        <div className="relative group overflow-hidden rounded-2xl p-[1px] mb-8">
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-amber-400 to-orange-600 opacity-50 group-hover:opacity-100 transition-opacity animate-pulse"></div>
+          <Button
+            onClick={() => navigate("/admin")}
+            className="w-full relative bg-[#070707] hover:bg-[#0c0c0c] text-orange-400 font-black uppercase tracking-[0.2em] h-14 border-0 rounded-2xl transition-all duration-300 shadow-[0_0_30px_rgba(249,115,22,0.2)] group-hover:shadow-[0_0_50px_rgba(249,115,22,0.4)]"
+          >
+            <Shield className="mr-3 h-6 w-6 animate-bounce" /> Painel de Comando Admin
+          </Button>
+        </div>
       )}
 
-      {/* 2. CABEÇALHO (AVATAR E NÍVEL) */}
-      <div className="flex flex-col items-center">
-        <div className="relative">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-secondary border-2 border-border overflow-hidden">
-            {savedAvatar ? (
-              <img src={savedAvatar} alt="Avatar" className="h-full w-full object-cover" />
-            ) : (
-              <User className="h-12 w-12 text-muted-foreground" />
-            )}
+      {/* 2. CABEÇALHO (AVATAR E NÍVEL) - GLASSMORPHIC STYLE */}
+      <div className="relative flex flex-col items-center py-10 rounded-[2.5rem] bg-gradient-to-b from-white/[0.03] to-transparent border border-white/[0.05] shadow-2xl backdrop-blur-sm overflow-hidden">
+        {/* Decorative Light Orbs */}
+        <div className="absolute -top-24 -left-24 w-64 h-64 bg-orange-600/10 blur-[100px] rounded-full"></div>
+        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-blue-600/10 blur-[100px] rounded-full"></div>
+
+        <div className="relative z-10">
+          <div className="relative p-1.5 rounded-full bg-gradient-to-tr from-orange-500 via-yellow-400 to-red-600">
+            <div className="flex h-32 w-32 items-center justify-center rounded-full bg-[#050505] p-1 overflow-hidden pointer-events-none">
+              <div className="h-full w-full rounded-full overflow-hidden border-2 border-white/10 shadow-inner">
+                {savedAvatar ? (
+                  <img src={savedAvatar} alt="Avatar" className="h-full w-full object-cover transition-transform duration-700 hover:scale-110" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                    <User className="h-14 w-14 text-gray-600" />
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+
           <button
             onClick={() => setActiveModal("edit_profile")}
-            className="absolute 0 right-0 rounded-full bg-neon-orange p-2 shadow-lg hover:scale-110 transition-transform"
+            className="absolute -bottom-1 -right-1 rounded-full bg-white text-black p-2.5 shadow-[0_0_20px_rgba(255,255,255,0.4)] hover:scale-110 active:scale-95 transition-all duration-300 z-20 border-4 border-[#0d0d0d]"
           >
-            <Edit className="h-4 w-4 text-black" />
+            <Camera className="h-5 w-5" />
           </button>
         </div>
 
-        <h2 className="mt-3 text-2xl font-black text-white uppercase tracking-wide">{formData.nickname || "Jogador"}</h2>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="bg-white/10 px-3 py-0.5 rounded text-xs text-gray-300 font-bold">Nível {formData.level || 1}</span>
+        <div className="mt-6 text-center z-10 px-4">
+          <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter drop-shadow-2xl">
+            {formData.nickname || "Jogador"}
+          </h2>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase">
+              Lv. {formData.level || 1}
+            </Badge>
+            <div className={`h-2 w-2 rounded-full animate-pulse ${user ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]' : 'bg-red-500'}`}></div>
+          </div>
         </div>
 
-        <Card className="mt-4 w-full border-neon-orange bg-[#121214]">
-          <CardContent className="flex items-center justify-center gap-3 p-4">
-            <Wallet className="h-6 w-6 text-neon-green" />
-            <span className="text-2xl font-black text-neon-green tracking-tight">
-              R$ {(profile?.saldo ?? 0).toFixed(2).replace(".", ",")}
-            </span>
-          </CardContent>
-        </Card>
+        {/* SALDO EM DESTAQUE */}
+        <div className="mt-8 w-full max-w-[280px] z-10">
+          <div className="relative group cursor-pointer" onClick={() => navigate("/finance")}>
+            <div className="absolute inset-0 bg-green-500/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <Card className="relative border-white/[0.08] bg-black/40 backdrop-blur-md overflow-hidden rounded-3xl group-hover:border-green-500/50 transition-all duration-500">
+              <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-30 transition-opacity">
+                <Wallet className="h-16 w-16 text-green-500 -rotate-12" />
+              </div>
+              <CardContent className="flex flex-col items-center py-6 px-4">
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500 mb-1">Saldo em Conta</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-sm font-black text-green-500">R$</span>
+                  <span className="text-4xl font-black text-white tracking-tighter drop-shadow-[0_0_10px_rgba(34,197,94,0.3)]">
+                    {(profile?.saldo ?? 0).toFixed(2).replace(".", ",")}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center gap-1 text-[9px] font-bold text-green-500/70 uppercase">
+                  <PlusCircle className="h-3 w-3" /> Adicionar Saldo
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
 
-      {/* 3. MENU RÁPIDO (FINANCEIRO) */}
-      <div className="grid grid-cols-3 gap-3">
-        <Button variant="outline" className="flex h-auto flex-col gap-2 border-white/10 bg-[#18181b] py-4 text-xs hover:border-neon-green/50" onClick={() => navigate("/finance")}>
-          <Wallet className="h-6 w-6 text-neon-green" /> Depositar
+      {/* 3. MENU RÁPIDO (BOTOES DE AÇAO) - FLOATING STYLE */}
+      <div className="grid grid-cols-2 gap-4">
+        <Button
+          variant="secondary"
+          className="relative h-20 bg-gradient-to-br from-green-600/20 to-green-900/40 border border-green-500/30 rounded-3xl overflow-hidden group shadow-lg hover:border-green-400 hover:scale-[1.03] transition-all duration-300"
+          onClick={() => navigate("/finance")}
+        >
+          <div className="absolute top-[-20%] right-[-10%] opacity-10 group-hover:opacity-20 transition-all duration-500">
+            <Wallet className="h-20 w-20 text-white" />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Wallet className="h-6 w-6 text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]" />
+            <span className="text-xs font-black uppercase tracking-widest text-white">PIX Depósito</span>
+          </div>
         </Button>
-        <Button variant="outline" className="flex h-auto flex-col gap-2 border-white/10 bg-[#18181b] py-4 text-xs hover:border-neon-orange/50" onClick={() => navigate("/finance")}>
-          <Wallet className="h-6 w-6 text-neon-orange" /> Sacar
-        </Button>
-        <Button variant="outline" className="flex h-auto flex-col gap-2 border-white/10 bg-[#18181b] py-4 text-xs hover:border-white/30" onClick={() => navigate("/finance")}>
-          <List className="h-6 w-6 text-gray-400" /> Histórico
+        <Button
+          variant="secondary"
+          className="relative h-20 bg-gradient-to-br from-orange-600/20 to-red-900/40 border border-orange-500/30 rounded-3xl overflow-hidden group shadow-lg hover:border-orange-400 hover:scale-[1.03] transition-all duration-300"
+          onClick={() => navigate("/finance")}
+        >
+          <div className="absolute top-[-20%] right-[-10%] opacity-10 group-hover:opacity-20 transition-all duration-500">
+            <Send className="h-20 w-20 text-white" />
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <Wallet className="h-6 w-6 text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.5)]" />
+            <span className="text-xs font-black uppercase tracking-widest text-white">Solicitar Saque</span>
+          </div>
         </Button>
       </div>
 
-      {/* 4. ESTATÍSTICAS */}
+      {/* 4. ESTATÍSTICAS - PREMIUM CARDS */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: Trophy, label: "Torneios", value: String(profile?.tournaments_played || 0) },
-          { icon: Medal, label: "Vitórias", value: String(profile?.victories || 0) },
-          { icon: Coins, label: "Ganhos", value: `R$ ${Number(profile?.total_winnings || 0).toFixed(0)}` },
+          { icon: Trophy, label: "Salas", value: String(profile?.tournaments_played || 0), color: 'orange' },
+          { icon: Medal, label: "Vitórias", value: String(profile?.victories || 0), color: 'amber' },
+          { icon: Coins, label: "Ganhos", value: `R$${Math.floor(profile?.total_winnings || 0)}`, color: 'green' },
         ].map((s) => (
-          <Card key={s.label} className="border-white/5 bg-[#121214]">
-            <CardContent className="flex flex-col items-center p-3 gap-1">
-              <s.icon className="h-5 w-5 text-neon-orange" />
-              <span className="text-lg font-bold text-white">{s.value}</span>
-              <span className="text-[10px] uppercase text-gray-500 font-bold">{s.label}</span>
-            </CardContent>
-          </Card>
+          <div key={s.label} className="relative group">
+            <div className={`absolute inset-0 bg-${s.color}-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity`}></div>
+            <Card className="relative border-white/[0.05] bg-white/[0.02] backdrop-blur-md rounded-2xl group-hover:border-white/20 transition-all overflow-hidden">
+              <CardContent className="flex flex-col items-center p-4 gap-1">
+                <div className={`p-2 rounded-xl bg-${s.color}-500/10 mb-1`}>
+                  <s.icon className={`h-5 w-5 text-${s.color === 'amber' ? 'amber-500' : s.color === 'orange' ? 'orange-500' : 'green-500'}`} />
+                </div>
+                <span className="text-xl font-black text-white tracking-tighter">{s.value}</span>
+                <span className="text-[9px] uppercase text-gray-500 font-bold tracking-widest">{s.label}</span>
+              </CardContent>
+            </Card>
+          </div>
         ))}
       </div>
 
-      {/* 5. MENU PRINCIPAL */}
-      <div className="space-y-1 bg-[#121214] rounded-xl p-2 border border-white/5">
-        {menuItems.map((item) => (
+      {/* 5. MENU PRINCIPAL - PREMIUM LIST */}
+      <div className="relative bg-white/[0.02] rounded-[2rem] p-3 border border-white/[0.05] backdrop-blur-xl shadow-2xl space-y-2">
+        <div className="px-4 py-2">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-500">Centro de Controle</h3>
+        </div>
+
+        <div className="space-y-1">
+          {menuItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => handleMenuClick(item.action)}
+              className="group flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-4 text-sm text-gray-300 transition-all hover:bg-white/[0.05] hover:translate-x-1 active:scale-98"
+            >
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-orange-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <div className="relative bg-white/[0.05] border border-white/10 p-2.5 rounded-xl group-hover:border-orange-500/40 group-hover:text-orange-500 transition-all">
+                    <item.icon className="h-5 w-5" />
+                  </div>
+                </div>
+                <span className="font-bold tracking-tight group-hover:text-white transition-colors">{item.label}</span>
+              </div>
+              <div className="p-1 rounded-full group-hover:bg-orange-500/10 transition-all">
+                <ChevronRight className="h-5 w-5 text-gray-700 group-hover:text-orange-500" />
+              </div>
+            </button>
+          ))}
+
+          <div className="p-2">
+            <Separator className="bg-white/[0.05]" />
+          </div>
+
           <button
-            key={item.label}
-            onClick={() => handleMenuClick(item.action)}
-            className="flex w-full items-center justify-between gap-3 rounded-lg px-4 py-4 text-sm text-gray-200 transition-all hover:bg-white/5 active:scale-95"
+            onClick={handleSignOut}
+            className="group flex w-full items-center gap-4 rounded-2xl px-4 py-4 text-sm font-black uppercase tracking-widest text-red-500/80 transition-all hover:bg-red-500/10 hover:text-red-400 active:scale-95"
           >
-            <div className="flex items-center gap-3">
-              <div className="bg-white/5 p-2 rounded-lg"><item.icon className="h-5 w-5 text-neon-orange" /></div>
-              <span className="font-medium">{item.label}</span>
+            <div className="bg-red-500/10 p-2.5 rounded-xl border border-red-500/20">
+              <LogOut className="h-5 w-5" />
             </div>
-            <ChevronRight className="h-4 w-4 text-gray-600" />
+            <span>Encerrar Sessão</span>
           </button>
-        ))}
-        <Separator className="my-2 bg-white/10" />
-        <button onClick={handleSignOut} className="flex w-full items-center gap-3 rounded-lg px-4 py-4 text-sm text-red-500 transition-colors hover:bg-red-500/10">
-          <div className="bg-red-500/10 p-2 rounded-lg"><LogOut className="h-5 w-5" /></div>
-          <span className="font-bold">Sair da Conta</span>
-        </button>
+        </div>
       </div>
 
       {/* ================= MODAIS ================= */}
+
+      <Dialog open={activeModal === "free_passes"} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="border-0 bg-[#070707] text-white w-[95%] rounded-[2rem] max-h-[90vh] overflow-y-auto shadow-[0_0_100px_rgba(249,115,22,0.15)] ring-1 ring-white/10">
+          <DialogHeader className="p-2">
+            <div className="mx-auto w-16 h-16 rounded-3xl bg-orange-500/10 flex items-center justify-center mb-4">
+              <Ticket className="h-8 w-8 text-orange-500" />
+            </div>
+            <DialogTitle className="text-2xl font-black text-white italic uppercase tracking-tighter text-center">
+              Seus Passes Livres
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-6 px-2">
+            <div className="relative group p-6 rounded-[2rem] bg-gradient-to-br from-white/[0.05] to-transparent border border-white/[0.1] shadow-xl overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                <Ticket className="h-24 w-24 text-white rotate-12" />
+              </div>
+
+              <div className="flex justify-between items-center border-b border-white/[0.05] pb-4 mb-4">
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Plano Ativo</span>
+                <Badge className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-0 ${(profile?.plan_type && profile.plan_type !== 'Free Avulso') ? 'bg-orange-600 text-white animate-pulse' : 'bg-gray-800 text-gray-500'}`}>
+                  {profile?.plan_type || 'Conta Básica'}
+                </Badge>
+              </div>
+
+              {profile?.plan_type && profile.plan_type !== 'Free Avulso' ? (
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Valor Economizado</span>
+                      <span className="text-xl font-black text-orange-400">R$ {Number(profile.pass_value || 0).toFixed(2)} / sala</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block">Uso Diário</span>
+                      <span className="text-xl font-black text-green-400">{profile.passes_available || 0} / 2</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                    <div className="h-full bg-gradient-to-r from-orange-600 to-yellow-400 rounded-full" style={{ width: `${((profile.passes_available || 0) / 2) * 100}%` }}></div>
+                  </div>
+
+                  <p className="text-[10px] text-gray-500 text-center uppercase tracking-widest font-black opacity-50">
+                    Válido até 23:59 • Uso instantâneo
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center space-y-6 py-4">
+                  <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 inline-block mb-2">
+                    <ShieldAlert className="h-8 w-8 text-red-500" />
+                  </div>
+                  <div className="px-4">
+                    <p className="text-sm text-gray-400 font-medium leading-relaxed">
+                      Você está usando uma <b className="text-white">Conta Gratuita</b>. Melhore para o VIP e jogue salas profissionais sem taxa de inscrição!
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => { setActiveModal(null); navigate("/dashboard"); }}
+                    className="w-full py-7 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.4)] border-0"
+                  >
+                    Desbloquear Modo VIP
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* A. EDITAR PERFIL */}
       <Dialog open={activeModal === "edit_profile"} onOpenChange={() => setActiveModal(null)}>
@@ -939,9 +1089,15 @@ export default function Profile() {
 
             {/* FASE: IA Respondeu → Botões de Resolução */}
             {chatPhase === 'ai_replied' && !loadingAi && (
-              <div className="space-y-3 pt-2">
-                <p className="text-center text-xs text-gray-500">A resposta acima resolveu seu problema?</p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-4 pt-2">
+                <p className="text-center text-xs text-gray-400">O problema foi resolvido? Se não, continue conversando com a IA abaixo:</p>
+                <Textarea
+                  placeholder="Descreva mais sobre seu problema para a IA continuar te ajudando..."
+                  className="bg-white/5 border-white/10 min-h-[80px] text-sm focus:border-neon-orange"
+                  value={supportMessage}
+                  onChange={e => setSupportMessage(e.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-3 mt-4">
                   <Button
                     onClick={() => setChatPhase('rating')}
                     className="bg-green-700 hover:bg-green-600 text-white font-bold py-3"
@@ -949,13 +1105,10 @@ export default function Profile() {
                     ✅ Resolvido!
                   </Button>
                   <Button
-                    onClick={() => {
-                      if (aiAttempts >= 3) { setChatPhase('escalate'); }
-                      else { setChatPhase('input'); }
-                    }}
-                    className="bg-white/10 hover:bg-white/20 text-white font-bold py-3"
+                    onClick={() => setChatPhase('escalate')}
+                    className="bg-white/10 hover:bg-white/20 text-white font-bold py-3 text-xs"
                   >
-                    ❌ Ainda preciso de ajuda
+                    🧑‍💼 Falar c/ Humano
                   </Button>
                 </div>
               </div>
@@ -1026,9 +1179,9 @@ export default function Profile() {
             {(chatPhase === 'done' || chatPhase === 'escalated') && (
               <Button onClick={() => { setActiveModal("support"); resetChat(); }} className="w-full bg-neon-orange text-black font-bold">Fechar</Button>
             )}
-            {chatPhase === 'input' && !loadingAi && (
+            {(chatPhase === 'input' || chatPhase === 'ai_replied') && !loadingAi && (
               <Button onClick={handleAiChat} disabled={!supportMessage.trim()} className="w-full bg-neon-orange text-black font-bold hover:bg-orange-600">
-                <Send className="mr-2 h-4 w-4" /> {aiAttempts === 0 ? 'Enviar' : 'Tentar Novamente'}
+                <Send className="mr-2 h-4 w-4" /> Enviar Mensagem para IA
               </Button>
             )}
           </DialogFooter>

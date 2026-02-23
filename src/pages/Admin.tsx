@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
     Shield, Trophy, Wallet, Users, MessageSquare, Plus, Check, X, Star, ExternalLink, Loader2,
     Edit, Save, Calendar, Link as LinkIcon, Trash2, Send, Lightbulb, Archive, Gamepad2, Search,
-    AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell, Zap
+    AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell, Zap, ShoppingBag, Ticket, BarChart2, Unlock, Pin, Briefcase, CheckCircle2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { playNotificationSound } from "@/utils/notificationSound";
@@ -13,11 +13,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { sendPushNotification } from "@/utils/onesignal";
+import { INITIAL_PRODUCTS } from "./seed_products";
 import { useNavigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { format, subDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "recharts";
+import GlobalChat from "./GlobalChat";
+import AdminQuiz from "@/components/admin/AdminQuiz";
+import AdminPartnership from "@/components/partnership/AdminPartnership";
 
 // Definir SINO para evitar erro no código
 const SINO = Bell;
@@ -26,6 +33,7 @@ export default function Admin() {
     const { isAdmin, loading, user } = useAuth();
     const navigate = useNavigate();
     const [adminUnread, setAdminUnread] = useState(0);
+    const [activeTab, setActiveTab] = useState("notifications");
 
     useEffect(() => {
         if (!loading && !isAdmin) navigate("/dashboard", { replace: true });
@@ -79,33 +87,45 @@ export default function Admin() {
                 </div>
             </div>
 
-            <Tabs defaultValue="notifications" className="px-2 pt-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="px-2 pt-4">
                 <TabsList className="flex flex-wrap justify-start gap-2 bg-transparent h-auto p-0 mb-4 overflow-x-auto">
                     <TabItem value="notifications" icon={SINO} label="Notificações" />
                     <TabItem value="tournaments" icon={Trophy} label="Torneios" />
                     <TabItem value="rooms" icon={Gamepad2} label="Salas Ao Vivo" />
+                    <TabItem value="chat" icon={MessageSquare} label="Chat Global" />
                     <TabItem value="users" icon={Users} label="Jogadores" />
                     <TabItem value="finance" icon={Wallet} label="Financeiro" />
+                    <TabItem value="wallet" icon={BarChart2} label="Carteira e Lucro" />
                     <TabItem value="auto_history" icon={Zap} label="Históricos Auto" />
                     <TabItem value="payment_link" icon={LinkIcon} label="Link da Conta" />
                     <TabItem value="support" icon={MessageSquare} label="Suporte" />
                     <TabItem value="logs" icon={History} label="Registros" />
                     <TabItem value="referrals" icon={Gift} label="Indicações" />
+                    <TabItem value="products" icon={ShoppingBag} label="Produtos" />
+                    <TabItem value="passes" icon={Ticket} label="Passes Livres" />
                     <TabItem value="alerts" icon={AlertTriangle} label="Alertas" />
+                    <TabItem value="partnership" icon={Briefcase} label="Parceria" />
+                    <TabItem value="quiz" icon={Zap} label="Mega Quiz" />
                 </TabsList>
 
                 <div className="px-2">
                     <TabsContent value="notifications"><AdminNotificationsSettings /></TabsContent>
                     <TabsContent value="tournaments"><AdminTournaments /></TabsContent>
                     <TabsContent value="rooms"><AdminRooms /></TabsContent>
+                    <TabsContent value="chat"><AdminChatControl onTabChange={setActiveTab} /></TabsContent>
                     <TabsContent value="users"><AdminUsers /></TabsContent>
                     <TabsContent value="finance"><AdminFinance /></TabsContent>
+                    <TabsContent value="wallet"><AdminCompanyWallet /></TabsContent>
                     <TabsContent value="auto_history"><AdminAutoHistory /></TabsContent>
                     <TabsContent value="payment_link"><AdminPaymentLink /></TabsContent>
                     <TabsContent value="support"><AdminSupport /></TabsContent>
                     <TabsContent value="logs"><AdminLogs /></TabsContent>
                     <TabsContent value="referrals"><AdminReferrals /></TabsContent>
+                    <TabsContent value="products"><AdminProducts /></TabsContent>
+                    <TabsContent value="passes"><AdminPasses /></TabsContent>
                     <TabsContent value="alerts"><AdminAlerts /></TabsContent>
+                    <TabsContent value="partnership"><AdminPartnership /></TabsContent>
+                    <TabsContent value="quiz"><AdminQuiz /></TabsContent>
                 </div>
             </Tabs>
 
@@ -232,7 +252,7 @@ function AdminTournaments() {
     const [formData, setFormData] = useState({
         title: "", type: "SQUAD", entry_fee: "", prize_pool: "",
         room_link: "", scheduled_at: "", is_open: true, open_time: "", close_time: "",
-        max_players: "50"
+        max_players: "48", extra_text: "", max_level: "", prize_distribution: "winner", button_color: "orange"
     });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editData, setEditData] = useState<any>({});
@@ -263,37 +283,91 @@ function AdminTournaments() {
     const handleCreate = async () => {
         if (!formData.title || !formData.entry_fee) return toast({ variant: "destructive", title: "Preencha os dados obrigatórios" });
 
-        const fixedDate = formData.scheduled_at ? new Date(formData.scheduled_at).toISOString() : null;
+        let fixedDate = null;
+        try {
+            if (formData.scheduled_at) {
+                fixedDate = new Date(formData.scheduled_at).toISOString();
+            }
+        } catch (e) {
+            return toast({ variant: "destructive", title: "Data Inválida", description: "Verifique o formato da data e hora." });
+        }
 
-        const { error } = await supabase.from("tournaments").insert({
+        const entryFee = parseFloat(String(formData.entry_fee)) || 0;
+        const prizePool = parseFloat(String(formData.prize_pool)) || 0;
+
+        const payload = {
             title: formData.title,
             type: formData.type,
-            entry_fee: parseFloat(formData.entry_fee),
-            prize_pool: parseFloat(formData.prize_pool),
-            room_link: formData.room_link,
+            entry_fee: entryFee,
+            prize_pool: prizePool,
+            room_link: formData.room_link || null,
             scheduled_at: fixedDate,
             status: formData.is_open ? 'open' : 'closed',
-            max_players: parseInt(formData.max_players) || 50
-        });
+            max_players: parseInt(String(formData.max_players)) || 48,
+            extra_text: formData.extra_text || null,
+            max_level: formData.max_level ? parseInt(String(formData.max_level)) : null,
+            prize_distribution: formData.prize_distribution || "winner",
+            button_color: formData.button_color || "orange"
+        };
 
-        if (error) toast({ variant: "destructive", title: "Erro", description: error.message });
-        else {
-            toast({ title: "Torneio Criado!" });
+        let currentPayload: any = { ...payload };
+        let success = false;
+        let lastError = null;
+
+        // Recursive attempt to save by stripping missing columns
+        for (let attempt = 0; attempt < 10; attempt++) {
+            console.log(`[AdminTournaments] Tentativa de criação #${attempt + 1}`, currentPayload);
+            const { error: insertError } = await supabase.from("tournaments").insert(currentPayload);
+
+            if (!insertError) {
+                success = true;
+                break;
+            }
+
+            lastError = insertError;
+            console.error(`[AdminTournaments] Erro na criação:`, insertError);
+
+            // Handle missing column error (schema cache out of sync)
+            if (insertError.message?.includes("column") && (insertError.message?.includes("not find") || insertError.message?.includes("does not exist"))) {
+                const match = insertError.message.match(/'([^']+)'/) || insertError.message.match(/column "([^"]+)"/);
+                const missingColumn = match ? match[1] : null;
+
+                if (missingColumn && currentPayload.hasOwnProperty(missingColumn)) {
+                    console.warn(`[AdminTournaments] Removendo coluna inexistente no banco: ${missingColumn}`);
+                    delete currentPayload[missingColumn];
+                    continue; // Next attempt
+                }
+            }
+            break; // Stop on other errors
+        }
+
+        if (!success && lastError) {
+            toast({ variant: "destructive", title: "Erro ao criar", description: lastError.message });
+        } else {
+            toast({ title: "Torneio Criado com Sucesso!" });
             fetchTournaments();
-            await supabase.from("audit_logs").insert({
-                admin_id: (await supabase.auth.getUser()).data.user?.id,
-                action_type: 'tournament_create',
-                details: `Criou torneio: ${formData.title} (Entrada: R$${formData.entry_fee}, Prêmio: R$${formData.prize_pool})`
-            });
 
-            // DISPARO DE PUSH: Novo Torneio Adicionado
+            try {
+                const { data: { user: currentUser } } = await supabase.auth.getUser();
+                await supabase.from("audit_logs").insert({
+                    admin_id: currentUser?.id,
+                    action_type: 'tournament_create',
+                    details: `Criou torneio: ${formData.title} (Entrada: R$${entryFee}, Prêmio: R$${prizePool})`
+                });
+            } catch (auditErr) { console.error("Erro ao gerar log", auditErr); }
+
+            // DISPARO DE PUSH
             await sendPushNotification(
                 'ply_new_tournaments',
                 'Novo Torneio no Real Fire! 🔥',
-                `O torneio "${formData.title}" valendo R$ ${formData.prize_pool} acabou de abrir! Garanta sua vaga.`
+                `O torneio "${formData.title}" valendo R$ ${prizePool} acabou de abrir! Garanta sua vaga.`
             );
 
-            setFormData({ title: "", type: "SQUAD", entry_fee: "", prize_pool: "", room_link: "", scheduled_at: "", is_open: true, open_time: "", close_time: "", max_players: "50" });
+            setFormData({
+                title: "", type: "SQUAD", entry_fee: "", prize_pool: "",
+                room_link: "", scheduled_at: "", is_open: true, open_time: "", close_time: "",
+                max_players: "48", extra_text: "", max_level: "", prize_distribution: "winner", button_color: "orange"
+            });
         }
     };
 
@@ -342,21 +416,97 @@ function AdminTournaments() {
 
     const startEdit = (t: any) => {
         setEditingId(t.id);
-        setEditData({ title: t.title, type: t.type, entry_fee: t.entry_fee, prize_pool: t.prize_pool, room_link: t.room_link || "", scheduled_at: t.scheduled_at ? t.scheduled_at.slice(0, 16) : "", is_open: t.status === 'open', max_players: String(t.max_players || 50) });
+        // Correctly format ISO date for datetime-local input (YYYY-MM-DDTHH:mm)
+        let formattedDate = "";
+        if (t.scheduled_at) {
+            try {
+                formattedDate = new Date(t.scheduled_at).toISOString().slice(0, 16);
+            } catch (e) {
+                formattedDate = "";
+            }
+        }
+
+        setEditData({
+            title: t.title || "",
+            type: t.type || "SQUAD",
+            entry_fee: String(t.entry_fee || 0),
+            prize_pool: String(t.prize_pool || 0),
+            room_link: t.room_link || "",
+            scheduled_at: formattedDate,
+            is_open: t.status === 'open',
+            max_players: String(t.max_players || 48),
+            extra_text: t.extra_text || "",
+            max_level: String(t.max_level || ""),
+            prize_distribution: t.prize_distribution || "winner",
+            button_color: t.button_color || "orange"
+        });
     };
 
     const handleSaveEdit = async () => {
         if (!editingId) return;
-        const fixedDateEdit = editData.scheduled_at ? new Date(editData.scheduled_at).toISOString() : null;
 
-        const { error } = await supabase.from("tournaments").update({
-            title: editData.title, type: editData.type, entry_fee: parseFloat(editData.entry_fee), prize_pool: parseFloat(editData.prize_pool),
-            room_link: editData.room_link || null, scheduled_at: fixedDateEdit,
+        let fixedDateEdit = null;
+        try {
+            if (editData.scheduled_at) {
+                fixedDateEdit = new Date(editData.scheduled_at).toISOString();
+            }
+        } catch (e) {
+            return toast({ variant: "destructive", title: "Data Inválida", description: "Verifique o formato da data e hora." });
+        }
+
+        const entryFee = parseFloat(String(editData.entry_fee)) || 0;
+        const prizePool = parseFloat(String(editData.prize_pool)) || 0;
+
+        const payloadEdit = {
+            title: editData.title,
+            type: editData.type,
+            entry_fee: entryFee,
+            prize_pool: prizePool,
+            room_link: editData.room_link || null,
+            scheduled_at: fixedDateEdit,
             status: editData.is_open ? 'open' : 'closed',
-            max_players: parseInt(editData.max_players) || 50
-        }).eq("id", editingId);
-        if (!error) {
-            toast({ title: "Atualizado!" });
+            max_players: parseInt(String(editData.max_players)) || 48,
+            extra_text: editData.extra_text || null,
+            max_level: editData.max_level && editData.max_level !== "" ? parseInt(String(editData.max_level)) : null,
+            prize_distribution: editData.prize_distribution || "winner",
+            button_color: editData.button_color || "orange"
+        };
+
+        let currentPayloadEdit: any = { ...payloadEdit };
+        let successEdit = false;
+        let lastErrorEdit = null;
+
+        // Recursive attempt to update by stripping missing columns
+        for (let attempt = 0; attempt < 10; attempt++) {
+            console.log(`[AdminTournaments] Tentativa de atualização #${attempt + 1}`, currentPayloadEdit);
+            const { error: updateError } = await supabase.from("tournaments").update(currentPayloadEdit).eq("id", editingId);
+
+            if (!updateError) {
+                successEdit = true;
+                break;
+            }
+
+            lastErrorEdit = updateError;
+            console.error(`[AdminTournaments] Erro na atualização:`, updateError);
+
+            // Handle missing column error
+            if (updateError.message?.includes("column") && (updateError.message?.includes("not find") || updateError.message?.includes("does not exist"))) {
+                const match = updateError.message.match(/'([^']+)'/) || updateError.message.match(/column "([^"]+)"/);
+                const missingColumn = match ? match[1] : null;
+
+                if (missingColumn && currentPayloadEdit.hasOwnProperty(missingColumn)) {
+                    console.warn(`[AdminTournaments] Removendo coluna inexistente no banco: ${missingColumn}`);
+                    delete currentPayloadEdit[missingColumn];
+                    continue; // Next attempt
+                }
+            }
+            break; // Stop on other errors
+        }
+
+        if (!successEdit && lastErrorEdit) {
+            toast({ variant: "destructive", title: "Erro ao atualizar", description: lastErrorEdit.message });
+        } else {
+            toast({ title: "Torneio Atualizado com Sucesso!" });
             setEditingId(null);
             fetchTournaments();
 
@@ -381,10 +531,17 @@ function AdminTournaments() {
                         </select>
                         <Input type="datetime-local" className="bg-black/50 border-white/10" value={formData.scheduled_at} onChange={e => setFormData({ ...formData, scheduled_at: e.target.value })} />
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-4 gap-3">
                         <div className="space-y-1"><Label className="text-[10px]">Entrada (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.entry_fee} onChange={e => setFormData({ ...formData, entry_fee: e.target.value })} /></div>
-                        <div className="space-y-1"><Label className="text-[10px]">Prêmio (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.prize_pool} onChange={e => setFormData({ ...formData, prize_pool: e.target.value })} /></div>
-                        <div className="space-y-1"><Label className="text-[10px]">Jogadores</Label><Input type="number" min="0" max="54" className="bg-black/50 border-white/10" value={formData.max_players} onChange={e => setFormData({ ...formData, max_players: e.target.value })} placeholder="50" /></div>
+                        <div className="space-y-1"><Label className="text-[10px]">Prêmio Ref. (R$)</Label><Input type="number" className="bg-black/50 border-white/10" value={formData.prize_pool} onChange={e => setFormData({ ...formData, prize_pool: e.target.value })} /></div>
+                        <div className="space-y-1"><Label className="text-[10px]">Jogadores</Label><Input type="number" min="0" max="48" className="bg-black/50 border-white/10" value={formData.max_players} onChange={e => setFormData({ ...formData, max_players: e.target.value })} placeholder="48" /></div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px]">Distribuição</Label>
+                            <select className="bg-black border border-white/10 text-xs rounded-md px-1 h-10 text-white w-full" value={formData.prize_distribution} onChange={e => setFormData({ ...formData, prize_distribution: e.target.value })}>
+                                <option value="winner">Único</option>
+                                <option value="podium">Pódio</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="p-3 border border-white/10 rounded-lg bg-white/5 space-y-3">
@@ -397,9 +554,30 @@ function AdminTournaments() {
                             <Switch checked={formData.is_open} onCheckedChange={c => setFormData({ ...formData, is_open: c })} className="data-[state=checked]:bg-neon-green" />
                             <Label className="text-xs cursor-pointer">{formData.is_open ? "Sala ABERTA AGORA (Verde)" : "Sala FECHADA (Vermelho)"}</Label>
                         </div>
+                        <div>
+                            <Input placeholder="Link/ID da Sala Free Fire" className="bg-black/50 border-white/10" value={formData.room_link} onChange={e => setFormData({ ...formData, room_link: e.target.value })} />
+                            <p className="text-[10px] text-gray-500 mt-1">Coloque o ID completo que será liberado para os inscritos.</p>
+                        </div>
+                        <div className="space-y-1 md:col-span-2">
+                            <Label className="text-[10px] text-gray-400">Texto Extra Adicional (Opcional)</Label>
+                            <Input placeholder="Ex: Apenas jogadores do Mobile!" className="bg-black/50 border-white/10" value={formData.extra_text} onChange={e => setFormData({ ...formData, extra_text: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-gray-400">Nível Máximo da Sala (Opcional)</Label>
+                            <Input type="number" min="0" placeholder="Ex: 20" className="bg-black/50 border-white/10" value={formData.max_level} onChange={e => setFormData({ ...formData, max_level: e.target.value })} />
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-[10px] text-gray-400">Cor do Botão de Destaque</Label>
+                            <select className="bg-black border border-white/10 text-xs rounded-md px-2 h-10 text-white w-full" value={formData.button_color} onChange={e => setFormData({ ...formData, button_color: e.target.value })}>
+                                <option value="orange">Laranja (Padrão)</option>
+                                <option value="green">Verde</option>
+                                <option value="blue">Azul</option>
+                                <option value="pink">Rosa</option>
+                                <option value="purple">Roxo</option>
+                            </select>
+                        </div>
                     </div>
 
-                    <Input placeholder="Link/ID da Sala Free Fire" className="bg-black/50 border-white/10" value={formData.room_link} onChange={e => setFormData({ ...formData, room_link: e.target.value })} />
                     <Button onClick={handleCreate} className="w-full bg-orange-600 hover:bg-orange-700 font-black tracking-widest">PUBLICAR TORNEIO</Button>
                 </CardContent>
             </Card>
@@ -415,15 +593,37 @@ function AdminTournaments() {
                             {editingId === t.id ? (
                                 <div className="p-3 space-y-3 bg-white/5">
                                     <div className="flex justify-between"><span className="text-xs font-bold text-neon-orange">EDITANDO</span><Button size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="h-4 w-4" /></Button></div>
-                                    <Input value={editData.title} onChange={(e) => setEditData({ ...editData, title: e.target.value })} />
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="flex gap-2">
+                                        <Input value={editData.title} onChange={(e) => setEditData({ ...editData, title: e.target.value })} placeholder="Título" className="flex-1" />
+                                        <select className="bg-black border border-white/10 text-xs rounded-md px-2 w-[100px] text-white h-10" value={editData.type} onChange={e => setEditData({ ...editData, type: e.target.value })}>
+                                            <option value="SOLO">SOLO</option><option value="DUO">DUO</option><option value="SQUAD">SQUAD</option>
+                                        </select>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2">
                                         <Input type="number" value={editData.entry_fee} onChange={(e) => setEditData({ ...editData, entry_fee: e.target.value })} placeholder="Entrada" />
                                         <Input type="number" value={editData.prize_pool} onChange={(e) => setEditData({ ...editData, prize_pool: e.target.value })} placeholder="Prêmio" />
-                                        <Input type="number" min="0" max="54" value={editData.max_players} onChange={(e) => setEditData({ ...editData, max_players: e.target.value })} placeholder="Jogadores" />
+                                        <Input type="number" min="0" max="48" value={editData.max_players} onChange={(e) => setEditData({ ...editData, max_players: e.target.value })} placeholder="Vagas" />
+                                        <select className="bg-black border border-white/10 text-[10px] rounded-md text-white w-full h-10 px-1" value={editData.prize_distribution} onChange={e => setEditData({ ...editData, prize_distribution: e.target.value })}>
+                                            <option value="winner">Único</option>
+                                            <option value="podium">Pódio</option>
+                                        </select>
                                     </div>
-                                    <Input value={editData.room_link} onChange={(e) => setEditData({ ...editData, room_link: e.target.value })} placeholder="Link da Sala" />
-                                    <Input type="datetime-local" value={editData.scheduled_at} onChange={(e) => setEditData({ ...editData, scheduled_at: e.target.value })} />
-                                    <div className="flex items-center gap-2"><Switch checked={editData.is_open} onCheckedChange={c => setEditData({ ...editData, is_open: c })} /><Label>Aberta?</Label></div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Input value={editData.extra_text} onChange={(e) => setEditData({ ...editData, extra_text: e.target.value })} placeholder="Texto Opcional" />
+                                        <Input type="number" min="0" value={editData.max_level} onChange={(e) => setEditData({ ...editData, max_level: e.target.value })} placeholder="Nível Máx." />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Input value={editData.room_link} onChange={(e) => setEditData({ ...editData, room_link: e.target.value })} placeholder="Link da Sala" />
+                                        <Input type="datetime-local" value={editData.scheduled_at} onChange={(e) => setEditData({ ...editData, scheduled_at: e.target.value })} />
+                                        <select className="bg-black border border-white/10 text-[10px] rounded-md text-white h-10 px-1" value={editData.button_color} onChange={e => setEditData({ ...editData, button_color: e.target.value })}>
+                                            <option value="orange">Laranja</option>
+                                            <option value="green">Verde</option>
+                                            <option value="blue">Azul</option>
+                                            <option value="pink">Rosa</option>
+                                            <option value="purple">Roxo</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex items-center gap-2"><Switch checked={editData.is_open} onCheckedChange={c => setEditData({ ...editData, is_open: c })} /><Label>Sala Aberta?</Label></div>
                                     <Button onClick={handleSaveEdit} className="w-full bg-green-600">Salvar</Button>
                                 </div>
                             ) : (
@@ -433,7 +633,15 @@ function AdminTournaments() {
                                             {t.title}
                                             <span className={`w-2 h-2 rounded-full ${t.status === 'open' ? 'bg-neon-green shadow-[0_0_8px_#00ff00]' : 'bg-red-600 shadow-[0_0_8px_#ff0000]'}`}></span>
                                         </p>
-                                        <p className="text-[10px] text-gray-500">{t.scheduled_at ? new Date(t.scheduled_at).toLocaleString() : 'Sem data'} • {t.current_players}/{t.max_players} jogadores</p>
+                                        <p className="text-[10px] text-gray-500 mb-1">{t.scheduled_at ? new Date(t.scheduled_at).toLocaleString() : 'Sem data'} • {t.current_players}/{t.max_players} jogadores</p>
+                                        <div className="flex gap-2">
+                                            <Badge variant="outline" className={`text-[8px] px-1 py-0 h-4 border-white/20 ${t.button_color === 'green' ? 'text-green-500' : t.button_color === 'blue' ? 'text-blue-500' : t.button_color === 'pink' ? 'text-pink-500' : t.button_color === 'purple' ? 'text-purple-500' : 'text-orange-500'}`}>
+                                                COR: {t.button_color || 'orange'}
+                                            </Badge>
+                                            <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 border-white/20 text-gray-400">
+                                                {t.prize_distribution === 'podium' ? 'TOP 3 (PÓDIO)' : 'VENCEDOR LEVA TUDO'}
+                                            </Badge>
+                                        </div>
                                     </div>
                                     <div className="flex gap-1">
                                         <Button size="icon" variant="ghost" onClick={() => handleSetFeatured(t.id)}><Star className={`h-4 w-4 ${t.is_featured ? "fill-yellow-400 text-yellow-400" : "text-gray-500"}`} /></Button>
@@ -500,6 +708,8 @@ function AdminRooms() {
     const [resultModal, setResultModal] = useState<any | null>(null);
     const [playersList, setPlayersList] = useState<any[]>([]);
     const [winnerId, setWinnerId] = useState("");
+    const [podiumIds, setPodiumIds] = useState({ first: "", second: "", third: "" });
+    const [calculatedPrize, setCalculatedPrize] = useState(0);
     const [uploadingPrint, setUploadingPrint] = useState(false);
     const [printUrl, setPrintUrl] = useState("");
     const [historyModal, setHistoryModal] = useState<any | null>(null);
@@ -571,7 +781,16 @@ function AdminRooms() {
     const handleOpenResult = async (room: any) => {
         setResultModal(room);
         setWinnerId("");
+        setPodiumIds({ first: "", second: "", third: "" });
         setPrintUrl("");
+
+        // Dynamic Prize Recalculation
+        const count = roomPlayerCounts[room.id] ?? room.current_players;
+        const max = room.max_players || 48;
+        let finalPrize = Number(room.prize_pool);
+        if (count < max) finalPrize = (count * Number(room.entry_fee)) * 0.70;
+        setCalculatedPrize(finalPrize);
+
         await refreshPlayersList(room.id);
     };
 
@@ -605,52 +824,75 @@ function AdminRooms() {
     };
 
     const handleConfirmResult = async () => {
-        if (!winnerId || !printUrl) return toast({ variant: "destructive", title: "Selecione o vencedor e envie o print." });
+        let winnersData = [];
+        if (resultModal.prize_distribution === 'podium') {
+            if (!podiumIds.first || !podiumIds.second || !podiumIds.third || !printUrl) return toast({ variant: "destructive", title: "Selecione o pódio completo e envie o print." });
+            if (new Set([podiumIds.first, podiumIds.second, podiumIds.third]).size !== 3) return toast({ variant: "destructive", title: "Jogadores duplicados no pódio." });
+            winnersData.push({ id: podiumIds.first, amount: calculatedPrize * 0.60, place: 1 });
+            winnersData.push({ id: podiumIds.second, amount: calculatedPrize * 0.25, place: 2 });
+            winnersData.push({ id: podiumIds.third, amount: calculatedPrize * 0.15, place: 3 });
+        } else {
+            if (!winnerId || !printUrl) return toast({ variant: "destructive", title: "Selecione o vencedor e envie o print." });
+            winnersData.push({ id: winnerId, amount: calculatedPrize, place: 1 });
+        }
+
+        const count = roomPlayerCounts[resultModal.id] ?? resultModal.current_players;
+        const totalMontante = count * Number(resultModal.entry_fee);
+        const platformTax = totalMontante * 0.30;
 
         try {
-            const winner = playersList.find(p => p.user_id === winnerId);
-            const prizeAmount = Number(resultModal.prize_pool);
-
-            // 1. Atualiza Saldo, Ganhos Totais e Vitórias do Vencedor
-            const { data: profile } = await supabase.from("profiles").select("saldo, total_winnings, victories").eq("user_id", winnerId).single();
-            if (profile) {
-                await supabase.from("profiles").update({
-                    saldo: Number(profile.saldo) + prizeAmount,
-                    total_winnings: Number(profile.total_winnings || 0) + prizeAmount,
-                    victories: Number(profile.victories || 0) + 1
-                }).eq("user_id", winnerId);
-            }
-
-            // 2. SALVA NO HISTÓRICO
-            const { error: historyError } = await (supabase as any).from("tournament_results").insert({
-                tournament_id: resultModal.id,
-                winner_user_id: winnerId,
-                print_url: printUrl,
-                prize_amount: prizeAmount,
-                admin_id: user?.id
+            // Registra o Caixa da Plataforma
+            await supabase.from("audit_logs").insert({
+                admin_id: user?.id,
+                action_type: 'platform_profit',
+                details: `Lucro da Sala ${resultModal.title}: R$ ${platformTax.toFixed(2)} (Taxa de 30% do montante total de R$ ${totalMontante.toFixed(2)})`
             });
 
-            if (historyError) throw historyError;
+            // Marca o Torneio como finalizado e salva o financeiro da sala
+            await supabase.from("tournaments").update({ status: 'finished', prize_pool: calculatedPrize, platform_tax: platformTax }).eq("id", resultModal.id);
+
+            for (const win of winnersData) {
+                const winner = playersList.find(p => p.user_id === win.id);
+                // 1. Atualiza Saldo, Ganhos Totais e Vitórias do Vencedor
+                const { data: profile } = await supabase.from("profiles").select("saldo, total_winnings, victories").eq("user_id", win.id).single();
+                if (profile) {
+                    await supabase.from("profiles").update({
+                        saldo: Number(profile.saldo) + win.amount,
+                        total_winnings: Number(profile.total_winnings || 0) + win.amount,
+                        victories: Number(profile.victories || 0) + 1
+                    }).eq("user_id", win.id);
+                }
+
+                // 2. SALVA NO HISTÓRICO
+                await (supabase as any).from("tournament_results").insert({
+                    tournament_id: resultModal.id,
+                    winner_user_id: win.id,
+                    print_url: printUrl,
+                    prize_amount: win.amount,
+                    admin_id: user?.id,
+                    place: win.place
+                });
+
+                // 4. Registra no Log de Auditoria
+                await supabase.from("audit_logs").insert({
+                    admin_id: user?.id,
+                    action_type: 'tournament_result',
+                    details: `Finalizou ${resultModal.title} (${win.place}º Lugar). Vencedor: ${winner?.profiles?.nickname} (R$ ${win.amount.toFixed(2)})`
+                });
+
+                // DISPARO DE PUSH: Notifica especificamente
+                await sendPushNotification(
+                    'ply_finance_done',
+                    `🏆 Você ficou no ${win.place}º Lugar!`,
+                    `Parabéns ${winner?.profiles?.nickname}! Seu prêmio de R$ ${win.amount.toFixed(2)} já está no seu saldo!`,
+                    [win.id]
+                );
+            }
 
             // 3. Marca o Torneio como finalizado
             await supabase.from("tournaments").update({ status: 'finished' }).eq("id", resultModal.id);
 
-            // 4. Registra no Log de Auditoria
-            await supabase.from("audit_logs").insert({
-                admin_id: user?.id,
-                action_type: 'tournament_result',
-                details: `Finalizou ${resultModal.title}. Vencedor: ${winner?.profiles?.nickname} (R$ ${prizeAmount})`
-            });
-
-            // DISPARO DE PUSH: Notifica especificamente o vencedor!
-            await sendPushNotification(
-                'ply_finance_done', // usando esta flag pois o prêmio caiu na conta (dinheiro recebido)
-                '🏆 BOOYAH! Você Venceu!',
-                `Parabéns ${winner?.profiles?.nickname}! Seu prêmio de R$ ${prizeAmount.toFixed(2)} já está no seu saldo!`,
-                [winnerId]
-            );
-
-            toast({ title: "Resultado Lançado!", description: "Prêmio enviado e histórico salvo." });
+            toast({ title: "Resultado Lançado!", description: "Prêmio enviado, histórico salvo e caixa registrado." });
             setResultModal(null);
             fetchRooms(); // Recarrega a lista de salas
         } catch (err: any) {
@@ -703,7 +945,7 @@ function AdminRooms() {
                         return (
                             <Card key={room.id} className={`bg-[#0c0c0c] border ${isLive ? 'border-neon-green shadow-[0_0_10px_rgba(0,255,0,0.2)]' : 'border-white/5'}`}>
                                 <CardContent className="p-4 flex flex-col gap-3">
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex justify-between items-start">
                                         <div>
                                             <h4 className="font-bold text-white flex items-center gap-2">
                                                 {room.title}
@@ -711,15 +953,28 @@ function AdminRooms() {
                                             </h4>
                                             <p className="text-xs text-gray-500">ID Sala: {room.room_link || "Não definido"}</p>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] text-gray-400">Prêmio</p>
-                                            <p className="text-neon-green font-bold">R$ {room.prize_pool}</p>
+                                        <div className="text-right shrink-0">
+                                            <p className="text-[10px] text-gray-400">Prêmio Máx. Estimado</p>
+                                            <p className="text-neon-green font-bold">R$ {Number(room.prize_pool).toFixed(2)}</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
-                                        <Users className="h-4 w-4 text-neon-orange" />
-                                        <span className="text-xs font-bold text-white">{liveCount}</span>
-                                        <span className="text-[10px] text-gray-400">/ {room.max_players} jogadores na sala</span>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
+                                            <Users className="h-4 w-4 text-neon-orange" />
+                                            <div>
+                                                <div className="text-xs font-bold text-white">{liveCount} <span className="text-[10px] text-gray-400 font-normal">/ {room.max_players} instritos</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="bg-white/5 rounded-lg px-2 py-1 flex flex-col justify-center">
+                                            <div className="flex justify-between text-[10px]">
+                                                <span className="text-gray-400">Total Entradas:</span>
+                                                <span className="text-white font-bold">R$ {(liveCount * Number(room.entry_fee)).toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between text-[10px]">
+                                                <span className="text-gray-400">Taxa Plat (30%):</span>
+                                                <span className="text-orange-500 font-bold">R$ {((liveCount * Number(room.entry_fee)) * 0.3).toFixed(2)}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="grid grid-cols-3 gap-2">
                                         <Button size="sm" onClick={() => openGame(room.room_link)} className="bg-white/10 text-white hover:bg-white/20">
@@ -783,42 +1038,69 @@ function AdminRooms() {
                     </DialogHeader>
 
                     <div className="space-y-4 py-2">
-                        <div className="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2">
-                            <Users className="h-4 w-4 text-neon-orange" />
-                            <span className="text-sm font-bold text-white">{playersList.length}</span>
-                            <span className="text-xs text-gray-400">jogadores inscritos</span>
+                        <div className="grid grid-cols-2 gap-2 bg-white/5 rounded-lg px-3 py-2">
+                            <div className="flex flex-col justify-center">
+                                <div className="flex items-center gap-2">
+                                    <Users className="h-4 w-4 text-neon-orange" />
+                                    <span className="text-sm font-bold text-white">{playersList.length}</span>
+                                </div>
+                                <span className="text-[10px] text-gray-400">inscritos (Lot: {resultModal?.max_players})</span>
+                            </div>
+                            <div className="text-right text-[10px] flex flex-col justify-center">
+                                <p className="text-gray-400 flex justify-between"><span>Arrecadação Total:</span> <span className="text-white">R$ {(playersList.length * Number(resultModal?.entry_fee || 0)).toFixed(2)}</span></p>
+                                <p className="text-gray-400 flex justify-between"><span>Lucro Plat (30%):</span> <span className="text-neon-orange font-bold">R$ {((playersList.length * Number(resultModal?.entry_fee || 0)) * 0.3).toFixed(2)}</span></p>
+                                <p className="text-gray-400 flex justify-between pt-1 mt-1 border-t border-white/10"><span>Prêmio Final Sala:</span> <span className="text-neon-green font-bold">R$ {calculatedPrize.toFixed(2)}</span></p>
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-xs">Quem deu Booyah?</Label>
-                            <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white" onChange={(e) => setWinnerId(e.target.value)} value={winnerId}>
-                                <option value="">Selecione o Jogador...</option>
-                                {playersList.map(p => (
-                                    <option key={p.user_id} value={p.user_id}>{p.profiles?.nickname} (ID: {p.profiles?.freefire_id})</option>
-                                ))}
-                            </select>
-                        </div>
+                        {resultModal?.prize_distribution === 'podium' ? (
+                            <div className="space-y-3">
+                                <Label className="text-xs text-yellow-500 font-bold uppercase block text-center mb-1">Distribuição do Pódio - Prêmio Total: R$ {calculatedPrize.toFixed(2)}</Label>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] text-gray-400">🥇 1º Lugar (60% = R$ {(calculatedPrize * 0.60).toFixed(2)})</Label>
+                                    <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white" onChange={(e) => setPodiumIds({ ...podiumIds, first: e.target.value })} value={podiumIds.first}>
+                                        <option value="">Selecione o 1º Colocado...</option>
+                                        {playersList.map(p => (<option key={p.user_id} value={p.user_id}>{p.profiles?.nickname} (ID: {p.profiles?.freefire_id})</option>))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] text-gray-400">🥈 2º Lugar (25% = R$ {(calculatedPrize * 0.25).toFixed(2)})</Label>
+                                    <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white" onChange={(e) => setPodiumIds({ ...podiumIds, second: e.target.value })} value={podiumIds.second}>
+                                        <option value="">Selecione o 2º Colocado...</option>
+                                        {playersList.map(p => (<option key={p.user_id} value={p.user_id}>{p.profiles?.nickname} (ID: {p.profiles?.freefire_id})</option>))}
+                                    </select>
+                                </div>
+                                <div className="space-y-1">
+                                    <Label className="text-[10px] text-gray-400">🥉 3º Lugar (15% = R$ {(calculatedPrize * 0.15).toFixed(2)})</Label>
+                                    <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white" onChange={(e) => setPodiumIds({ ...podiumIds, third: e.target.value })} value={podiumIds.third}>
+                                        <option value="">Selecione o 3º Colocado...</option>
+                                        {playersList.map(p => (<option key={p.user_id} value={p.user_id}>{p.profiles?.nickname} (ID: {p.profiles?.freefire_id})</option>))}
+                                    </select>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <Label className="text-xs">Quem deu Booyah? (Prêmio Único: R$ {calculatedPrize.toFixed(2)})</Label>
+                                <select className="w-full bg-black border border-white/10 rounded p-2 text-sm text-white" onChange={(e) => setWinnerId(e.target.value)} value={winnerId}>
+                                    <option value="">Selecione o Jogador...</option>
+                                    {playersList.map(p => (
+                                        <option key={p.user_id} value={p.user_id}>{p.profiles?.nickname} (ID: {p.profiles?.freefire_id})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-2">
                             <Label className="text-xs">Print do Resultado (Obrigatório)</Label>
                             <div className="border border-dashed border-white/20 rounded-lg p-4 text-center cursor-pointer hover:bg-white/5 relative">
                                 <Input type="file" accept="image/*" className="opacity-0 absolute inset-0 cursor-pointer" onChange={handlePrintUpload} disabled={uploadingPrint} />
                                 {uploadingPrint ? <Loader2 className="animate-spin h-6 w-6 mx-auto text-yellow-500" /> : printUrl ? <p className="text-green-500 text-xs">Imagem Carregada!</p> : <div className="text-gray-500 text-xs"><Upload className="h-6 w-6 mx-auto mb-1" />Toque para enviar</div>}
                             </div>
                         </div>
-
-                        {winnerId && (
-                            <div className="bg-yellow-900/20 p-3 rounded border border-yellow-600/30">
-                                <p className="text-xs text-yellow-500 font-bold uppercase">Resumo da Ação:</p>
-                                <p className="text-xs text-gray-300 mt-1">
-                                    O jogador selecionado receberá <span className="text-white font-bold">R$ {resultModal?.prize_pool}</span> no saldo imediatamente.
-                                </p>
-                            </div>
-                        )}
                     </div>
 
                     <DialogFooter>
-                        <Button onClick={handleConfirmResult} className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-bold" disabled={!winnerId || !printUrl}>
+                        <Button onClick={handleConfirmResult} className="w-full bg-yellow-600 hover:bg-yellow-700 text-black font-bold" disabled={((resultModal?.prize_distribution !== 'podium' && !winnerId) || (resultModal?.prize_distribution === 'podium' && (!podiumIds.first || !podiumIds.second || !podiumIds.third))) || !printUrl}>
                             CONFIRMAR E PAGAR PRÊMIO
                         </Button>
                     </DialogFooter>
@@ -851,7 +1133,10 @@ function AdminRooms() {
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-white truncate">{result.winner_profile?.nickname || "Jogador"}</p>
+                                            <p className="text-sm font-bold text-white truncate">
+                                                {result.place && <span className="text-yellow-500 mr-1">{result.place}º Lugar - </span>}
+                                                {result.winner_profile?.nickname || "Jogador"}
+                                            </p>
                                             <p className="text-[10px] text-gray-400">ID: {result.winner_profile?.freefire_id || "N/A"}</p>
                                         </div>
                                         <div className="text-right shrink-0">
@@ -954,6 +1239,21 @@ function AdminUsers() {
         fetchUsers();
     };
 
+    const handleToggleChatBan = async () => {
+        if (!selectedUser) return;
+        const newStatus = !selectedUser.is_chat_banned;
+        if (!confirm(`Tem certeza que deseja ${newStatus ? 'BANIR' : 'DESBANIR'} o jogador ${selectedUser.nickname} do Chat Global?`)) return;
+        await supabase.from("profiles").update({ is_chat_banned: newStatus }).eq("user_id", selectedUser.user_id);
+        await supabase.from("audit_logs").insert({
+            admin_id: (await supabase.auth.getUser()).data.user?.id,
+            action_type: "admin_chat_ban",
+            details: `Admin ${newStatus ? 'baniu' : 'desbaniu'} o jogador ${selectedUser.nickname} do Chat Global`
+        });
+        toast({ title: `Jogador ${newStatus ? 'banido' : 'desbanido'} do Chat Global!` });
+        setSelectedUser({ ...selectedUser, is_chat_banned: newStatus });
+        fetchUsers();
+    };
+
     const handleBanUser = async () => {
         if (!selectedUser || !confirm(`Tem certeza que deseja BANIR o jogador ${selectedUser.nickname}? Esta ação zera o saldo.`)) return;
         await supabase.from("profiles").update({ saldo: 0, nickname: `[BANIDO] ${selectedUser.nickname}` }).eq("user_id", selectedUser.user_id);
@@ -968,101 +1268,288 @@ function AdminUsers() {
     };
 
     return (
-        <div className="space-y-4">
-            <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
-                <Input
-                    placeholder="Buscar por Nick, ID, Email ou Nome..."
-                    className="pl-10 bg-[#0c0c0c] border-white/10 h-10 focus:border-neon-orange"
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                />
+        <div className="space-y-6">
+            {/* Header / Search Area */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-black uppercase italic text-white flex items-center gap-2">
+                        <Users className="text-neon-orange h-6 w-6" /> Gestão de Jogadores
+                    </h2>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Base de dados em tempo real</p>
+                </div>
+                <div className="relative w-full md:w-96 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500 group-focus-within:text-neon-orange transition-colors" />
+                    <Input
+                        placeholder="Nome, Nick, ID, CPF ou Email..."
+                        className="pl-12 bg-black/40 border-white/5 h-12 rounded-2xl focus:border-neon-orange/50 transition-all shadow-2xl"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </div>
 
-            <div className="space-y-2">
+            {/* Players List Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {users.map(user => (
-                    <div key={user.id} className="bg-[#111] p-3 rounded border border-white/5 flex justify-between items-center cursor-pointer hover:bg-white/5" onClick={() => openUser(user)}>
-                        <div className="flex items-center gap-3">
-                            <div className="h-12 w-12 rounded-full bg-black border border-white/10 overflow-hidden shrink-0">
-                                {user.avatar_url ? <img src={user.avatar_url} className="h-full w-full object-cover" alt={user.nickname} /> : <Users className="h-5 w-5 m-auto mt-3 text-gray-500" />}
-                            </div>
-                            <div className="min-w-0">
-                                <p className="font-bold text-sm text-white truncate">{user.nickname || "Sem Nick"}</p>
-                                <p className="text-[10px] text-gray-500 truncate">{user.full_name || "Nome não informado"} • {user.email}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-neon-orange font-mono">ID: {user.freefire_id || "?"}</span>
-                                    <span className="text-[10px] text-gray-600">•</span>
-                                    <span className="text-[10px] text-gray-400">Nv. {user.freefire_level || 0}</span>
-                                    <span className="text-[10px] text-gray-600">•</span>
-                                    <span className="text-[10px] text-yellow-500">{user.victories || 0}V</span>
+                    <Card
+                        key={user.id}
+                        className={`group bg-[#0a0a0a] border-white/5 hover:border-neon-orange/20 transition-all cursor-pointer overflow-hidden rounded-[2rem] shadow-xl ${user.nickname?.includes('[BANIDO]') ? 'opacity-50 grayscale' : ''}`}
+                        onClick={() => openUser(user)}
+                    >
+                        <CardContent className="p-0">
+                            <div className="p-5 flex items-start gap-4">
+                                <div className="relative shrink-0">
+                                    <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
+                                        {user.avatar_url ? (
+                                            <img src={user.avatar_url} className="h-full w-full object-cover" alt={user.nickname} />
+                                        ) : (
+                                            <div className="h-full w-full flex items-center justify-center text-gray-600 bg-white/5">
+                                                <Users size={24} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    {user.is_chat_banned && (
+                                        <div className="absolute -top-1 -right-1 bg-red-600 rounded-full p-1 border-2 border-[#0a0a0a]" title="Banido do Chat">
+                                            <MessageSquare className="h-2 w-2 text-white" />
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h4 className="font-black text-white uppercase italic truncate text-base leading-none group-hover:text-neon-orange transition-colors">
+                                            {user.nickname || "N/A"}
+                                        </h4>
+                                        <Badge variant="outline" className="text-[9px] font-black uppercase text-neon-green border-neon-green/20 bg-neon-green/5">
+                                            R$ {Number(user.saldo).toFixed(2)}
+                                        </Badge>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase truncate mt-1">{user.email}</p>
+
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-3 pt-3 border-t border-white/5">
+                                        <div className="flex items-center gap-1">
+                                            <Shield className="h-3 w-3 text-neon-orange" />
+                                            <span className="text-[10px] font-mono text-white/70">ID: {user.freefire_id || "?"}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Zap className="h-3 w-3 text-yellow-500" />
+                                            <span className="text-[10px] font-bold text-white/50">NV.{user.freefire_level || 0}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Trophy className="h-3 w-3 text-neon-green" />
+                                            <span className="text-[10px] font-black text-neon-green">{user.victories || 0}V</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="text-right shrink-0 ml-2">
-                            <p className="text-sm font-black text-neon-green">R$ {Number(user.saldo).toFixed(2)}</p>
-                            <p className="text-[10px] text-yellow-500">Ganhos: R$ {Number(user.total_winnings || 0).toFixed(2)}</p>
-                            <p className="text-[10px] text-gray-500">{user.tournaments_played || 0} torneios</p>
-                        </div>
-                    </div>
+                        </CardContent>
+                    </Card>
                 ))}
             </div>
 
+            {/* Dossier Dialog */}
             <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-                <DialogContent className="bg-[#111] border-white/10 text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader><DialogTitle className="text-neon-orange uppercase">Dossiê do Jogador</DialogTitle></DialogHeader>
-                    {selectedUser && !editMode && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-20 h-20 rounded-full bg-black border-2 border-neon-orange/40 overflow-hidden shrink-0">
-                                    {selectedUser.avatar_url ? <img src={selectedUser.avatar_url} className="w-full h-full object-cover" alt={selectedUser.nickname} /> : <Users className="h-8 w-8 m-auto mt-5 text-gray-500" />}
+                <DialogContent className="bg-[#050505] border-white/5 text-white w-[98%] max-w-4xl rounded-[2.5rem] max-h-[92vh] overflow-y-auto shadow-2xl p-0 overflow-hidden">
+                    {selectedUser && (
+                        <div className="flex flex-col">
+                            {/* Injected Header for Accessibility */}
+                            <DialogHeader className="sr-only">
+                                <DialogTitle>Dossiê do Jogador: {selectedUser.nickname}</DialogTitle>
+                            </DialogHeader>
+
+                            {/* Dialog Header / Profile Hero */}
+                            <div className="relative h-32 bg-gradient-to-r from-neon-orange/20 to-transparent">
+                                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+                                <div className="absolute bottom-0 left-0 w-full p-8 flex items-end gap-6 translate-y-1/2">
+                                    <div className="relative">
+                                        <div className="w-28 h-28 rounded-[2rem] bg-black border-4 border-[#050505] overflow-hidden shadow-2xl shrink-0">
+                                            {selectedUser.avatar_url ? (
+                                                <img src={selectedUser.avatar_url} className="w-full h-full object-cover" alt={selectedUser.nickname} />
+                                            ) : (
+                                                <div className="h-full w-full flex items-center justify-center text-gray-800 bg-white/5">
+                                                    <Users size={48} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Badge className="absolute -bottom-2 right-0 bg-neon-orange text-black font-black uppercase text-[10px] tracking-widest px-3 py-1 border-4 border-[#050505]">
+                                            NV. {selectedUser.freefire_level || 0}
+                                        </Badge>
+                                    </div>
+                                    <div className="mb-2">
+                                        <h2 className="text-3xl font-black uppercase italic text-white flex items-center gap-2 leading-none">
+                                            {selectedUser.nickname || "N/A"}
+                                            {selectedUser.nickname?.includes('[BANIDO]') && <Badge variant="destructive" className="ml-2">BANIDO</Badge>}
+                                        </h2>
+                                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">{selectedUser.email || selectedUser.user_id}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-bold">{selectedUser.nickname}</h3>
-                                    <p className="text-xs text-gray-400">{selectedUser.email}</p>
-                                    <p className="text-xs text-gray-500">{selectedUser.full_name || "Nome não informado"}</p>
-                                    <Badge className="bg-neon-orange text-black mt-1">Nível {selectedUser.freefire_level || 0}</Badge>
-                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute top-4 right-4 text-white hover:bg-white/5 rounded-full z-[60]"
+                                    onClick={() => setSelectedUser(null)}
+                                >
+                                    <X size={20} />
+                                </Button>
                             </div>
-                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Nome Real</span>{selectedUser.full_name || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">CPF</span>{selectedUser.cpf || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">ID Free Fire</span>{selectedUser.freefire_id || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Nick Free Fire</span>{selectedUser.freefire_nick || "-"}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Saldo Atual</span><span className="text-neon-green font-bold">R$ {Number(selectedUser.saldo).toFixed(2)}</span></div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Ganhos em Torneios</span><span className="text-yellow-500 font-bold">R$ {Number(selectedUser.total_winnings || 0).toFixed(2)}</span></div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Vitórias</span>{selectedUser.victories || 0}</div>
-                                <div className="bg-black/30 p-2 rounded"><span className="text-gray-500 text-xs block">Torneios Jogados</span>{selectedUser.tournaments_played || 0}</div>
-                                <div className="bg-black/30 p-2 rounded col-span-2"><span className="text-gray-500 text-xs block">Cadastrado em</span>{new Date(selectedUser.created_at).toLocaleDateString("pt-BR")} às {new Date(selectedUser.created_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}</div>
-                            </div>
-                            {selectedUser.freefire_proof_url && (
-                                <div>
-                                    <p className="text-xs text-gray-500 mb-1">Print de Verificação:</p>
-                                    <img src={selectedUser.freefire_proof_url} className="w-full rounded border border-white/10" alt="Verificação" />
-                                </div>
-                            )}
-                            {/* Action Buttons */}
-                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-white/10">
-                                <Button onClick={() => setEditMode(true)} className="bg-blue-600 text-white text-xs"><Edit className="mr-1 h-3 w-3" /> Editar</Button>
-                                <Button onClick={handleBlockBalance} variant="outline" className="border-yellow-600 text-yellow-500 text-xs"><Lock className="mr-1 h-3 w-3" /> Bloquear Saldo</Button>
-                                <Button onClick={handleBanUser} variant="destructive" className="text-xs"><Ban className="mr-1 h-3 w-3" /> Banir</Button>
-                                <Button onClick={handleDeleteUser} variant="destructive" className="bg-red-900 text-xs"><Trash2 className="mr-1 h-3 w-3" /> Apagar</Button>
-                            </div>
-                        </div>
-                    )}
-                    {selectedUser && editMode && (
-                        <div className="space-y-3">
-                            <p className="text-xs text-neon-orange font-bold uppercase">Editando dados do jogador</p>
-                            <div><Label className="text-[10px]">Nome Completo</Label><Input value={editFields.full_name} onChange={e => setEditFields({ ...editFields, full_name: e.target.value })} className="bg-black border-white/10" /></div>
-                            <div><Label className="text-[10px]">CPF</Label><Input value={editFields.cpf} onChange={e => setEditFields({ ...editFields, cpf: e.target.value })} className="bg-black border-white/10" /></div>
-                            <div><Label className="text-[10px]">Email</Label><Input value={editFields.email} onChange={e => setEditFields({ ...editFields, email: e.target.value })} className="bg-black border-white/10" /></div>
-                            <div><Label className="text-[10px]">Nickname</Label><Input value={editFields.nickname} onChange={e => setEditFields({ ...editFields, nickname: e.target.value })} className="bg-black border-white/10" /></div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div><Label className="text-[10px]">ID Free Fire</Label><Input value={editFields.freefire_id} onChange={e => setEditFields({ ...editFields, freefire_id: e.target.value })} className="bg-black border-white/10" /></div>
-                                <div><Label className="text-[10px]">Nível</Label><Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({ ...editFields, freefire_level: e.target.value })} className="bg-black border-white/10" /></div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button onClick={() => setEditMode(false)} variant="outline" className="flex-1 border-white/10">Cancelar</Button>
-                                <Button onClick={handleAdminEditUser} className="flex-1 bg-green-600">Salvar</Button>
+
+                            <div className="pt-20 px-8 pb-8 space-y-8">
+                                {!editMode ? (
+                                    <>
+                                        {/* Stats Grid */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
+                                                <DollarSign className="text-neon-green h-4 w-4 mb-2" />
+                                                <p className="text-[10px] text-gray-500 font-black uppercase">Saldo Atual</p>
+                                                <p className="text-xl font-black text-neon-green">R$ {Number(selectedUser.saldo || 0).toFixed(2)}</p>
+                                            </div>
+                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
+                                                <Trophy className="text-yellow-500 h-4 w-4 mb-2" />
+                                                <p className="text-[10px] text-gray-500 font-black uppercase">Winnings</p>
+                                                <p className="text-xl font-black text-white">R$ {Number(selectedUser.total_winnings || 0).toFixed(2)}</p>
+                                            </div>
+                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
+                                                <CheckCircle2 className="text-neon-orange h-4 w-4 mb-2" />
+                                                <p className="text-[10px] text-gray-500 font-black uppercase">Vitórias</p>
+                                                <p className="text-xl font-black text-white">{selectedUser.victories || 0}</p>
+                                            </div>
+                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
+                                                <Gamepad2 className="text-blue-500 h-4 w-4 mb-2" />
+                                                <p className="text-[10px] text-gray-500 font-black uppercase">Torneios</p>
+                                                <p className="text-xl font-black text-white">{selectedUser.tournaments_played || 0}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Personal Data Section */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="space-y-4">
+                                                <h5 className="text-[10px] font-black text-neon-orange uppercase tracking-[0.2em] flex items-center gap-2">
+                                                    <UserCog className="h-3 w-3" /> Identidade e Perfil
+                                                </h5>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nome Real</span>
+                                                        <span className="text-xs font-black text-white uppercase italic">{selectedUser.full_name || "—"}</span>
+                                                    </div>
+                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Documento (CPF)</span>
+                                                        <span className="text-xs font-mono font-bold text-white tracking-widest">{selectedUser.cpf || "—"}</span>
+                                                    </div>
+                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cadastro</span>
+                                                        <span className="text-xs font-bold text-white/60">
+                                                            {selectedUser.created_at ? format(new Date(selectedUser.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <h5 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                    <ExternalLink className="h-3 w-3" /> Credenciais Online
+                                                </h5>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">ID Free Fire</span>
+                                                        <span className="text-xs font-mono font-black text-neon-orange">{selectedUser.freefire_id || "—"}</span>
+                                                    </div>
+                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
+                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nick do Jogo</span>
+                                                        <span className="text-xs font-black text-white italic truncate ml-4">{selectedUser.freefire_nick || "—"}</span>
+                                                    </div>
+                                                    {selectedUser.is_chat_banned && (
+                                                        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex justify-between items-center">
+                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Status Chat</span>
+                                                            <span className="text-xs font-black text-red-500 uppercase italic flex items-center gap-1">
+                                                                <Ban size={12} /> BANIDO
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Proof Image */}
+                                        {selectedUser.freefire_proof_url && (
+                                            <div className="space-y-4">
+                                                <h5 className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                    <Eye className="h-3 w-3" /> Verificação Visual
+                                                </h5>
+                                                <div className="group relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
+                                                    <img
+                                                        src={selectedUser.freefire_proof_url}
+                                                        className="w-full max-h-[400px] object-contain transition-transform group-hover:scale-[1.02] cursor-zoom-in"
+                                                        alt="Verificação Free Fire"
+                                                        onClick={() => window.open(selectedUser.freefire_proof_url, '_blank')}
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                                                        <p className="text-[9px] font-black text-white/50 uppercase">Clique para ampliar imagem original</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Advanced Actions Bar */}
+                                        <div className="pt-8 border-t border-white/5 flex flex-wrap gap-3">
+                                            <Button onClick={() => setEditMode(true)} className="bg-blue-600 hover:bg-blue-500 text-white h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-lg shadow-blue-900/20">
+                                                <Edit size={14} /> Editar Perfil
+                                            </Button>
+                                            <Button onClick={handleBlockBalance} variant="outline" className="border-yellow-600/30 text-yellow-500 hover:bg-yellow-500/10 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2">
+                                                <Lock size={14} /> Bloquear Saldo (Zerar)
+                                            </Button>
+                                            <Button onClick={handleToggleChatBan} variant="outline" className={`border-red-600/30 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ${selectedUser.is_chat_banned ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'text-red-500 hover:bg-red-500/10'}`}>
+                                                {selectedUser.is_chat_banned ? <Unlock size={14} /> : <MessageSquare size={14} />}
+                                                {selectedUser.is_chat_banned ? "Desbanir Chat" : "Banir do Chat"}
+                                            </Button>
+                                            <Button onClick={handleBanUser} variant="destructive" className="bg-red-800 hover:bg-red-700 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shadow-lg shadow-red-900/40">
+                                                <Ban size={14} /> Banir do App
+                                            </Button>
+                                            <Button onClick={handleDeleteUser} variant="ghost" className="text-gray-600 hover:text-red-600 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ml-auto">
+                                                <Trash2 size={14} /> Excluir Permanentemente
+                                            </Button>
+                                        </div>
+                                    </>
+                                ) : (
+                                    /* Edit Form */
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                                        <div className="flex items-center justify-between mb-8">
+                                            <div>
+                                                <h3 className="text-2xl font-black uppercase italic text-neon-orange">Modo de Edição</h3>
+                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Alterações administrativas diretas</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <Button onClick={() => setEditMode(false)} variant="outline" className="rounded-xl border-white/10 text-xs px-6">Cancelar</Button>
+                                                <Button onClick={handleAdminEditUser} className="rounded-xl bg-neon-green text-black font-black uppercase tracking-widest text-[10px] px-8 hover:bg-neon-green/90 shadow-lg shadow-neon-green/20">Salvar Alterações</Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <UserCog size={12} /> Dados Pessoais
+                                                </h4>
+                                                <div className="space-y-3">
+                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nome Completo</Label><Input value={editFields.full_name} onChange={e => setEditFields({ ...editFields, full_name: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">CPF do Jogador</Label><Input value={editFields.cpf} onChange={e => setEditFields({ ...editFields, cpf: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Email Cadastrado</Label><Input value={editFields.email} onChange={e => setEditFields({ ...editFields, email: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5">
+                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                                    <Shield size={12} /> Dados da Conta Fogo
+                                                </h4>
+                                                <div className="space-y-3">
+                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nickname Real Fire</Label><Input value={editFields.nickname} onChange={e => setEditFields({ ...editFields, nickname: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">ID Free Fire</Label><Input value={editFields.freefire_id} onChange={e => setEditFields({ ...editFields, freefire_id: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                        <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nível Jogo</Label><Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({ ...editFields, freefire_level: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1071,6 +1558,8 @@ function AdminUsers() {
         </div>
     );
 }
+
+
 
 // --- 4. FINANCEIRO (COM CONTROLE DE APROVAÇÃO AUTOMÁTICA) ---
 function AdminFinance() {
@@ -1448,8 +1937,8 @@ function AdminSupport() {
     const [sendingAiChat, setSendingAiChat] = useState(false);
 
     useEffect(() => {
-        supabase.rpc('get_app_setting', { p_key: 'gemini_ai_support' }).then(({ data }) => {
-            if (data === 'true') setAiEnabled(true);
+        (supabase as any).from('notification_settings').select('is_enabled').eq('key_name', 'gemini_ai_support').maybeSingle().then(({ data }: any) => {
+            if (data?.is_enabled === true) setAiEnabled(true);
         });
         fetchAiTickets();
     }, []);
@@ -1514,10 +2003,12 @@ function AdminSupport() {
     const handleToggleAi = async () => {
         const newValue = !aiEnabled;
         setAiEnabled(newValue);
-        const { error } = await supabase.rpc('set_app_setting', {
-            p_key: 'gemini_ai_support',
-            p_value: newValue ? 'true' : 'false'
-        });
+        const { error } = await (supabase as any).from('notification_settings').upsert({
+            key_name: 'gemini_ai_support',
+            category: 'system',
+            label: 'Suporte Automático por IA (Gemini)',
+            is_enabled: newValue
+        }, { onConflict: 'key_name' });
         if (error) {
             setAiEnabled(!newValue); // reverter se falhou
             toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
@@ -1728,7 +2219,7 @@ function AdminSupport() {
                     </div>
                 )}
 
-                {tickets.length === 0 ? (
+                {view !== 'ai_history' && (tickets.length === 0 ? (
                     <Card className="border-border bg-card"><CardContent className="flex flex-col items-center justify-center p-8 text-center"><MessageSquare className="h-12 w-12 text-muted-foreground mb-3" /><p className="text-sm text-muted-foreground">Nenhum ticket aqui.</p></CardContent></Card>
                 ) : (
                     <div className="space-y-3">
@@ -1765,7 +2256,7 @@ function AdminSupport() {
                         ))}
 
                     </div>
-                )}
+                ))}
             </div>
 
             {/* Chat Dialog */}
@@ -2268,6 +2759,1037 @@ function AdminReferrals() {
                     </Card>
                 ))
             )}
+        </div>
+    );
+}
+
+// --- 13. PRODUTOS PROMOCIONAIS E LOJA ---
+function AdminProducts() {
+    const { toast } = useToast();
+    const [subTab, setSubTab] = useState<'dashboard' | 'store'>('dashboard');
+
+    // Dashboard State
+    const [dashProducts, setDashProducts] = useState<any[]>([]);
+    const [dashListTab, setDashListTab] = useState<'ativos' | 'inativos'>('ativos');
+    const [loadingDash, setLoadingDash] = useState(true);
+    const [dashTitle, setDashTitle] = useState("");
+    const [dashUrl, setDashUrl] = useState("");
+    const [dashEditingId, setDashEditingId] = useState<string | null>(null);
+    const [dashColor, setDashColor] = useState("orange");
+
+    const colorOptions = [
+        { id: 'orange', label: 'Laranja/Fogo', bg: 'bg-orange-500' },
+        { id: 'green', label: 'Verde/Sucesso', bg: 'bg-green-500' },
+        { id: 'blue', label: 'Azul/Confiança', bg: 'bg-blue-500' },
+        { id: 'purple', label: 'Roxo/Épico', bg: 'bg-purple-500' },
+        { id: 'pink', label: 'Rosa/Choque', bg: 'bg-pink-500' },
+    ];
+
+    // Store State
+    const [storeProducts, setStoreProducts] = useState<any[]>([]);
+    const [storeListTab, setStoreListTab] = useState<'ativos' | 'inativos'>('ativos');
+    const [loadingStore, setLoadingStore] = useState(true);
+    const [storeName, setStoreName] = useState("");
+    const [storeImage, setStoreImage] = useState("");
+    const [storeLink, setStoreLink] = useState("");
+    const [storePrice, setStorePrice] = useState("");
+    const [storeCategory, setStoreCategory] = useState("ACESSÓRIOS");
+    const [storeFeatured, setStoreFeatured] = useState(false);
+    const [storeEditingId, setStoreEditingId] = useState<string | null>(null);
+
+    const fetchDashProducts = async () => {
+        setLoadingDash(true);
+        const { data } = await (supabase as any).from("notification_settings").select("label").eq("key_name", "PROMO_PRODUCTS_V1").maybeSingle();
+        if (data && data.label) {
+            try {
+                const parsed = JSON.parse(data.label);
+                const withIds = parsed.map((p: any, idx: number) => ({ ...p, id: p.id || `promo_${Date.now()}_${idx}` }));
+                setDashProducts(withIds);
+            } catch (e) { setDashProducts([]); }
+        } else {
+            setDashProducts([]);
+        }
+        setLoadingDash(false);
+    };
+
+    const fetchStoreProducts = async () => {
+        setLoadingStore(true);
+        const { data } = await (supabase as any).from("notification_settings").select("label").eq("key_name", "STORE_PRODUCTS_V1").maybeSingle();
+        if (data && data.label) {
+            try {
+                const parsed = JSON.parse(data.label);
+                const withIds = parsed.map((p: any, idx: number) => ({ ...p, id: p.id || `store_${Date.now()}_${idx}` }));
+                setStoreProducts(withIds);
+            } catch (e) {
+                setStoreProducts(INITIAL_PRODUCTS);
+            }
+        } else {
+            setStoreProducts(INITIAL_PRODUCTS);
+        }
+        setLoadingStore(false);
+    };
+
+    const restoreStoreProducts = async () => {
+        setLoadingStore(true);
+        await (supabase as any).from("notification_settings").upsert({
+            key_name: "STORE_PRODUCTS_V1",
+            category: "system_data",
+            label: JSON.stringify(INITIAL_PRODUCTS),
+            is_enabled: true
+        }, { onConflict: 'key_name' });
+        toast({ title: "Produtos padrão restaurados com sucesso!" });
+        fetchStoreProducts();
+    };
+
+    useEffect(() => {
+        if (subTab === 'dashboard') fetchDashProducts();
+        else fetchStoreProducts();
+    }, [subTab]);
+
+    const handleSaveDash = async () => {
+        if (!dashTitle.trim() || !dashUrl.trim()) return toast({ variant: "destructive", title: "Preencha todos os campos." });
+
+        let newProducts = [...dashProducts];
+        if (dashEditingId) {
+            newProducts = newProducts.map(p => p.id === dashEditingId ? { ...p, title: dashTitle, url: dashUrl, color: dashColor } : p);
+            toast({ title: "Produto atualizado com sucesso!" });
+        } else {
+            newProducts.unshift({ id: Date.now().toString(), title: dashTitle, url: dashUrl, color: dashColor, is_active: true });
+            toast({ title: "Produto adicionado!" });
+        }
+
+        await (supabase as any).from("notification_settings").upsert({
+            key_name: "PROMO_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true
+        }, { onConflict: 'key_name' });
+
+        setDashTitle(""); setDashUrl(""); setDashColor("orange"); setDashEditingId(null);
+        fetchDashProducts();
+    };
+
+    const handleSaveStore = async () => {
+        if (!storeName.trim() || !storeLink.trim() || !storePrice.trim() || !storeImage.trim()) {
+            return toast({ variant: "destructive", title: "Preencha todos os campos da loja." });
+        }
+
+        let newProducts = [...storeProducts];
+        const payload = {
+            name: storeName, image: storeImage, link: storeLink, price: storePrice,
+            category: storeCategory, featured: storeFeatured
+        };
+
+        if (storeEditingId) {
+            newProducts = newProducts.map(p => p.id?.toString() === storeEditingId ? { ...p, ...payload } : p);
+            toast({ title: "Produto da Loja atualizado!" });
+        } else {
+            newProducts.unshift({ id: Date.now().toString(), ...payload, is_active: true });
+            toast({ title: "Produto adicionado à Loja!" });
+        }
+
+        await (supabase as any).from("notification_settings").upsert({
+            key_name: "STORE_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true
+        }, { onConflict: 'key_name' });
+
+        setStoreName(""); setStoreImage(""); setStoreLink(""); setStorePrice(""); setStoreFeatured(false); setStoreEditingId(null);
+        fetchStoreProducts();
+    };
+
+    const handleToggleStatusDash = async (id: string, currentStatus: boolean) => {
+        if (!id) return;
+        const nextStatus = !currentStatus;
+        const newProducts = dashProducts.map(p => {
+            if (p.id?.toString() === id.toString()) {
+                return { ...p, is_active: nextStatus, is_deleted: nextStatus ? false : p.is_deleted };
+            }
+            return p;
+        });
+        await (supabase as any).from("notification_settings").upsert({ key_name: "PROMO_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true }, { onConflict: 'key_name' });
+        toast({ title: nextStatus ? "Ativado com sucesso!" : "Desativado." });
+        fetchDashProducts();
+    };
+
+    const handleToggleStatusStore = async (id: string, currentStatus: boolean) => {
+        if (!id) return;
+        const nextStatus = !currentStatus;
+        const newProducts = storeProducts.map(p => {
+            if (p.id?.toString() === id.toString()) {
+                return { ...p, is_active: nextStatus, is_deleted: nextStatus ? false : p.is_deleted };
+            }
+            return p;
+        });
+        await (supabase as any).from("notification_settings").upsert({ key_name: "STORE_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true }, { onConflict: 'key_name' });
+        toast({ title: nextStatus ? "Produto ativado e restaurado!" : "Produto desativado e movido para Inativos." });
+        fetchStoreProducts();
+    };
+
+    const handleDeleteDash = async (id: string, isDeleted: boolean) => {
+        if (!id) return;
+        if (isDeleted) {
+            if (confirm("Tem certeza que deseja apagar DEFINITIVAMENTE?")) {
+                const newProducts = dashProducts.filter(p => p.id?.toString() !== id.toString());
+                await (supabase as any).from("notification_settings").upsert({ key_name: "PROMO_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true }, { onConflict: 'key_name' });
+                toast({ title: "Excluído permanentemente." });
+                fetchDashProducts();
+            }
+        } else {
+            if (confirm("Mover para lixeira?")) {
+                const newProducts = dashProducts.map(p => p.id?.toString() === id.toString() ? { ...p, is_deleted: true, is_active: false } : p);
+                await (supabase as any).from("notification_settings").upsert({ key_name: "PROMO_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true }, { onConflict: 'key_name' });
+                toast({ title: "Movido para a lixeira." });
+                fetchDashProducts();
+            }
+        }
+    };
+
+    const handleDeleteStore = async (id: string, isDeleted: boolean) => {
+        if (!id) return;
+        if (isDeleted) {
+            if (confirm("Tem certeza que deseja apagar DEFINITIVAMENTE da loja?")) {
+                const newProducts = storeProducts.filter(p => p.id?.toString() !== id.toString());
+                await (supabase as any).from("notification_settings").upsert({ key_name: "STORE_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true }, { onConflict: 'key_name' });
+                toast({ title: "Produto excluído permanentemente." });
+                fetchStoreProducts();
+            }
+        } else {
+            if (confirm("Mover para lixeira?")) {
+                const newProducts = storeProducts.map(p => p.id?.toString() === id.toString() ? { ...p, is_deleted: true, is_active: false } : p);
+                await (supabase as any).from("notification_settings").upsert({ key_name: "STORE_PRODUCTS_V1", category: "system_data", label: JSON.stringify(newProducts), is_enabled: true }, { onConflict: 'key_name' });
+                toast({ title: "Movido para a lixeira." });
+                fetchStoreProducts();
+            }
+        }
+    };
+
+    const displayDashProducts = dashListTab === 'ativos'
+        ? dashProducts.filter(p => p.is_active !== false && p.is_deleted !== true)
+        : dashProducts.filter(p => p.is_active === false || p.is_deleted === true);
+
+    const displayStoreProducts = storeListTab === 'ativos'
+        ? storeProducts.filter(p => p.is_active !== false && p.is_deleted !== true)
+        : storeProducts.filter(p => p.is_active === false || p.is_deleted === true);
+
+    return (
+        <div className="space-y-6 pt-4 pb-8">
+            <div className="flex gap-2 p-1 bg-secondary rounded-lg">
+                <Button variant={subTab === 'dashboard' ? 'default' : 'ghost'} className={`flex-1 text-xs ${subTab === 'dashboard' ? 'bg-white/10' : ''}`} onClick={() => setSubTab('dashboard')}>Botões Dashboard</Button>
+                <Button variant={subTab === 'store' ? 'default' : 'ghost'} className={`flex-1 text-xs ${subTab === 'store' ? 'bg-white/10' : ''}`} onClick={() => setSubTab('store')}>Loja (Física/Equip)</Button>
+            </div>
+
+            {subTab === 'dashboard' && (
+                <>
+                    <Card className="bg-[#111] border-yellow-500/20 shadow-[0_0_20px_rgba(234,179,8,0.1)]">
+                        <CardHeader>
+                            <CardTitle className="text-yellow-500 uppercase flex items-center gap-2 text-base md:text-lg">
+                                <ShoppingBag className="h-5 w-5" />
+                                {dashEditingId ? "Editar Botão" : "Novo Botão de Destaque"}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-400 font-bold uppercase">Texto do Botão</label>
+                                <Input value={dashTitle} onChange={(e) => setDashTitle(e.target.value)} className="bg-black border-white/10 text-white" placeholder="Digite a chamada do botão..." />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-400 font-bold uppercase">Link (URL do Produto)</label>
+                                <Input value={dashUrl} onChange={(e) => setDashUrl(e.target.value)} className="bg-black border-white/10 text-white" placeholder="https://" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs text-gray-400 font-bold uppercase">Cor do Botão</label>
+                                <div className="flex gap-2 flex-wrap pb-2">
+                                    {colorOptions.map(c => (
+                                        <button
+                                            key={c.id}
+                                            onClick={() => setDashColor(c.id)}
+                                            className={`h-8 w-8 rounded-full border-2 transition-all ${dashColor === c.id ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'border-transparent opacity-50 hover:opacity-100'} ${c.bg}`}
+                                            title={c.label}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button onClick={handleSaveDash} className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-black font-bold uppercase tracking-widest">
+                                    <Save className="h-4 w-4 mr-2" /> {dashEditingId ? "Salvar" : "Adicionar à Home"}
+                                </Button>
+                                {dashEditingId && (
+                                    <Button onClick={() => { setDashEditingId(null); setDashTitle(""); setDashUrl(""); setDashColor("orange"); }} variant="ghost" className="text-gray-400">Cancelar</Button>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-[#111] p-1 rounded-lg border border-white/5">
+                            <Button variant={dashListTab === 'ativos' ? 'default' : 'ghost'} className={`flex-1 text-xs`} onClick={() => setDashListTab('ativos')}>Ativos</Button>
+                            <Button variant={dashListTab === 'inativos' ? 'default' : 'ghost'} className={`flex-1 text-xs`} onClick={() => setDashListTab('inativos')}>Inativos / Lixeira</Button>
+                        </div>
+
+                        {loadingDash ? (
+                            <div className="flex justify-center py-10"><Loader2 className="animate-spin text-yellow-500" /></div>
+                        ) : displayDashProducts.length === 0 ? (
+                            <Card className="bg-[#0c0c0c] border-dashed border-white/10"><CardContent className="p-8 text-center text-gray-500 text-sm">Nenhum botão nesta lista.</CardContent></Card>
+                        ) : (
+                            displayDashProducts.map(p => (
+                                <Card key={p.id} className={`bg-[#0c0c0c] border-l-4 ${p.is_deleted ? 'border-l-red-500' : p.is_active !== false ? 'border-l-green-500' : 'border-l-gray-600'}`}>
+                                    <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <p className={`font-bold uppercase text-sm ${p.is_deleted ? 'text-red-500 line-through' : p.is_active !== false ? 'text-white' : 'text-gray-500'}`}>{p.title}</p>
+                                                {p.is_deleted && <span className="text-[9px] bg-red-500/20 text-red-500 px-1.5 py-0.5 rounded">EXCLUÍDO</span>}
+                                            </div>
+                                            <p className={`text-xs mt-1 truncate max-w-sm ${p.is_active !== false && !p.is_deleted ? 'text-blue-400' : 'text-gray-600'}`} title={p.url}>{p.url}</p>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            {!p.is_deleted && (
+                                                <Button onClick={() => handleToggleStatusDash(p.id, p.is_active !== false)} size="sm" variant={p.is_active !== false ? "outline" : "default"} className={p.is_active !== false ? "border-white/10 text-green-400 hover:text-green-500 bg-white/5" : "bg-gray-700 text-white"}>
+                                                    {p.is_active !== false ? "Desativar" : "Ativar"}
+                                                </Button>
+                                            )}
+                                            {p.is_deleted ? (
+                                                <Button onClick={() => handleToggleStatusDash(p.id, false)} size="sm" className="bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30">
+                                                    Restaurar
+                                                </Button>
+                                            ) : (
+                                                <Button onClick={() => { setDashEditingId(p.id); setDashTitle(p.title); setDashUrl(p.url); setDashColor(p.color || "orange"); }} size="sm" className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30">
+                                                    <Edit className="h-4 w-4 mr-2" /> Editar
+                                                </Button>
+                                            )}
+                                            <Button onClick={() => handleDeleteDash(p.id, !!p.is_deleted)} size="sm" className="bg-red-600/20 text-red-500 hover:bg-red-600/30 border border-red-500/30">
+                                                <Trash2 className="h-4 w-4 mr-2" /> {p.is_deleted ? 'Apagar Definitivo' : 'Excluir'}
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                </>
+            )}
+
+            {subTab === 'store' && (
+                <>
+                    <Card className="bg-[#111] border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
+                        <CardHeader>
+                            <CardTitle className="text-orange-500 uppercase flex items-center gap-2 text-base md:text-lg">
+                                <ShoppingBag className="h-5 w-5" />
+                                {storeEditingId ? "Editar Produto Loja" : "Novo Produto na Loja"}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-2">
+                                    <label className="text-xs text-gray-400 font-bold uppercase">Nome do Equipamento</label>
+                                    <Input value={storeName} onChange={(e) => setStoreName(e.target.value)} className="bg-black border-white/10 text-white" placeholder="Ex: Teclado Mecânico" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs text-gray-400 font-bold uppercase">Preço Bruto Formatado</label>
+                                    <Input value={storePrice} onChange={(e) => setStorePrice(e.target.value)} className="bg-black border-white/10 text-white" placeholder="R$ 150,00" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs text-gray-400 font-bold uppercase">URL da Imagem</label>
+                                    <Input value={storeImage} onChange={(e) => setStoreImage(e.target.value)} className="bg-black border-white/10 text-white" placeholder="https://i.ibb.co/..." />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs text-gray-400 font-bold uppercase">Categoria</label>
+                                    <select value={storeCategory} onChange={(e) => setStoreCategory(e.target.value)} className="w-full bg-black border border-white/10 rounded-md px-3 py-2 text-sm text-white">
+                                        <option value="ACESSÓRIOS">ACESSÓRIOS</option>
+                                        <option value="SETUP">SETUP</option>
+                                        <option value="MOBILE">MOBILE</option>
+                                    </select>
+                                </div>
+                                <div className="col-span-2 space-y-2">
+                                    <label className="text-xs text-gray-400 font-bold uppercase">Link de Compra</label>
+                                    <Input value={storeLink} onChange={(e) => setStoreLink(e.target.value)} className="bg-black border-white/10 text-white" placeholder="https://mercadolivre.com/..." />
+                                </div>
+                                <div className="col-span-2 flex items-center gap-2 mt-2">
+                                    <input type="checkbox" id="featured" checked={storeFeatured} onChange={(e) => setStoreFeatured(e.target.checked)} className="h-4 w-4 bg-black border-white/10 accent-orange-500" />
+                                    <label htmlFor="featured" className="text-xs text-gray-400 font-bold uppercase cursor-pointer">Definir como Destaque no Baner da Loja</label>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 pt-2">
+                                <Button onClick={handleSaveStore} className="flex-1 bg-orange-500 hover:bg-orange-600 text-black font-bold uppercase tracking-widest">
+                                    <Save className="h-4 w-4 mr-2" /> {storeEditingId ? "Salvar" : "Adicionar Produto"}
+                                </Button>
+                                {storeEditingId && (
+                                    <Button onClick={() => { setStoreEditingId(null); setStoreName(""); setStoreImage(""); setStoreLink(""); setStorePrice(""); setStoreFeatured(false); }} variant="ghost" className="text-gray-400">Cancelar</Button>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <div className="flex justify-end p-2 border border-orange-500/20 bg-[#111] rounded-lg">
+                        <Button variant="outline" onClick={restoreStoreProducts} className="border-orange-500/30 text-orange-400 hover:bg-orange-500/10">
+                            Restaurar 27 Produtos Iniciais (Use se sumiram)
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex justify-between items-center bg-[#111] p-1 rounded-lg border border-white/5">
+                            <Button variant={storeListTab === 'ativos' ? 'default' : 'ghost'} className={`flex-1 text-xs`} onClick={() => setStoreListTab('ativos')}>Ativos</Button>
+                            <Button variant={storeListTab === 'inativos' ? 'default' : 'ghost'} className={`flex-1 text-xs`} onClick={() => setStoreListTab('inativos')}>Inativos / Lixeira</Button>
+                        </div>
+
+                        {loadingStore ? (
+                            <div className="flex justify-center py-10"><Loader2 className="animate-spin text-orange-500" /></div>
+                        ) : displayStoreProducts.length === 0 ? (
+                            <Card className="bg-[#0c0c0c] border-dashed border-white/10"><CardContent className="p-8 text-center text-gray-500 text-sm">Nenhum produto nesta lista.</CardContent></Card>
+                        ) : (
+                            displayStoreProducts.map(p => (
+                                <Card key={p.id} className={`bg-[#0c0c0c] border-l-4 ${p.is_deleted ? 'border-l-red-500' : p.is_active !== false ? 'border-l-green-500' : 'border-l-gray-600'}`}>
+                                    <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4 flex-1 min-w-0 opacity-100">
+                                            <img src={p.image} className={`w-12 h-12 rounded object-cover border border-white/10 ${p.is_deleted && 'grayscale opacity-50'}`} />
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <p className={`font-bold uppercase text-sm ${p.is_deleted ? 'text-red-500 line-through' : p.is_active !== false ? 'text-white' : 'text-gray-500'}`}>{p.name}</p>
+                                                    {p.featured && !p.is_deleted && <span className="text-[9px] bg-orange-500 text-black font-black px-1.5 py-0.5 rounded">DESTAQUE</span>}
+                                                    {p.is_deleted && <span className="text-[9px] bg-red-500/20 text-red-500 font-black px-1.5 py-0.5 rounded">EXCLUÍDO</span>}
+                                                </div>
+                                                <p className="text-xs text-gray-400 mt-0.5">{p.category} • <span className={`${p.is_deleted ? 'text-gray-500' : 'text-green-400'}`}>{p.price}</span></p>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            {!p.is_deleted && (
+                                                <Button onClick={() => handleToggleStatusStore(p.id, p.is_active !== false)} size="sm" variant={p.is_active !== false ? "outline" : "default"} className={p.is_active !== false ? "border-white/10 text-green-400 hover:text-green-500 bg-white/5" : "bg-gray-700 text-white"}>
+                                                    {p.is_active !== false ? "Desativar" : "Ativar"}
+                                                </Button>
+                                            )}
+                                            {p.is_deleted ? (
+                                                <Button onClick={() => handleToggleStatusStore(p.id, false)} size="sm" className="bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30">
+                                                    Restaurar
+                                                </Button>
+                                            ) : (
+                                                <Button onClick={() => { setStoreEditingId(p.id); setStoreName(p.name); setStoreImage(p.image); setStoreLink(p.link); setStorePrice(p.price); setStoreCategory(p.category); setStoreFeatured(p.featured); }} size="sm" className="bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 border border-blue-500/30">
+                                                    <Edit className="h-4 w-4 mr-2" /> Editar
+                                                </Button>
+                                            )}
+                                            <Button onClick={() => handleDeleteStore(p.id, !!p.is_deleted)} size="sm" className="bg-red-600/20 text-red-500 hover:bg-red-600/30 border border-red-500/30">
+                                                <Trash2 className="h-4 w-4 mr-2" /> {p.is_deleted ? 'Apagar Definitivo' : 'Excluir'}
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+const ICON_OPTIONS = ['🎫', '🛡️', '🪙', '💎', '🔥', '⚔️', '⭐', '🥇', '👑', '💸', '🚀', '🎁', '🔑', '🎟️', '🏆', '🎯', '⚡', '🌟', '💼', '💳'];
+
+const AdminPasses = () => {
+    const [plans, setPlans] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [editId, setEditId] = useState<string | null>(null);
+    const [formData, setFormData] = useState<any>({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '' });
+    const [listTab, setListTab] = useState<'ativos' | 'inativos'>('ativos');
+    const { toast } = useToast();
+
+    const fetchPlans = async () => {
+        setLoading(true);
+        const { data } = await (supabase as any).from('notification_settings').select('label').eq('key_name', 'VIP_PLANS_V1').single();
+        if (data && data.label) {
+            try { setPlans(JSON.parse(data.label)); } catch (e) { }
+        } else {
+            const defaults = [
+                { id: "ID_001", title: "Plano Master", price: 97, roomPrice: 2, icon: "🛡️", color: "yellow", is_active: true, is_deleted: false, extra_text: '' },
+                { id: "ID_002", title: "Plano Gold", price: 209, roomPrice: 5, icon: "🪙", color: "orange", is_active: true, is_deleted: false, extra_text: '' },
+                { id: "ID_003", title: "Plano Diamante", price: 389, roomPrice: 10, icon: "💎", color: "cyan", is_active: true, is_deleted: false, extra_text: '' }
+            ];
+            await (supabase as any).from('notification_settings').upsert({ key_name: 'VIP_PLANS_V1', category: 'system_data', label: JSON.stringify(defaults), is_enabled: true }, { onConflict: 'key_name' });
+            setPlans(defaults);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => { fetchPlans(); }, []);
+
+    const savePlansToDb = async (newPlans: any[]) => {
+        await (supabase as any).from('notification_settings').upsert({ key_name: 'VIP_PLANS_V1', category: 'system_data', label: JSON.stringify(newPlans), is_enabled: true }, { onConflict: 'key_name' });
+        setPlans(newPlans);
+        toast({ title: "Planos atualizados com sucesso!" });
+    };
+
+    const handleSave = () => {
+        let newPlans = [...plans];
+        if (editId) {
+            newPlans = newPlans.map(p => p.id === editId ? { ...p, ...formData, price: Number(formData.price), roomPrice: Number(formData.roomPrice) } : p);
+        } else {
+            newPlans.push({ ...formData, id: "ID_" + Date.now(), price: Number(formData.price), roomPrice: Number(formData.roomPrice), is_deleted: false });
+        }
+        savePlansToDb(newPlans);
+        setEditId(null);
+        setFormData({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '' });
+    };
+
+    const handleEdit = (p: any) => { setEditId(p.id); setFormData(p); };
+    const handleDelete = (id: string, isDeleted: boolean) => {
+        if (isDeleted) {
+            if (confirm("Tem certeza que deseja apagar DEFINITIVAMENTE esse plano?")) {
+                savePlansToDb(plans.filter(p => p.id !== id));
+            }
+        } else {
+            if (confirm("Mover plano para lixeira?")) {
+                savePlansToDb(plans.map(p => p.id === id ? { ...p, is_deleted: true, is_active: false } : p));
+                setListTab('inativos');
+            }
+        }
+    };
+    const handleToggle = (id: string, current: boolean) => {
+        savePlansToDb(plans.map(p => p.id === id ? { ...p, is_active: !current, is_deleted: (!current ? false : p.is_deleted) } : p));
+        setListTab(current ? 'inativos' : 'ativos');
+    };
+
+    const displayPlans = listTab === 'ativos'
+        ? plans.filter(p => p.is_active !== false && p.is_deleted !== true)
+        : plans.filter(p => p.is_active === false || p.is_deleted === true);
+
+    return (
+        <div className="space-y-6 pt-4 pb-8">
+            <Card className="bg-[#111] border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)]">
+                <CardHeader>
+                    <CardTitle className="text-orange-500 uppercase flex items-center gap-2 text-base md:text-lg">
+                        <Ticket className="h-5 w-5" />
+                        {editId ? "Editar Plano VIP" : "Novo Plano VIP"}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Nome do Plano</label>
+                            <Input value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Ex: Plano Master" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Preço Mensal (R$)</label>
+                            <Input type="number" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} className="bg-black border-white/10 text-white" placeholder="97" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Valor da Sala p/ Passe (R$)</label>
+                            <Input type="number" value={formData.roomPrice} onChange={e => setFormData({ ...formData, roomPrice: e.target.value })} className="bg-black border-white/10 text-white" placeholder="2" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Texto Adicional (Opcional)</label>
+                            <Input value={formData.extra_text || ''} onChange={e => setFormData({ ...formData, extra_text: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Ex: Cancele a qualquer momento" />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Ícone (Passe)</label>
+                            <div className="flex gap-2 flex-wrap pb-2">
+                                {ICON_OPTIONS.map(i => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setFormData({ ...formData, icon: i })}
+                                        className={`h-10 w-10 text-xl rounded-full border-2 transition-all flex items-center justify-center bg-black ${formData.icon === i ? 'border-orange-500 scale-110 shadow-[0_0_10px_rgba(249,115,22,0.5)]' : 'border-white/10 opacity-70 hover:opacity-100 hover:border-white/30'}`}
+                                    >
+                                        {i}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Cor do Card (Avançado)</label>
+                            <div className="flex gap-2 flex-wrap">
+                                {['yellow', 'orange', 'cyan', 'green', 'blue', 'purple', 'red'].map(c => (
+                                    <button key={c} onClick={() => setFormData({ ...formData, color: c })} title={`Cor: ${c}`} className={`h-8 w-8 rounded-full border-2 bg-${c}-500 ${formData.color === c ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'border-transparent opacity-50 hover:opacity-100'}`} />
+                                ))}
+
+                                {/* Cores Metálicas Premium */}
+                                <button
+                                    onClick={() => setFormData({ ...formData, color: 'bronze' })}
+                                    title="Bronze"
+                                    className={`h-8 w-8 rounded-full border-2 bg-gradient-to-br from-amber-700 to-orange-900 ${formData.color === 'bronze' ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                                />
+                                <button
+                                    onClick={() => setFormData({ ...formData, color: 'silver' })}
+                                    title="Prata"
+                                    className={`h-8 w-8 rounded-full border-2 bg-gradient-to-br from-gray-300 to-gray-500 ${formData.color === 'silver' ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                                />
+                                <button
+                                    onClick={() => setFormData({ ...formData, color: 'gold' })}
+                                    title="Ouro Metálico"
+                                    className={`h-8 w-8 rounded-full border-2 bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 ${formData.color === 'gold' ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                                />
+                                <button
+                                    onClick={() => setFormData({ ...formData, color: 'diamond' })}
+                                    title="Azul Diamante"
+                                    className={`h-8 w-8 rounded-full border-2 bg-gradient-to-br from-cyan-200 via-cyan-400 to-blue-500 ${formData.color === 'diamond' ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.5)]' : 'border-transparent opacity-50 hover:opacity-100'}`}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                        <Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-widest"><Save className="mr-2 h-4 w-4" /> Salvar Plano</Button>
+                        {editId && <Button onClick={() => { setEditId(null); setFormData({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '' }) }} variant="outline" className="flex-1 bg-transparent text-gray-400">Cancelar</Button>}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="flex justify-between items-center bg-[#111] p-1 rounded-lg border border-white/5 mt-6 mb-2">
+                <Button variant={listTab === 'ativos' ? 'default' : 'ghost'} className={`flex-1 text-xs`} onClick={() => setListTab('ativos')}>Ativos</Button>
+                <Button variant={listTab === 'inativos' ? 'default' : 'ghost'} className={`flex-1 text-xs`} onClick={() => setListTab('inativos')}>Inativos / Lixeira</Button>
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center py-10"><Loader2 className="animate-spin text-orange-500" /></div>
+            ) : displayPlans.length === 0 ? (
+                <Card className="bg-[#0c0c0c] border-dashed border-white/10"><CardContent className="p-8 text-center text-gray-500 text-sm">Nenhum plano encontrado nesta lista.</CardContent></Card>
+            ) : (
+                <div className="grid gap-4 mt-2">
+                    {displayPlans.map(p => (
+                        <Card key={p.id} className={`bg-[#0c0c0c] border-l-4 ${p.is_deleted ? 'border-l-red-500' : p.is_active ? 'border-l-green-500' : 'border-l-gray-600'}`}>
+                            <CardContent className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                <div className="flex items-center gap-4 opacity-100">
+                                    <div className={`text-4xl ${p.is_deleted && 'grayscale opacity-50'}`}>{p.icon}</div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <h3 className={`text-sm font-bold uppercase ${p.is_deleted ? 'text-red-500 line-through' : `text-${p.color}-500`}`}>{p.title} <span className="text-xs text-gray-500 font-normal">({p.id})</span></h3>
+                                            {p.is_deleted && <span className="text-[9px] bg-red-500/20 text-red-500 font-black px-1.5 py-0.5 rounded">LIXEIRA</span>}
+                                        </div>
+                                        <p className="text-xs text-gray-400 mt-0.5">Mensalidade: <b className={`${p.is_deleted ? 'text-gray-500' : 'text-white'}`}>R$ {p.price}</b> | Salas: <b className={`${p.is_deleted ? 'text-gray-500' : 'text-green-400'}`}>R$ {p.roomPrice}</b></p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 w-full md:w-auto shrink-0 border-t border-white/5 pt-3 md:pt-0 md:border-t-0 flex-wrap">
+                                    {!p.is_deleted && (
+                                        <Button size="sm" variant={p.is_active ? 'outline' : 'default'} className={p.is_active ? 'bg-white/5 border-white/10 text-green-400 hover:text-green-500' : 'bg-gray-700 text-white hover:bg-gray-600'} onClick={() => handleToggle(p.id, p.is_active)}>
+                                            {p.is_active ? 'Desativar' : 'Ativar'}
+                                        </Button>
+                                    )}
+                                    {p.is_deleted ? (
+                                        <Button size="sm" onClick={() => handleToggle(p.id, false)} className="bg-green-600/20 text-green-400 border border-green-500/30 hover:bg-green-600/30">
+                                            Restaurar
+                                        </Button>
+                                    ) : (
+                                        <Button size="sm" variant="outline" onClick={() => handleEdit(p)} className="bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30"><Edit className="h-4 w-4 mr-2" /> Editar</Button>
+                                    )}
+                                    <Button size="sm" variant="destructive" onClick={() => handleDelete(p.id, !!p.is_deleted)} className="bg-red-600/20 text-red-500 hover:bg-red-600/30 border border-red-500/30"><Trash2 className="h-4 w-4 mr-2" /> {p.is_deleted ? 'Apagar Definitivo' : 'Excluir'}</Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+
+            <AdminPassesUsers />
+        </div>
+    );
+};
+
+const AdminPassesUsers = () => {
+    const [stats, setStats] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            const { data } = await (supabase as any).from('profiles').select('plan_type, id');
+            if (data) {
+                const groups: Record<string, number> = {};
+                data.forEach((p: any) => {
+                    const pl = p.plan_type || 'Free Avulso';
+                    groups[pl] = (groups[pl] || 0) + 1;
+                });
+                setStats(Object.entries(groups).map(([k, v]) => ({ plan: k, count: v })));
+            }
+        };
+        fetchStats();
+    }, []);
+
+    return (
+        <Card className="bg-[#111] border-white/5 mt-8 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+            <CardHeader><CardTitle className="text-blue-500 uppercase flex items-center gap-2 text-base md:text-lg"><Users className="h-5 w-5" /> Assinantes por Plano</CardTitle></CardHeader>
+            <CardContent>
+                <div className="space-y-3">
+                    {stats.map(s => (
+                        <div key={s.plan} className="flex justify-between items-center p-3 bg-black rounded-lg border border-white/5">
+                            <span className="font-bold text-gray-300 uppercase text-sm">{s.plan}</span>
+                            <Badge className="bg-blue-600 font-black">{s.count} usuários</Badge>
+                        </div>
+                    ))}
+                    {stats.length === 0 && <p className="text-xs text-gray-500 text-center py-4">Nenhum dado encontrado.</p>}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+// --- 11. CARTEIRA E LUCRO DA EMPRESA ---
+function AdminCompanyWallet() {
+    const [period, setPeriod] = useState<'hoje' | 'semana' | 'mes' | 'tudo'>('semana');
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ totalProfit: 0, totalMatches: 0, highestProfit: 0 });
+    const [chartData, setChartData] = useState<any[]>([]);
+
+    useEffect(() => {
+        const fetchWallet = async () => {
+            setLoading(true);
+            const now = new Date();
+            let startRange: Date | null = null;
+            let endRange: Date = endOfDay(now);
+
+            if (period === 'hoje') startRange = startOfDay(now);
+            else if (period === 'semana') startRange = startOfWeek(now, { weekStartsOn: 0 });
+            else if (period === 'mes') startRange = startOfMonth(now);
+
+            let query = supabase.from("tournaments").select("updated_at, platform_tax").eq("status", "finished");
+
+            if (startRange) {
+                query = query.gte("updated_at", startRange.toISOString()).lte("updated_at", endRange.toISOString());
+            }
+
+            const { data } = await query;
+            if (data) {
+                let sTotal = 0;
+                let sMatches = 0;
+                let sHighest = 0;
+                const daily: Record<string, number> = {};
+
+                data.forEach(t => {
+                    const profit = Number(t.platform_tax || 0);
+                    sTotal += profit;
+                    sMatches += 1;
+                    if (profit > sHighest) sHighest = profit;
+
+                    const dateKey = format(new Date(t.updated_at), "dd/MM");
+                    daily[dateKey] = (daily[dateKey] || 0) + profit;
+                });
+
+                // Generate array for chart (ensuring all days in range for 'semana' or 'mes')
+                const formattedChartData = [];
+                if (period === 'semana') {
+                    for (let i = 6; i >= 0; i--) {
+                        const d = format(subDays(now, i), "dd/MM");
+                        formattedChartData.push({ name: d, lucro: daily[d] || 0 });
+                    }
+                } else if (period === 'mes') {
+                    for (let i = 29; i >= 0; i--) {
+                        const d = format(subDays(now, i), "dd/MM");
+                        formattedChartData.push({ name: d, lucro: daily[d] || 0 });
+                    }
+                } else {
+                    Object.keys(daily).sort().forEach(k => {
+                        formattedChartData.push({ name: k, lucro: daily[k] });
+                    });
+                }
+
+                setStats({ totalProfit: sTotal, totalMatches: sMatches, highestProfit: sHighest });
+                setChartData(formattedChartData);
+            }
+            setLoading(false);
+        };
+        fetchWallet();
+    }, [period]);
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-gradient-to-r from-green-900/30 to-green-900/10 border border-green-500/30 p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <h3 className="text-sm font-black uppercase text-green-400 flex items-center gap-2"><Wallet className="h-5 w-5" /> Carteira da Plataforma</h3>
+                    <p className="text-xs text-gray-400 mt-1">Lucro acumulado gerado pela taxa de 30% nas salas fechadas.</p>
+                </div>
+            </div>
+
+            {/* Filter */}
+            <div className="flex bg-[#111] p-1 rounded-lg border border-white/5 w-max">
+                {['hoje', 'semana', 'mes', 'tudo'].map(p => (
+                    <button
+                        key={p}
+                        onClick={() => setPeriod(p as any)}
+                        className={`text-xs font-bold uppercase px-4 py-2 rounded-md transition-all ${period === p ? 'bg-green-600 text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                    >
+                        {p}
+                    </button>
+                ))}
+            </div>
+
+            {loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin h-8 w-8 text-green-500" /></div>
+            ) : (
+                <>
+                    {/* KPIs */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <Card className="bg-[#111] border-white/10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-green-500/10 rounded-bl-full"></div>
+                            <CardContent className="p-4">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Faturamento (Período)</p>
+                                <p className="text-2xl font-black text-green-400 mt-1">R$ {stats.totalProfit.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-[#111] border-white/10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/10 rounded-bl-full"></div>
+                            <CardContent className="p-4">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Partidas Finalizadas</p>
+                                <p className="text-2xl font-black text-white mt-1">{stats.totalMatches}</p>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-[#111] border-white/10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-16 h-16 bg-yellow-500/10 rounded-bl-full"></div>
+                            <CardContent className="p-4">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Maior Lucro (Unitário)</p>
+                                <p className="text-2xl font-black text-yellow-400 mt-1">R$ {stats.highestProfit.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    {/* Chart */}
+                    <Card className="bg-[#111] border-white/10 pt-4">
+                        <CardHeader className="pb-2 pt-0">
+                            <CardTitle className="text-xs uppercase text-gray-500">Curva de Faturamento</CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-64 px-2">
+                            {chartData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado para exibir neste período.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorLucro" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                                        <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
+                                        <RechartsTooltip
+                                            contentStyle={{ backgroundColor: '#111', borderColor: '#333', borderRadius: '8px', fontSize: '12px' }}
+                                            itemStyle={{ color: '#22c55e', fontWeight: 'bold' }}
+                                            formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Lucro']}
+                                            labelStyle={{ color: '#888', marginBottom: '4px' }}
+                                        />
+                                        <Area type="monotone" dataKey="lucro" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
+                </>
+            )}
+        </div>
+    );
+};
+
+// --- 13. CHAT GLOBAL (ADMIN) ---
+function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void }) {
+    const [isLocked, setIsLocked] = useState(false);
+    const [onlineCount, setOnlineCount] = useState(0);
+    const [newMessage, setNewMessage] = useState("");
+    const [sendPush, setSendPush] = useState(false);
+    const [pinnedMsg, setPinnedMsg] = useState("");
+    const [isSavingPinned, setIsSavingPinned] = useState(false);
+    const { profile } = useAuth();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const loadState = async () => {
+            const { data } = await supabase.from('notification_settings').select('is_enabled').eq('key_name', 'global_chat_locked').maybeSingle();
+            if (data) setIsLocked(data.is_enabled);
+            else {
+                await supabase.from('notification_settings').insert({ key_name: 'global_chat_locked', category: 'chat', label: 'Chat Trancado', is_enabled: false });
+            }
+        };
+        loadState();
+
+        const presenceChannel = supabase.channel("admin_chat_presence", { config: { presence: { key: profile?.user_id || 'admin' } } });
+        presenceChannel.on("presence", { event: "sync" }, () => {
+            const state = presenceChannel.presenceState();
+            setOnlineCount(Object.keys(state).length);
+        }).subscribe(async (status) => {
+            if (status === "SUBSCRIBED" && profile) {
+                await presenceChannel.track({ user: 'Admin Tracker', is_admin: true });
+            }
+        });
+
+        const settingsChannel = supabase.channel("admin_chat_locking")
+            .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notification_settings", filter: "key_name=eq.global_chat_locked" }, (payload) => {
+                setIsLocked(payload.new.is_enabled);
+            }).subscribe();
+
+        const loadPinned = async () => {
+            const { data } = await supabase.from('notification_settings').select('label, is_enabled').eq('key_name', 'global_chat_pinned_message').maybeSingle();
+            if (data && data.is_enabled) setPinnedMsg(data.label);
+        };
+        loadPinned();
+
+        return () => {
+            supabase.removeChannel(presenceChannel);
+            supabase.removeChannel(settingsChannel);
+        };
+    }, [profile]);
+
+    const toggleLock = async () => {
+        const newState = !isLocked;
+        await supabase.from('notification_settings').update({ is_enabled: newState }).eq('key_name', 'global_chat_locked');
+        setIsLocked(newState);
+        toast({ title: newState ? "Chat trancado. Apenas o Admin pode enviar mensagens." : "Chat destrancado. Jogadores podem enviar mensagens." });
+
+        // Auto-anounce it in chat
+        await supabase.from('global_chat_messages').insert({
+            sender_id: profile?.user_id,
+            message: newState ? "🚨 O Chat Global foi trancado pelo Administrador." : "✅ O Chat Global foi liberado!",
+            is_admin: true
+        });
+
+        // Trigger system update correctly
+        await supabase.from('global_chat_messages').insert({
+            sender_id: profile?.user_id,
+            message: 'SYS_CMD_UPDATE_LOCK',
+            is_admin: true
+        });
+    };
+
+    const handleSendMessage = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !profile) return;
+
+        await supabase.from('global_chat_messages').insert({
+            sender_id: profile.user_id,
+            message: newMessage,
+            is_admin: true
+        });
+
+        if (sendPush) {
+            await sendPushNotification('push_announcements', 'Mensagem do Admin 🚨', newMessage);
+            toast({ title: "Mensagem e Push enviados com sucesso!" });
+        } else {
+            toast({ title: "Mensagem enviada com sucesso!" });
+        }
+
+        setNewMessage("");
+        setSendPush(false);
+    };
+
+    const handleSavePinned = async () => {
+        setIsSavingPinned(true);
+        const { error } = await supabase.from('notification_settings').upsert({
+            key_name: 'global_chat_pinned_message',
+            category: 'chat',
+            label: pinnedMsg || '',
+            is_enabled: !!pinnedMsg.trim()
+        }, { onConflict: 'key_name' });
+
+        if (!error) {
+            toast({ title: "Mensagem fixada atualizada!" });
+
+            // Using guaranteed realtime pipeline to broadcast change
+            await supabase.from('global_chat_messages').insert({
+                sender_id: profile?.user_id,
+                message: 'SYS_CMD_UPDATE_PIN',
+                is_admin: true
+            });
+
+        } else {
+            console.error("Save pinned error:", error);
+            toast({ title: "Erro ao atualizar mensagem fixada.", description: error.message });
+        }
+        setIsSavingPinned(false);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div className="bg-gradient-to-r from-orange-900/30 to-orange-900/10 border border-orange-500/30 p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <h3 className="text-sm font-black uppercase text-orange-400 flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Controle do Chat Global</h3>
+                    <p className="text-xs text-gray-400 mt-1">Interaja com os jogadores, lance votações, tranque o chat e dispare Push Notifications.</p>
+                </div>
+                <div className="text-right">
+                    <Badge variant="outline" className="bg-green-500/10 text-green-400 border-green-500/20 text-xs animate-pulse">
+                        <Users className="h-3 w-3 mr-1" /> {onlineCount} Usuários Online App
+                    </Badge>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                    {/* Send Messages & Push */}
+                    <Card className="bg-[#111] border-white/10">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold flex items-center gap-2"><Send className="h-4 w-4 text-neon-orange" /> Enviar Mensagem Estratégica</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <form onSubmit={handleSendMessage} className="space-y-4">
+                                <div>
+                                    <Label className="text-xs mb-1">Mensagem (Visível para todos, com destaque)</Label>
+                                    <Input
+                                        className="bg-black border-white/10 focus-visible:ring-neon-orange"
+                                        placeholder="Ex: Quem quer uma Sala Relâmpago agora? Reaja aqui!"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                    />
+                                </div>
+                                <div className="flex items-center space-x-2 bg-white/5 p-3 rounded-md">
+                                    <Switch id="push-toggle" checked={sendPush} onCheckedChange={setSendPush} className="data-[state=checked]:bg-orange-500" />
+                                    <Label htmlFor="push-toggle" className="text-xs font-bold cursor-pointer flex flex-col">
+                                        <span className="text-white">Marcar como Prioridade (Enviar Push)</span>
+                                        <span className="text-[10px] text-gray-500 font-normal">Isso fará todos os celulares dos usuários vibrarem chamando para o App.</span>
+                                    </Label>
+                                </div>
+                                <Button type="submit" disabled={!newMessage.trim()} className="w-full font-bold bg-neon-orange hover:bg-orange-600 text-white shadow-[0_0_15px_rgba(255,100,0,0.3)]">
+                                    Disparar Mensagem no Chat
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+
+                    {/* Moderation Controls */}
+                    <Card className="bg-[#111] border-white/10">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold flex items-center gap-2"><Shield className="h-4 w-4 text-orange-500" /> Controle de Segurança e Fluxo</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex flex-col gap-2">
+                                <Label className="text-xs text-gray-400">Trancar / Destrancar Chat</Label>
+                                <p className="text-[10px] text-gray-500 mb-2">Use isso quando quiser focar a atenção dos jogadores apenas nos seus anúncios, ou se houver muito spam.</p>
+                                <Button onClick={toggleLock} variant={isLocked ? "default" : "outline"} className={`w-full font-bold flex items-center gap-2 ${isLocked ? 'bg-green-600 hover:bg-green-700 text-white' : 'border-red-500 text-red-500 hover:bg-red-500/10'}`}>
+                                    {isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                    {isLocked ? "Destrancar Chat (Permitir Todos)" : "Trancar Chat (Apenas você fala)"}
+                                </Button>
+                            </div>
+
+                            <div className="pt-4 border-t border-white/5">
+                                <Label className="text-xs text-gray-400 mb-2 block">Moderação (Restringir Jogador)</Label>
+                                <p className="text-[10px] text-gray-500 mb-3">Vá na aba "Jogadores" para gerenciar Banimento Específico do Chat Global usando o menu de edição do Jogador. (O jogador continuará podendo jogar Salas normalmente).</p>
+                                <Button variant="secondary" className="w-full text-xs" onClick={() => onTabChange("users")}>Ir para Jogadores</Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Pinned Message Control */}
+                    <Card className="bg-[#111] border-white/10">
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                <Pin className="h-4 w-4 text-yellow-500" /> Mensagem Fixada no Topo
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <Label className="text-xs mb-1">Conteúdo da Mensagem Fixada</Label>
+                                <Input
+                                    className="bg-black border-white/10 focus-visible:ring-yellow-500"
+                                    placeholder="Ex: 📢 Promoção relâmpago às 20h! Não perca."
+                                    value={pinnedMsg}
+                                    onChange={(e) => setPinnedMsg(e.target.value)}
+                                />
+                                <p className="text-[10px] text-gray-500 mt-2">Esta mensagem aparecerá travada no topo do chat para todos os usuários. Deixe em branco para remover.</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button onClick={handleSavePinned} disabled={isSavingPinned} className="flex-1 font-bold bg-yellow-600 hover:bg-yellow-700 text-white">
+                                    {isSavingPinned ? <Loader2 className="h-4 w-4 animate-spin" /> : "Salvar Fixação"}
+                                </Button>
+                                {pinnedMsg && (
+                                    <Button onClick={() => { setPinnedMsg(""); }} variant="outline" className="border-red-500/50 text-red-500 hover:bg-red-500/10">
+                                        Limpar
+                                    </Button>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="h-full min-h-[600px] border border-white/10 bg-black/40 rounded-2xl p-2 relative">
+                    <div className="absolute top-2 left-4 z-10">
+                        <Badge className="bg-neon-orange text-black border-none text-[10px] uppercase font-black px-2 py-0.5">Visão do Aplicativo (Live)</Badge>
+                    </div>
+                    <GlobalChat embedded />
+                </div>
+            </div>
         </div>
     );
 }

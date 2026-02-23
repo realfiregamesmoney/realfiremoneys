@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const ASAAS_API_KEY = Deno.env.get('ASAAS_API_KEY')
-const ASAAS_URL = 'https://www.asaas.com/api/v3' 
+const ASAAS_URL = 'https://www.asaas.com/api/v3'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { amount, user_id, name, cpf } = await req.json()
+    const { amount, user_id, name, cpf, description_prefix } = await req.json()
 
     if (!amount || !cpf || !name) {
       throw new Error("Dados incompletos (Valor, CPF ou Nome)")
@@ -61,7 +61,7 @@ serve(async (req) => {
         billingType: 'PIX',
         value: amount,
         dueDate: new Date().toISOString().split('T')[0],
-        description: `Deposito Real Fire - ID: ${user_id}`,
+        description: description_prefix ? `${description_prefix} - ID: ${user_id}` : `Deposito Real Fire - ID: ${user_id}`,
       }),
     })
 
@@ -83,10 +83,10 @@ serve(async (req) => {
     const pixData = await pixQrCodeResponse.json()
 
     return new Response(
-      JSON.stringify({ 
-        paymentId: paymentData.id, 
-        payload: pixData.payload, 
-        encodedImage: pixData.encodedImage 
+      JSON.stringify({
+        paymentId: paymentData.id,
+        payload: pixData.payload,
+        encodedImage: pixData.encodedImage
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

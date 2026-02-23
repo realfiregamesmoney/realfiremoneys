@@ -87,4 +87,7 @@
   .gradient-orange {
     background: linear-gradient(135deg, hsl(20 100% 50%), hsl(30 100% 55%));
   }
+  .clip-path-triangle {
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
+  }
 }

@@ -12,9 +12,12 @@ import TournamentLobby from "./pages/TournamentLobby";
 import Store from "./pages/Store";
 import Profile from "./pages/Profile";
 import Finance from "./pages/Finance";
+import GlobalChat from "./pages/GlobalChat";
 import Admin from "./pages/Admin";
 import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
+import SubscriptionCheckout from "./pages/SubscriptionCheckout";
+import Quiz from "./pages/Quiz";
 
 const queryClient = new QueryClient();
 
@@ -36,10 +39,13 @@ function AppRoutes() {
         <Route path="/tournament/:id" element={<TournamentLobby />} />
         <Route path="/store" element={<Store />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/chat" element={<GlobalChat />} />
+        <Route path="/quiz" element={<Quiz />} />
       </Route>
       <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
       <Route path="/update-password" element={<UpdatePassword />} />
+      <Route path="/checkout/:planId" element={<ProtectedRoute><SubscriptionCheckout /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

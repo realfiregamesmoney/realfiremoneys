@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trophy, Users, Clock, Flame, ArrowLeft, AlertTriangle, ArrowRight, Bell, X } from "lucide-react";
+import { Trophy, Users, Clock, Flame, ArrowLeft, AlertTriangle, ArrowRight, Bell, X, Ticket } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +28,9 @@ export default function Tournaments() {
   const [fullRoomModal, setFullRoomModal] = useState(false);
   const [selectedTournament, setSelectedTournament] = useState<any>(null);
   const [nextTournament, setNextTournament] = useState<any>(null);
+
+  const [passModalOpen, setPassModalOpen] = useState(false);
+  const [tournamentToUsePass, setTournamentToUsePass] = useState<any>(null);
 
   const fetchData = async () => {
     // ACRESCIMO: Log de monitoramento com timestamp para evitar cache do navegador
@@ -77,8 +80,8 @@ export default function Tournaments() {
       .channel("tournaments-realtime-v2")
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
         console.log("Mudança detectada no banco (Payload):", payload);
-        if (payload.eventType === "DELETE" || (payload.new?.title && payload.new.title.startsWith('[ARQUIVADO]'))) {
-          setTournaments(prev => prev.filter(t => t.id !== (payload.old?.id || payload.new?.id)));
+        if (payload.eventType === "DELETE" || ((payload.new as any)?.title && (payload.new as any).title.startsWith('[ARQUIVADO]'))) {
+          setTournaments(prev => prev.filter(t => t.id !== ((payload.old as any)?.id || (payload.new as any)?.id)));
         }
         fetchData();
       })
@@ -134,8 +137,21 @@ export default function Tournaments() {
   }, [tournaments, enrolledIds, user]);
 
   // --- 2. LÓGICA DE INSCRIÇÃO COM REDIRECIONAMENTO SE CHEIO ---
-  const handleEnroll = async (tournament: any) => {
+  const handleEnroll = async (tournament: any, bypassPassCheck: boolean = false) => {
     if (!user || !profile) return;
+
+    // Verificar se a sala possui trava de nível
+    if (tournament.max_level) {
+      const userLvl = profile.freefire_level ? Number(profile.freefire_level) : -1;
+      if (userLvl === -1) {
+        toast({ variant: "destructive", title: "Nível não definido", description: "Atualize o seu nível do jogo no Perfil antes de entrar nesta sala nivelada." });
+        return;
+      }
+      if (userLvl > tournament.max_level) {
+        toast({ variant: "destructive", title: "Nível Bloqueado", description: `A sala permite jogadores até o nível ${tournament.max_level}. Seu nível é ${userLvl}.` });
+        return;
+      }
+    }
 
     // Verificar se sala está cheia
     const isFull = tournament.current_players >= tournament.max_players;
@@ -171,7 +187,7 @@ export default function Tournaments() {
           await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: nextAvailable.id });
 
           // --- ADIÇÃO EXATA: Chama a função RPC blindada no Supabase ---
-          const { error: rpcErrorNext } = await supabase.rpc("increment_tournament_players", { t_id: nextAvailable.id });
+          const { error: rpcErrorNext } = await (supabase as any).rpc("increment_tournament_players", { t_id: nextAvailable.id });
           if (rpcErrorNext) console.error("Erro na RPC:", rpcErrorNext);
           // --------------------------------------------------------------
 
@@ -192,6 +208,13 @@ export default function Tournaments() {
         setFullRoomModal(true);
         toast({ title: "Fila de Espera", description: "Você foi adicionado à fila de espera. Será notificado quando uma vaga abrir." });
       }
+      return;
+    }
+
+    // CHECK PASS LIVRE VIP (Interrompe saldo normal se aplicável)
+    if (!bypassPassCheck && Number((profile as any).passes_available) > 0 && Number((profile as any).pass_value) === Number(tournament.entry_fee)) {
+      setTournamentToUsePass(tournament);
+      setPassModalOpen(true);
       return;
     }
 
@@ -223,7 +246,7 @@ export default function Tournaments() {
       if (enrollErr) throw enrollErr;
 
       // --- ADIÇÃO EXATA: Chama a função RPC blindada no Supabase ---
-      const { error: rpcError } = await supabase.rpc("increment_tournament_players", { t_id: tournament.id });
+      const { error: rpcError } = await (supabase as any).rpc("increment_tournament_players", { t_id: tournament.id });
       if (rpcError) console.error("Erro na RPC:", rpcError);
       // --------------------------------------------------------------
 
@@ -237,6 +260,43 @@ export default function Tournaments() {
       navigate(`/tournament/${tournament.id}`);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro na inscription", description: err.message || "Tente novamente." });
+    }
+  };
+
+  const confirmEnrollWithPass = async () => {
+    if (!user || !profile || !tournamentToUsePass) return;
+    setPassModalOpen(false);
+
+    try {
+      const newPasses = Number((profile as any).passes_available) - 1;
+      const newTournamentsPlayed = (profile.tournaments_played || 0) + 1;
+
+      const { error: balanceErr } = await (supabase as any).from("profiles").update({
+        passes_available: newPasses,
+        tournaments_played: newTournamentsPlayed
+      }).eq("user_id", user.id);
+      if (balanceErr) throw balanceErr;
+
+      await supabase.from("tournament_participants").insert({
+        user_id: user.id, tournament_id: tournamentToUsePass.id, status: "paid"
+      });
+
+      const { error: enrollErr } = await supabase.from("enrollments").insert({
+        user_id: user.id, tournament_id: tournamentToUsePass.id
+      });
+      if (enrollErr) throw enrollErr;
+
+      const { error: rpcError } = await (supabase as any).rpc("increment_tournament_players", { t_id: tournamentToUsePass.id });
+
+      setTournaments(prev => prev.map(t =>
+        t.id === tournamentToUsePass.id ? { ...t, current_players: (t.current_players || 0) + 1 } : t
+      ));
+
+      await refreshProfile();
+      toast({ title: "Inscrito via Passe Livre! 🎟️", description: "Seu passe diário foi consumido." });
+      navigate(`/tournament/${tournamentToUsePass.id}`);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erro usando passe", description: err.message });
     }
   };
 
@@ -305,23 +365,45 @@ export default function Tournaments() {
           const percentage = Math.min(100, (filled / max) * 100);
           const barColor = percentage < 50 ? "bg-orange-500" : "bg-green-500";
 
+          const isStarted = t.scheduled_at && new Date() >= new Date(t.scheduled_at);
+          let displayPrize = Number(t.prize_pool);
+          const isDynamic = filled < max;
+          if (isStarted && isDynamic) {
+            displayPrize = (filled * Number(t.entry_fee)) * 0.70;
+          }
+
           return (
             <div key={t.id} className="flex flex-col overflow-hidden rounded-xl" style={{ background: "#111111", border: "1px solid #333" }}>
               {!isEnrolled ? (
-                <button
-                  onClick={() => handleEnroll(t)}
-                  className="flex w-full items-center justify-center gap-2 py-3 text-sm font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.98]"
-                  style={{
-                    background: isFull
-                      ? "linear-gradient(135deg, #661a00, #993300)"
-                      : "linear-gradient(135deg, #FF5500, #FF8800)",
-                  }}
-                >
-                  <Flame className="h-4 w-4" />
-                  {isFull
-                    ? "LOTADA — AGUARDAR SALA DE ESPERA"
-                    : `ENTRAR - R$ ${Number(t.entry_fee).toFixed(2).replace(".", ",")}`}
-                </button>
+                isStarted ? (
+                  <div className="flex w-full items-center justify-center gap-2 py-3 text-sm font-extrabold uppercase tracking-widest text-gray-400 bg-gray-900 border-b border-gray-800">
+                    PARTIDA INICIADA - INSCRIÇÕES ENCERRADAS
+                  </div>
+                ) : (
+                  <div className="flex flex-col">
+                    <button
+                      onClick={() => handleEnroll(t)}
+                      className="flex w-full items-center justify-center gap-2 py-3 text-sm font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.98]"
+                      style={{
+                        background: isFull
+                          ? "linear-gradient(135deg, #661a00, #993300)"
+                          : t.button_color === 'green' ? "linear-gradient(135deg, #16a34a, #22c55e)"
+                            : t.button_color === 'blue' ? "linear-gradient(135deg, #2563eb, #3b82f6)"
+                              : t.button_color === 'pink' ? "linear-gradient(135deg, #db2777, #ec4899)"
+                                : t.button_color === 'purple' ? "linear-gradient(135deg, #9333ea, #a855f7)"
+                                  : "linear-gradient(135deg, #FF5500, #FF8800)",
+                      }}
+                    >
+                      <Flame className="h-4 w-4" />
+                      {isFull
+                        ? "LOTADA — AGUARDAR SALA DE ESPERA"
+                        : `ENTRAR - R$ ${Number(t.entry_fee).toFixed(2).replace(".", ",")}`}
+                    </button>
+                    <p className="text-[8px] text-center text-gray-500 bg-black/60 py-1.5 px-2 leading-tight">
+                      O prêmio final é dinâmico. Se a lotação de {max} jogadores não for atingida, o valor será reajustado automaticamente e de forma proporcional ao número de inscritos antes do início da partida.
+                    </p>
+                  </div>
+                )
               ) : (
                 <button
                   onClick={() => navigate(`/tournament/${t.id}`)}
@@ -333,19 +415,32 @@ export default function Tournaments() {
               )}
 
               <div className="flex flex-col gap-2 px-4 py-3">
-                <span className={`inline-block self-start rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ${typeColor(t.type)}`}>
-                  {t.type}
-                </span>
+                <div className="flex justify-between items-start w-full">
+                  <span className={`inline-block self-start rounded-full px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white ${typeColor(t.type)}`}>
+                    {t.type}
+                  </span>
 
-                <div className="flex items-center gap-3">
+                  {t.max_level && (
+                    <span className="inline-block self-start rounded-full px-2 py-0.5 text-[9px] font-bold uppercase bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                      Nível Máx: {t.max_level}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 mt-1">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg" style={{ background: "linear-gradient(135deg, #2a1a00, #3d2600)", boxShadow: "0 0 12px rgba(255,170,0,0.3)" }}>
                     <Trophy className="h-6 w-6" style={{ color: "#FFB800" }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-sm font-bold text-white truncate">{t.title}</h3>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase">(PRÊMIO EM DINHEIRO/ PIX)</p>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase">
+                      {isStarted && isDynamic ? "(PRÊMIO DINÂMICO ATUALIZADO)" : "(PRÊMIO MÁXIMO ESTIMADO)"}
+                    </p>
                     <p className="text-lg font-extrabold tracking-tight" style={{ color: "#00FF00", textShadow: "0 0 10px rgba(0,255,0,0.4)" }}>
-                      R$ {Number(t.prize_pool).toFixed(2).replace(".", ",")}
+                      R$ {displayPrize.toFixed(2).replace(".", ",")}
+                    </p>
+                    <p className="text-[10px] uppercase font-bold mt-0.5" style={{ color: t.prize_distribution === 'podium' ? '#FBBF24' : '#60A5FA' }}>
+                      {t.prize_distribution === 'podium' ? "🏆 Divisão: Pódio (Top 3)" : "🥇 Divisão: Vencedor Leva Tudo"}
                     </p>
                   </div>
                 </div>
@@ -383,6 +478,12 @@ export default function Tournaments() {
                     </span>
                   </div>
                 </div>
+
+                {t.extra_text && (
+                  <div className="mt-1 bg-black/40 p-2 rounded text-center">
+                    <p className="text-[10px] text-gray-400 leading-tight">"{t.extra_text}"</p>
+                  </div>
+                )}
 
                 {isEnrolled && revealedLink && (
                   <div className="rounded-lg p-3 text-center" style={{ background: "#1a1a1a" }}>
@@ -439,6 +540,30 @@ export default function Tournaments() {
             )}
             <Button variant="outline" className="w-full border-white/5 bg-[#1a1a1a] text-gray-400 font-bold py-6 rounded-xl" onClick={() => setFullRoomModal(false)}>
               FECHAR
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={passModalOpen} onOpenChange={setPassModalOpen}>
+        <DialogContent className="border-neon-orange bg-[#050505] text-white w-[92%] rounded-2xl p-6">
+          <DialogHeader>
+            <div className="mx-auto bg-orange-500/20 p-3 rounded-full mb-3 border border-orange-500/50">
+              <Ticket className="h-8 w-8 text-neon-orange" />
+            </div>
+            <DialogTitle className="text-center text-xl font-black uppercase tracking-tighter text-neon-orange">
+              Usar Passe Livre?
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-300 text-sm mt-2">
+              Você tem <b className="text-green-400">{profile?.passes_available} passe(s)</b> livres disponíveis.<br /> Deseja usar 1 Passe Livre para entrar nesta sala gratuita?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-3 mt-4">
+            <Button onClick={confirmEnrollWithPass} className="w-full bg-neon-orange hover:bg-orange-600 text-black font-black py-6 rounded-xl text-lg uppercase shadow-[0_0_20px_rgba(255,85,0,0.4)]">
+              Sim, usar passe grátis
+            </Button>
+            <Button variant="outline" className="w-full border-white/5 bg-[#111] text-gray-400 font-bold py-6 rounded-xl hover:bg-white/10" onClick={() => { setPassModalOpen(false); handleEnroll(tournamentToUsePass, true); }}>
+              Não, usar meu saldo (R$ {Number(tournamentToUsePass?.entry_fee).toFixed(2)})
             </Button>
           </DialogFooter>
         </DialogContent>

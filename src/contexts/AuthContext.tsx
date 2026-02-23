@@ -28,6 +28,8 @@ interface AuthContextType {
     total_winnings: number;
     tournaments_played: number;
     victories: number;
+    user_id: string;
+    is_chat_banned: boolean;
   } | null;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -55,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("nickname, saldo, nivel, avatar_url, full_name, cpf, freefire_id, freefire_nick, freefire_level, freefire_proof_url, total_winnings, tournaments_played, victories")
+      .select("nickname, saldo, nivel, avatar_url, full_name, cpf, freefire_id, freefire_nick, freefire_level, freefire_proof_url, total_winnings, tournaments_played, victories, user_id, is_chat_banned")
       .eq("user_id", userId)
       .maybeSingle();
     if (data) setProfile(data as any);
@@ -148,6 +150,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             total_winnings: newData.total_winnings ?? prev.total_winnings,
             tournaments_played: newData.tournaments_played ?? prev.tournaments_played,
             victories: newData.victories ?? prev.victories,
+            user_id: newData.user_id,
+            is_chat_banned: newData.is_chat_banned,
           } : null);
         }
       )

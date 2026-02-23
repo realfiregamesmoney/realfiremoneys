@@ -172,6 +172,15 @@ export default function TournamentLobby() {
     );
   }
 
+  const isStarted = tournament.scheduled_at && new Date() >= new Date(tournament.scheduled_at);
+  const filled = tournament.current_players || 0;
+  const max = tournament.max_players || 48;
+  const isDynamic = filled < max;
+  let displayPrize = Number(tournament.prize_pool);
+  if (isStarted && isDynamic) {
+    displayPrize = (filled * Number(tournament.entry_fee)) * 0.70;
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
@@ -208,9 +217,11 @@ export default function TournamentLobby() {
               <Trophy className="h-7 w-7" style={{ color: "#FFB800" }} />
             </div>
             <div>
-              <p className="text-[11px] uppercase text-muted-foreground">Prêmio Total</p>
+              <p className="text-[11px] uppercase text-muted-foreground">
+                {isStarted && isDynamic ? "PRÊMIO DINÂMICO ATUALIZADO" : "PRÊMIO MÁXIMO ESTIMADO"}
+              </p>
               <p className="text-2xl font-black" style={{ color: "#00FF00", textShadow: "0 0 10px rgba(0,255,0,0.4)" }}>
-                R$ {Number(tournament.prize_pool).toFixed(2).replace(".", ",")}
+                R$ {displayPrize.toFixed(2).replace(".", ",")}
               </p>
             </div>
           </div>
@@ -260,18 +271,27 @@ export default function TournamentLobby() {
               COMEÇAR PARTIDA
             </span>
           </button>
+        ) : isStarted ? (
+          <div className="w-full rounded-xl py-4 text-center text-sm font-extrabold uppercase tracking-widest text-gray-500 bg-gray-900 border border-gray-800">
+            PARTIDA INICIADA - INSCRIÇÕES ENCERRADAS
+          </div>
         ) : (
-          <button
-            onClick={handlePay}
-            disabled={paying}
-            className="w-full rounded-xl py-4 text-base font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
-            style={{ background: "linear-gradient(135deg, #FF5500, #FF8800)" }}
-          >
-            <span className="flex items-center justify-center gap-2">
-              <Flame className="h-5 w-5" />
-              {paying ? "PROCESSANDO..." : `PAGAR TAXA - R$ ${Number(tournament.entry_fee).toFixed(2).replace(".", ",")}`}
-            </span>
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handlePay}
+              disabled={paying}
+              className="w-full rounded-xl py-4 text-base font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #FF5500, #FF8800)" }}
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Flame className="h-5 w-5" />
+                {paying ? "PROCESSANDO..." : `PAGAR TAXA - R$ ${Number(tournament.entry_fee).toFixed(2).replace(".", ",")}`}
+              </span>
+            </button>
+            <p className="text-[10px] text-center text-gray-500 bg-black/60 p-2 rounded-lg leading-tight border border-white/5">
+              O prêmio final é dinâmico. Se a lotação de {max} jogadores não for atingida, o valor será reajustado automaticamente e de forma proporcional ao número de inscritos antes do início da partida.
+            </p>
+          </div>
         )}
       </div>
 
