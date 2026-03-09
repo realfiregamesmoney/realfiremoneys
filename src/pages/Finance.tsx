@@ -112,12 +112,23 @@ function DepositTab() {
         setAsaasCopyPaste(data.payload || ""); // PIX copia e cola
 
         // NOVO: Registra a transação PENDENTE imediatamente no banco
-        await supabase.from("transactions").insert({
+        const { error: txError } = await supabase.from("transactions").insert({
           user_id: user?.id,
           type: "deposit",
           amount: val,
           status: "pending"
         });
+
+        if (txError) {
+            console.error("Falha ao registrar transação no banco:", txError);
+            toast({
+                variant: 'destructive',
+                title: 'Erro Interno',
+                description: 'Não foi possível registrar seu pedido de depósito. Tente novamente.'
+            });
+            setIsLoadingAsaas(false);
+            return;
+        }
 
         // Log da geração
         await supabase.from("audit_logs").insert({
