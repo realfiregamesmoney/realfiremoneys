@@ -1,0 +1,261 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0a0a0a;
+  font-family: 'Orbitron', sans-serif;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #1a0c00 0%, #000000 100%);
+  position: relative;
+  box-sizing: border-box;
+}
+
+body::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(0deg, rgba(255, 85, 0, 0.1) 0%, transparent 100%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 170, 0, 0.05) 3px, rgba(255, 170, 0, 0.05) 3px);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 20px 20px;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+}
+
+.back-btn {
+  color: #fff;
+  text-decoration: none;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px 15px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  background: rgba(255, 85, 0, 0.2);
+  border-color: #ff5500;
+  box-shadow: 0 0 10px #ff5500;
+}
+
+h1 {
+  font-size: 24px;
+  margin: 0;
+  color: #fff;
+  text-shadow: 0 0 10px #ff5500;
+}
+
+h1 span {
+  color: #ffaa00;
+  text-shadow: 0 0 10px #ffaa00;
+}
+
+.game-info {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 30px;
+  box-sizing: border-box;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 10px;
+  color: #888;
+  opacity: 0.5;
+  transition: 0.3s;
+}
+
+.player.active {
+  opacity: 1;
+}
+
+.player span {
+  font-size: 20px;
+  font-weight: bold;
+  margin-top: 5px;
+}
+
+.player.p1.active {
+  color: #ffaa00;
+  text-shadow: 0 0 10px #ffaa00;
+}
+
+.player.p1 span {
+  color: #ffaa00;
+}
+
+.player.p2.active {
+  color: #ff5500;
+  text-shadow: 0 0 10px #ff5500;
+}
+
+.player.p2 span {
+  color: #ff5500;
+}
+
+
+.turn-indicator {
+  font-size: 12px;
+  align-self: center;
+  color: #fff;
+  text-shadow: 0 0 5px #fff;
+}
+
+.board-container {
+  padding: 15px;
+  background: linear-gradient(135deg, #111 0%, #050505 100%);
+  border: 4px solid #333;
+  border-radius: 8px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(255, 85, 0, 0.1);
+  position: relative;
+}
+
+.board-container::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  right: -6px;
+  bottom: -6px;
+  border: 1px solid rgba(255, 170, 0, 0.3);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(8, 40px);
+  grid-template-rows: repeat(8, 40px);
+  border: 1px solid #222;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+@media (min-width: 400px) {
+  .board {
+    grid-template-columns: repeat(8, 45px);
+    grid-template-rows: repeat(8, 45px);
+  }
+}
+
+.cell {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.cell.light {
+  background-color: #e6e6e6;
+}
+
+/* Madeira Branca / Mármore Claro */
+.cell.dark {
+  background-color: #1a1a1a;
+}
+
+/* Madeira Negra Fosca */
+
+.cell.valid-move::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: rgba(255, 170, 0, 0.8);
+  border-radius: 50%;
+  box-shadow: 0 0 15px #ffaa00;
+  border: 2px solid #fff;
+  z-index: 5;
+}
+
+.piece {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.6), inset 0 4px 6px rgba(255, 255, 255, 0.3), 0 5px 10px rgba(0, 0, 0, 0.8);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+/* Detalhe interno da peça simulando os sulcos de damas reais */
+.piece::after {
+  content: '';
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.piece.p1 {
+  background: radial-gradient(circle at 40% 40%, #ffbb33, #aa4400);
+  /* Neon Ouro/Laranja */
+  border-color: #ffcc66;
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.6), inset 0 4px 6px rgba(255, 255, 255, 0.8), 0 5px 10px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 170, 0, 0.5);
+}
+
+.piece.p2 {
+  background: radial-gradient(circle at 40% 40%, #555555, #111111);
+  /* Preto Grafite Realista */
+  border-color: #777;
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.8), inset 0 4px 6px rgba(255, 255, 255, 0.2), 0 5px 10px rgba(0, 0, 0, 0.9), 0 0 10px rgba(255, 51, 0, 0.3);
+}
+
+.piece.selected {
+  transform: scale(1.1) translateY(-5px);
+  z-index: 10;
+}
+
+.piece.p1.selected {
+  border-color: #fff;
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.6), inset 0 4px 6px rgba(255, 255, 255, 0.8), 0 10px 20px rgba(0, 0, 0, 0.8), 0 0 30px #ffaa00 !important;
+}
+
+.piece.p2.selected {
+  border-color: #ff3300;
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.8), inset 0 4px 6px rgba(255, 255, 255, 0.2), 0 10px 20px rgba(0, 0, 0, 0.9), 0 0 30px #ff3300 !important;
+}
+
+.piece.king::before {
+  content: '♛';
+  /* Usar coroa real de rei (Xadrez) em vez da estrela fica mt mais Gamer/Luxo */
+  font-size: 22px;
+  color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}

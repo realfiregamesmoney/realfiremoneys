@@ -90,4 +90,18 @@
   .clip-path-triangle {
     clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
+  .custom-scrollbar::-webkit-scrollbar {
+    height: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(251, 146, 60, 0.2);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(251, 146, 60, 0.4);
+  }
 }

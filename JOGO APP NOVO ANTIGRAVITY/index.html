@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Lobby - Seleção de Jogo</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #050505;
+      font-family: 'Orbitron', sans-serif;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 10vh;
+      height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(circle at top center, #1a0a00 0%, #050505 100%);
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, rgba(255, 68, 0, 0.05) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .logo-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 40px;
+    }
+
+    .real-fire-logo {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 0 15px rgba(255, 68, 0, 0.4));
+    }
+
+    h1 {
+      font-size: 28px;
+      color: #ffffff;
+      margin: 0;
+      text-transform: uppercase;
+      text-align: center;
+      letter-spacing: 4px;
+      font-weight: 700;
+    }
+
+    .menu {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+      max-width: 400px;
+      padding: 0 25px;
+      box-sizing: border-box;
+      z-index: 1;
+    }
+
+    .game-card {
+      background: #111111;
+      border: 1px solid #333333;
+      border-left: 4px solid #ff4400;
+      border-radius: 6px;
+      padding: 20px;
+      text-align: left;
+      text-decoration: none;
+      color: white;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .game-card:hover {
+      background: #1a1a1a;
+      border-left: 4px solid #ffaa00;
+      transform: translateX(5px);
+      box-shadow: 0 4px 15px rgba(255, 68, 0, 0.2);
+    }
+
+    .game-card h2 {
+      margin: 0 0 5px 0;
+      font-size: 20px;
+      letter-spacing: 2px;
+      color: #ffffff;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .game-card h2 span {
+      color: #ff4400;
+    }
+
+    .game-card p {
+      margin: 0;
+      font-size: 13px;
+      color: #888888;
+      font-family: 'Segoe UI', sans-serif;
+      font-weight: 400;
+      letter-spacing: 0.5px;
+    }
+
+    .footer-text {
+      position: absolute;
+      bottom: 5vh;
+      left: 20px;
+      right: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #555555;
+      font-family: 'Segoe UI', sans-serif;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="logo-container">
+    <svg class="real-fire-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="M50 10C50 10 35 30 20 25C30 40 10 50 10 50C10 50 30 55 40 80C40 80 45 60 50 50C55 60 60 80 60 80C70 55 90 50 90 50C90 50 70 40 80 25C65 30 50 10 50 10Z"
+        fill="url(#fireGradient)" />
+      <path
+        d="M50 30C50 30 40 45 35 45C45 55 25 60 25 60C25 60 40 65 45 80C45 80 48 65 50 60C52 65 55 80 55 80C60 65 75 60 75 60C75 60 55 55 65 45C60 45 50 30 50 30Z"
+        fill="#FFAA00" />
+      <defs>
+        <linearGradient id="fireGradient" x1="50" y1="10" x2="50" y2="80" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#FFDD00" />
+          <stop offset="0.5" stop-color="#FF4400" />
+          <stop offset="1" stop-color="#880000" />
+        </linearGradient>
+      </defs>
+    </svg>
+    <h1>MODO DE JOGO</h1>
+  </div>
+
+  <div class="menu">
+    <a href="./race.html" class="game-card">
+      <h2>ROYAL MONEY <span>RACE</span></h2>
+      <p>Ação, Corrida e Tiro Espacial.</p>
+    </a>
+
+    <a href="./battle.html" class="game-card">
+      <h2>ROYAL MONEY <span>BATTLE</span></h2>
+      <p>Jogos de Tabuleiro, Cartas e Estratégia.</p>
+    </a>
+  </div>
+
+  <div class="footer-text">
+    Escolha uma Categoria de Jogo e ganhe pontos para o Prêmio Semanal em Dinheiro.
+  </div>
+</body>
+
+</html>

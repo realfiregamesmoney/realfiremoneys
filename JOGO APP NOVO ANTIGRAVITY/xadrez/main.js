@@ -1,0 +1,236 @@
+const boardEl = document.getElementById('board');
+const turnIndicator = document.getElementById('turn-indicator');
+const p1El = document.querySelector('.player.p1');
+const p2El = document.querySelector('.player.p2');
+const score1El = document.getElementById('score1');
+const score2El = document.getElementById('score2');
+
+// Audio Context
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playSound(type) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    const now = audioCtx.currentTime;
+
+    if (type === 'move') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.linearRampToValueAtTime(100, now + 0.1);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.1);
+        osc.start(now);
+        osc.stop(now + 0.1);
+    } else if (type === 'capture') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.linearRampToValueAtTime(1000, now + 0.15);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.linearRampToValueAtTime(0.001, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+    }
+}
+
+// Pieces Unicode
+// P1 = Ciano (Bottom), P2 = Magenta (Top)
+// White pieces will be assigned to P1, Black pieces to P2
+const PIECES = {
+    P: '♟', R: '♜', N: '♞', B: '♝', Q: '♛', K: '♚'
+};
+
+const PIECES_MAP = {
+    'p': 'P', 'r': 'R', 'n': 'N', 'b': 'B', 'q': 'Q', 'k': 'K'
+};
+
+let board = [];
+let turn = 1; // 1 = p1 (bottom, moves up), 2 = p2 (top, moves down)
+let selectedPos = null;
+let validMoves = [];
+let capturesP1 = 0;
+let capturesP2 = 0;
+
+function init() {
+    board = [
+        [{ t: 'R', p: 2 }, { t: 'N', p: 2 }, { t: 'B', p: 2 }, { t: 'Q', p: 2 }, { t: 'K', p: 2 }, { t: 'B', p: 2 }, { t: 'N', p: 2 }, { t: 'R', p: 2 }],
+        [{ t: 'P', p: 2 }, { t: 'P', p: 2 }, { t: 'P', p: 2 }, { t: 'P', p: 2 }, { t: 'P', p: 2 }, { t: 'P', p: 2 }, { t: 'P', p: 2 }, { t: 'P', p: 2 }],
+        [null, null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null],
+        [null, null, null, null, null, null, null, null],
+        [{ t: 'P', p: 1 }, { t: 'P', p: 1 }, { t: 'P', p: 1 }, { t: 'P', p: 1 }, { t: 'P', p: 1 }, { t: 'P', p: 1 }, { t: 'P', p: 1 }, { t: 'P', p: 1 }],
+        [{ t: 'R', p: 1 }, { t: 'N', p: 1 }, { t: 'B', p: 1 }, { t: 'Q', p: 1 }, { t: 'K', p: 1 }, { t: 'B', p: 1 }, { t: 'N', p: 1 }, { t: 'R', p: 1 }]
+    ];
+    turn = 1;
+    selectedPos = null;
+    validMoves = [];
+    capturesP1 = 0;
+    capturesP2 = 0;
+    render();
+}
+
+function render() {
+    boardEl.innerHTML = '';
+    for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'light' : 'dark');
+
+            // Highlight valid moves or captures
+            const moveInfo = validMoves.find(m => m.r === r && m.c === c);
+            if (moveInfo) {
+                if (board[r][c] !== null) cell.classList.add('capture-move');
+                else cell.classList.add('valid-move');
+                cell.onclick = () => executeMove(moveInfo);
+            } else {
+                cell.onclick = () => handleCellClick(r, c);
+            }
+
+            const pieceData = board[r][c];
+            if (pieceData) {
+                const pieceDiv = document.createElement('div');
+                pieceDiv.className = 'piece p' + pieceData.p;
+                pieceDiv.innerText = PIECES[pieceData.t];
+
+                if (selectedPos && selectedPos.r === r && selectedPos.c === c) {
+                    pieceDiv.classList.add('selected');
+                }
+                cell.appendChild(pieceDiv);
+            }
+            boardEl.appendChild(cell);
+        }
+    }
+
+    score1El.innerText = "Capt: " + capturesP1;
+    score2El.innerText = "Capt: " + capturesP2;
+
+    if (turn === 1) {
+        p1El.classList.add('active');
+        p2El.classList.remove('active');
+        turnIndicator.innerText = "VEZ DO CIANO";
+        turnIndicator.style.color = "#00ffff";
+        turnIndicator.style.textShadow = "0 0 5px #00ffff";
+    } else {
+        p2El.classList.add('active');
+        p1El.classList.remove('active');
+        turnIndicator.innerText = "VEZ DO MAGENTA";
+        turnIndicator.style.color = "#ff00ff";
+        turnIndicator.style.textShadow = "0 0 5px #ff00ff";
+    }
+}
+
+function handleCellClick(r, c) {
+    const piece = board[r][c];
+    if (piece && piece.p === turn) {
+        if (selectedPos && selectedPos.r === r && selectedPos.c === c) {
+            selectedPos = null;
+            validMoves = [];
+        } else {
+            selectedPos = { r, c };
+            validMoves = getValidMoves(r, c, piece);
+        }
+        render();
+    }
+}
+
+function executeMove(move) {
+    const piece = board[selectedPos.r][selectedPos.c];
+    const targetPiece = board[move.r][move.c];
+
+    // Capture logic
+    if (targetPiece) {
+        playSound('capture');
+        if (turn === 1) {
+            capturesP1++;
+            if (targetPiece.t === 'K') setTimeout(() => alert('CIANO (J 1) MATOU O REI E VENCEU!'), 100);
+        } else {
+            capturesP2++;
+            if (targetPiece.t === 'K') setTimeout(() => alert('MAGENTA (J 2) MATOU O REI E VENCEU!'), 100);
+        }
+    } else {
+        playSound('move');
+    }
+
+    board[move.r][move.c] = piece;
+    board[selectedPos.r][selectedPos.c] = null;
+
+    // Promotion
+    if (piece.t === 'P') {
+        if ((turn === 1 && move.r === 0) || (turn === 2 && move.r === 7)) {
+            piece.t = 'Q'; // Autopromote to Queen for simplicity
+        }
+    }
+
+    turn = turn === 1 ? 2 : 1;
+    selectedPos = null;
+    validMoves = [];
+    render();
+}
+
+// Very basic move generation (ignores Checks/Pins for arcade simplicity)
+function getValidMoves(r, c, piece) {
+    const moves = [];
+    const dir = piece.p === 1 ? -1 : 1;
+    const opp = piece.p === 1 ? 2 : 1;
+
+    function addMove(nr, nc) {
+        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+            if (!board[nr][nc]) { moves.push({ r: nr, c: nc }); return true; }
+            if (board[nr][nc].p === opp) { moves.push({ r: nr, c: nc }); return false; }
+            return false;
+        }
+        return false;
+    }
+
+    if (piece.t === 'P') {
+        // Forward
+        if (r + dir >= 0 && r + dir < 8 && !board[r + dir][c]) {
+            moves.push({ r: r + dir, c: c });
+            // First move double
+            if ((piece.p === 1 && r === 6) || (piece.p === 2 && r === 1)) {
+                if (!board[r + (dir * 2)][c]) moves.push({ r: r + (dir * 2), c: c });
+            }
+        }
+        // Capture diagonal
+        if (r + dir >= 0 && r + dir < 8) {
+            if (c - 1 >= 0 && board[r + dir][c - 1] && board[r + dir][c - 1].p === opp) moves.push({ r: r + dir, c: c - 1 });
+            if (c + 1 < 8 && board[r + dir][c + 1] && board[r + dir][c + 1].p === opp) moves.push({ r: r + dir, c: c + 1 });
+        }
+    }
+    else if (piece.t === 'R') {
+        for (let i = r + 1; i < 8; i++) if (!addMove(i, c)) break;
+        for (let i = r - 1; i >= 0; i--) if (!addMove(i, c)) break;
+        for (let i = c + 1; i < 8; i++) if (!addMove(r, i)) break;
+        for (let i = c - 1; i >= 0; i--) if (!addMove(r, i)) break;
+    }
+    else if (piece.t === 'N') {
+        const ndirs = [[-2, -1], [-2, 1], [2, -1], [2, 1], [-1, -2], [1, -2], [-1, 2], [1, 2]];
+        for (let d of ndirs) addMove(r + d[0], c + d[1]);
+    }
+    else if (piece.t === 'B') {
+        for (let i = 1; i < 8; i++) if (!addMove(r + i, c + i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r - i, c - i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r + i, c - i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r - i, c + i)) break;
+    }
+    else if (piece.t === 'Q') {
+        for (let i = r + 1; i < 8; i++) if (!addMove(i, c)) break;
+        for (let i = r - 1; i >= 0; i--) if (!addMove(i, c)) break;
+        for (let i = c + 1; i < 8; i++) if (!addMove(r, i)) break;
+        for (let i = c - 1; i >= 0; i--) if (!addMove(r, i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r + i, c + i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r - i, c - i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r + i, c - i)) break;
+        for (let i = 1; i < 8; i++) if (!addMove(r - i, c + i)) break;
+    }
+    else if (piece.t === 'K') {
+        const kdirs = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+        for (let d of kdirs) addMove(r + d[0], c + d[1]);
+    }
+
+    return moves;
+}
+
+init();

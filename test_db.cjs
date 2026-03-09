@@ -1,18 +1,24 @@
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_SERVICE_ROLE_KEY);
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://jieokmcyxftfjpfuvimj.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-
-if (!supabaseUrl || !supabaseKey) {
-    console.log("No URL or Key found!");
-    process.exit(1);
+async function listTables() {
+    const { data, error } = await supabase.rpc('get_tables'); // Usually doesn't exist
+    if (error) {
+        // Try another way: query a common table and see if it fails
+        console.log("RPC get_tables failed, trying to list files in migrations to guess...");
+    } else {
+        console.log("Tables:", data);
+    }
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function test() {
-    const { data, error } = await supabase.from('store_products').select('*').limit(1);
-    console.log("store_products select result:", { data, error });
+async function checkExistence() {
+    // Try to select from information_schema
+    const { data, error } = await supabase.from('achievements').select('id').limit(1);
+    if (error) {
+        console.log("Achievements table error:", error.message);
+    } else {
+        console.log("Achievements table exists!");
+    }
 }
-
-test();
+checkExistence();

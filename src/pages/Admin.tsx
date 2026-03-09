@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import {
     Shield, Trophy, Wallet, Users, MessageSquare, Plus, Check, X, Star, ExternalLink, Loader2,
     Edit, Save, Calendar, Link as LinkIcon, Trash2, Send, Lightbulb, Archive, Gamepad2, Search,
-    AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell, Zap, ShoppingBag, Ticket, BarChart2, Unlock, Pin, Briefcase, CheckCircle2
+    AlertTriangle, History, Eye, Clock, UserCog, Upload, DollarSign, ArrowLeft, Gift, Ban, Lock, Bell, Zap, ShoppingBag, Ticket, BarChart2, Unlock, Pin, Briefcase, CheckCircle2, Crown, ImageIcon, Mic, ShoppingCart, Swords, RotateCcw, PieChart
 } from "lucide-react";
+
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { playNotificationSound } from "@/utils/notificationSound";
 import { Button } from "@/components/ui/button";
@@ -21,10 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { format, subDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area, CartesianGrid, PieChart as RechartsPieChart, Pie, Cell } from "recharts";
+
 import GlobalChat from "./GlobalChat";
 import AdminQuiz from "@/components/admin/AdminQuiz";
 import AdminPartnership from "@/components/partnership/AdminPartnership";
+import AdminAchievements from "@/components/admin/AdminAchievements";
+import AdminGames from "@/components/admin/AdminGames";
+import AdminSecurity from "@/components/admin/AdminSecurity";
 
 // Definir SINO para evitar erro no código
 const SINO = Bell;
@@ -98,6 +104,7 @@ export default function Admin() {
                     <TabItem value="wallet" icon={BarChart2} label="Carteira e Lucro" />
                     <TabItem value="auto_history" icon={Zap} label="Históricos Auto" />
                     <TabItem value="payment_link" icon={LinkIcon} label="Link da Conta" />
+                    <TabItem value="achievements" icon={Crown} label="Patentes" />
                     <TabItem value="support" icon={MessageSquare} label="Suporte" />
                     <TabItem value="logs" icon={History} label="Registros" />
                     <TabItem value="referrals" icon={Gift} label="Indicações" />
@@ -106,6 +113,8 @@ export default function Admin() {
                     <TabItem value="alerts" icon={AlertTriangle} label="Alertas" />
                     <TabItem value="partnership" icon={Briefcase} label="Parceria" />
                     <TabItem value="quiz" icon={Zap} label="Mega Quiz" />
+                    <TabItem value="games" icon={Gamepad2} label="COMPETIÇÃO" />
+                    <TabItem value="security" icon={Shield} label="Segurança do App" />
                 </TabsList>
 
                 <div className="px-2">
@@ -118,6 +127,9 @@ export default function Admin() {
                     <TabsContent value="wallet"><AdminCompanyWallet /></TabsContent>
                     <TabsContent value="auto_history"><AdminAutoHistory /></TabsContent>
                     <TabsContent value="payment_link"><AdminPaymentLink /></TabsContent>
+                    <TabsContent value="achievements">
+                        <AdminAchievements />
+                    </TabsContent>
                     <TabsContent value="support"><AdminSupport /></TabsContent>
                     <TabsContent value="logs"><AdminLogs /></TabsContent>
                     <TabsContent value="referrals"><AdminReferrals /></TabsContent>
@@ -126,6 +138,8 @@ export default function Admin() {
                     <TabsContent value="alerts"><AdminAlerts /></TabsContent>
                     <TabsContent value="partnership"><AdminPartnership /></TabsContent>
                     <TabsContent value="quiz"><AdminQuiz /></TabsContent>
+                    <TabsContent value="games"><AdminGames /></TabsContent>
+                    <TabsContent value="security"><AdminSecurity /></TabsContent>
                 </div>
             </Tabs>
 
@@ -322,6 +336,10 @@ function AdminTournaments() {
 
         // Recursive attempt to save by stripping missing columns
         for (let attempt = 0; attempt < 10; attempt++) {
+            if (attempt > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500)); // Delay Anti-DoS entre tentativas
+            }
+
             console.log(`[AdminTournaments] Tentativa de criação #${attempt + 1}`, currentPayload);
             const { error: insertError } = await supabase.from("tournaments").insert(currentPayload);
 
@@ -355,19 +373,29 @@ function AdminTournaments() {
 
             try {
                 const { data: { user: currentUser } } = await supabase.auth.getUser();
-                await supabase.from("audit_logs").insert({
-                    admin_id: currentUser?.id,
-                    action_type: 'tournament_create',
-                    details: `Criou torneio: ${formData.title} (Entrada: R$${entryFee}, Prêmio: R$${prizePool})`
-                });
-            } catch (auditErr) { console.error("Erro ao gerar log", auditErr); }
+                if (currentUser) {
+                    const { error: logErr } = await supabase.from("audit_logs").insert({
+                        admin_id: currentUser.id,
+                        action_type: 'tournament_create',
+                        details: `Criou torneio: ${formData.title} (Entrada: R$${entryFee}, Prêmio: R$${prizePool})`
+                    });
+                    if (logErr) toast({ variant: "warning", title: "Aviso de Auditoria", description: "Torneio criado, mas houve um erro ao registrar o log. Verifique o console." });
+                }
+            } catch (auditErr) {
+                console.error("Erro ao gerar log", auditErr);
+            }
 
             // DISPARO DE PUSH
-            await sendPushNotification(
-                'ply_new_tournaments',
-                'Novo Torneio no Real Fire! 🔥',
-                `O torneio "${formData.title}" valendo R$ ${prizePool} acabou de abrir! Garanta sua vaga.`
-            );
+            try {
+                await sendPushNotification(
+                    'ply_new_tournaments',
+                    'Novo Torneio no Real Fire! 🔥',
+                    `O torneio "${formData.title}" valendo R$ ${prizePool} acabou de abrir! Garanta sua vaga.`
+                );
+            } catch (err) {
+                console.error("Erro ao enviar push:", err);
+                toast({ variant: "warning", title: "Notificação Falhou", description: "Torneio publicado, mas houve um erro ao notificar os jogadores via OneSignal." });
+            }
 
             setFormData({
                 title: "", type: "SQUAD", entry_fee: "", prize_pool: "",
@@ -404,13 +432,51 @@ function AdminTournaments() {
     };
 
     const handleRealDelete = async (id: string) => {
-        if (!confirm("Atenção: Destruir permanentemente pode falhar se houver jogadores já inscritos pagos. Deseja tentar destruir?")) return;
-        const { error } = await supabase.from("tournaments").delete().eq("id", id);
-        if (error) {
-            toast({ variant: "destructive", title: "Erro na Dedeção", description: "Não é possível excluir um torneio que já tem participantes e histórico atrelados." });
-        } else {
-            toast({ title: "Destruído permanentemente." });
+        try {
+            // Verificação de segurança: Checar se há jogadores com inscrição paga
+            const { count, error: countErr } = await supabase
+                .from("tournament_participants")
+                .select("*", { count: 'exact', head: true })
+                .eq("tournament_id", id)
+                .eq("status", "paid");
+
+            if (countErr) {
+                console.error("Erro ao verificar inscritos:", countErr);
+                return toast({ variant: "destructive", title: "Erro de Segurança", description: "Não foi possível verificar se há inscritos pagos. Abortando exclusão." });
+            }
+
+            if (count && count > 0) {
+                return toast({
+                    variant: "destructive",
+                    title: "Operação Bloqueada",
+                    description: `AVISO: Este torneio possui ${count} jogadores PAGOS e ATIVOS. Você deve reembolsá-los ou encerrar o torneio antes de deletar.`
+                });
+            }
+
+            if (!confirm("⚠️ ATENÇÃO: Deseja realmente DELETAR PERMANENTEMENTE este torneio e todos os seus registros? Esta ação não pode ser desfeita.")) return;
+
+            // Timer de segurança de 1 segundo para evitar cliques acidentais
+            toast({ title: "Processando exclusão...", description: "Aguarde 1.2 segundos para validação final de segurança." });
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            const { error } = await supabase.from("tournaments").delete().eq("id", id);
+            if (error) throw error;
+
+            toast({ title: "Destruído permanentemente.", description: "Torneio e histórico removidos com sucesso." });
             fetchTournaments();
+
+            // Log de auditoria para exclusão real
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                await supabase.from("audit_logs").insert({
+                    admin_id: user.id,
+                    action_type: 'tournament_delete_permanent',
+                    details: `DELETOU permanentemente torneio: ${id}`
+                });
+            }
+        } catch (error: any) {
+            console.error("Erro na deleção:", error);
+            toast({ variant: "destructive", title: "Erro na Deleção", description: "Não é possível excluir um torneio com histórico atrelado (Restrição de Banco)." });
         }
     };
 
@@ -495,6 +561,10 @@ function AdminTournaments() {
 
         // Recursive attempt to update by stripping missing columns
         for (let attempt = 0; attempt < 10; attempt++) {
+            if (attempt > 0) {
+                await new Promise(resolve => setTimeout(resolve, 500)); // Delay Anti-DoS entre tentativas
+            }
+
             console.log(`[AdminTournaments] Tentativa de atualização #${attempt + 1}`, currentPayloadEdit);
             const { error: updateError } = await supabase.from("tournaments").update(currentPayloadEdit).eq("id", editingId);
 
@@ -528,11 +598,16 @@ function AdminTournaments() {
             fetchTournaments();
 
             // DISPARO DE PUSH
-            await sendPushNotification(
-                'ply_schedule',
-                '⏳ Torneio Atualizado',
-                `A sala "${editData.title}" pode ter novos horários ou vagas. Verifique agora!`
-            );
+            try {
+                await sendPushNotification(
+                    'ply_schedule',
+                    '⏳ Torneio Atualizado',
+                    `A sala "${editData.title}" pode ter novos horários ou vagas. Verifique agora!`
+                );
+            } catch (err) {
+                console.error("Erro ao enviar push:", err);
+                toast({ variant: "warning", title: "Notificação Falhou", description: "Alterações salvas, mas houve um erro ao notificar os jogadores via OneSignal." });
+            }
         }
     };
 
@@ -956,20 +1031,30 @@ function AdminRooms() {
                     throw new Error("Erro de permissão no Banco (RLS) ao salvar histórico.");
                 }
 
-                // 4. Registra no Log de Auditoria
-                await supabase.from("audit_logs").insert({
-                    admin_id: user?.id,
-                    action_type: 'tournament_result',
-                    details: `Finalizou ${resultModal.title} (${win.place}º Lugar). Vencedor: ${winner?.profiles?.nickname} (R$ ${win.amount.toFixed(2)})`
-                });
+                // 4. Registra no Log de Auditoria (Isolado)
+                try {
+                    const { error: auditErr } = await supabase.from("audit_logs").insert({
+                        admin_id: user?.id,
+                        action_type: 'tournament_result',
+                        details: `Finalizou ${resultModal.title} (${win.place}º Lugar). Vencedor: ${winner?.profiles?.nickname} (R$ ${win.amount.toFixed(2)})`
+                    });
+                    if (auditErr) toast({ variant: "warning", title: "Erro de Log", description: "Resultado processado, mas falha ao salvar log de auditoria." });
+                } catch (e) {
+                    console.error("Log error:", e);
+                }
 
-                // DISPARO DE PUSH: Notifica especificamente
-                await sendPushNotification(
-                    'ply_finance_done',
-                    `🏆 Você ficou no ${win.place}º Lugar!`,
-                    `Parabéns ${winner?.profiles?.nickname}! Seu prêmio de R$ ${win.amount.toFixed(2)} já está no seu saldo!`,
-                    [win.id]
-                );
+                // DISPARO DE PUSH: Notifica especificamente (Isolado)
+                try {
+                    await sendPushNotification(
+                        'ply_finance_done',
+                        `🏆 Você ficou no ${win.place}º Lugar!`,
+                        `Parabéns ${winner?.profiles?.nickname}! Seu prêmio de R$ ${win.amount.toFixed(2)} já está no seu saldo!`,
+                        [win.id]
+                    );
+                } catch (err) {
+                    console.error("Push error:", err);
+                    toast({ variant: "warning", title: "Push Falhou", description: "Dinheiro enviado, mas jogador não foi notificado via celular." });
+                }
             }
 
             // 3. Marca o Torneio como finalizado e ARQUIVA
@@ -1006,9 +1091,26 @@ function AdminRooms() {
                 .from("profiles")
                 .select("user_id, nickname, freefire_id, avatar_url")
                 .in("user_id", winnerIds);
-            const profileMap: Record<string, any> = {};
-            profiles?.forEach(p => { profileMap[p.user_id] = p; });
-            setResultHistory(results.map(r => ({ ...r, winner_profile: profileMap[r.winner_user_id] || null })));
+
+            if (profiles) {
+                const { data: achievements } = await supabase
+                    .from("user_achievements")
+                    .select("user_id, is_active, achievements(image_url)")
+                    .in("user_id", winnerIds)
+                    .eq("is_active", true);
+
+                const patentMap = new Map();
+                achievements?.forEach(ua => patentMap.set(ua.user_id, ua?.achievements?.image_url));
+
+                const profileMap: Record<string, any> = {};
+                profiles?.forEach(p => {
+                    profileMap[p.user_id] = {
+                        ...p,
+                        active_patent_url: patentMap.get(p.user_id)
+                    };
+                });
+                setResultHistory(results.map(r => ({ ...r, winner_profile: profileMap[r.winner_user_id] || null })));
+            }
         } else {
             setResultHistory([]);
         }
@@ -1252,10 +1354,20 @@ function AdminRooms() {
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-bold text-white truncate">
-                                                {result.place && <span className="text-yellow-500 mr-1">{result.place}º Lugar - </span>}
-                                                {result.winner_profile?.nickname || "Jogador"}
-                                            </p>
+                                            <div className="flex items-center gap-1.5 min-w-0 font-bold text-white">
+                                                <p className="text-sm truncate leading-none">
+                                                    {result.place && <span className="text-yellow-500 mr-1">{result.place}º Lugar - </span>}
+                                                    {result.winner_profile?.nickname || "Jogador"}
+                                                </p>
+                                                {result.winner_profile?.user_achievements?.filter((ua: any) => ua.is_active).map((ua: any) => {
+                                                    const url = Array.isArray(ua.achievements) ? ua.achievements[0]?.image_url : ua.achievements?.image_url;
+                                                    return url ? (
+                                                        <div key={ua.id} className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                            <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                        </div>
+                                                    ) : null;
+                                                })}
+                                            </div>
                                             <p className="text-[10px] text-gray-400">ID: {result.winner_profile?.freefire_id || "N/A"}</p>
                                         </div>
                                         <div className="text-right shrink-0">
@@ -1318,8 +1430,31 @@ function AdminUsers() {
         else if (activeFilter === "chat_banned") query = query.eq("is_chat_banned", true);
         else if (activeFilter === "locked") query = query.eq("is_balance_locked", true);
 
-        const { data } = await query.order("created_at", { ascending: false }).limit(100);
-        if (data) setUsers(data);
+        const { data: profiles } = await query.order("created_at", { ascending: false }).limit(100);
+
+        if (profiles) {
+            // Buscar conquistas separadamente para os usuários carregados
+            const userIds = profiles.map(u => u.user_id);
+            const { data: achievements } = await supabase
+                .from("user_achievements")
+                .select("user_id, is_active, achievements(image_url)")
+                .in("user_id", userIds)
+                .eq("is_active", true);
+
+            const achievementsByUser = new Map();
+            achievements?.forEach(ua => {
+                const current = achievementsByUser.get(ua.user_id) || [];
+                const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+                achievementsByUser.set(ua.user_id, [...current, { ...ua, achievements: ach }]);
+            });
+
+            const usersWithAchievements = profiles.map(u => ({
+                ...u,
+                user_achievements: achievementsByUser.get(u.user_id) || []
+            }));
+
+            setUsers(usersWithAchievements);
+        }
         fetchStats();
     };
 
@@ -1328,7 +1463,46 @@ function AdminUsers() {
         return () => clearTimeout(timer);
     }, [searchTerm, activeFilter]);
 
-    const openUser = (user: any) => {
+    const [userAchievements, setUserAchievements] = useState<any[]>([]);
+    const [loadingAchievements, setLoadingAchievements] = useState(false);
+    const [userStats, setUserStats] = useState({ participation: 0, victories: 0 });
+
+    const getAchievementOrderIndex = (item: any) => {
+        const name = (item.name || "").toLowerCase();
+        const rarityBonus = 0; // Pode ser expandido se houver RARITY_ORDER global
+
+        if (item.type === 'patent') {
+            if (name.includes('bronze')) return 1;
+            if (name.includes('prata')) return 2;
+            if (name.includes('ouro')) return 3;
+            if (name.includes('diamante')) return 4;
+            if (name.includes('esmeralda')) return 5;
+            if (name.includes('rubi')) return 6;
+            if (name.includes('elite')) return 7;
+            if (name.includes('mestre real fire')) return 98;
+            if (name.includes('inalcançável')) return 99;
+            return 10 + rarityBonus;
+        }
+        if (item.type === 'trophy') {
+            if (name.includes('recruta')) return 1;
+            if (name.includes('soldado')) return 2;
+            if (name.includes('veterano')) return 3;
+            if (name.includes('mestre real fire')) return 98;
+            if (name.includes('invencível')) return 99;
+            return 10 + rarityBonus;
+        }
+        if (item.type === 'medal') {
+            if (name.includes('recruta')) return 1;
+            if (name.includes('soldado')) return 2;
+            if (name.includes('veterano')) return 3;
+            if (name.includes('especial real fire')) return 98;
+            if (name.includes('participador vip')) return 99;
+            return 10 + rarityBonus;
+        }
+        return 200 + rarityBonus;
+    };
+
+    const openUser = async (user: any) => {
         setSelectedUser(user);
         setEditMode(false);
         setEditFields({
@@ -1342,6 +1516,57 @@ function AdminUsers() {
             avatar_url: user.avatar_url || "",
             freefire_proof_url: user.freefire_proof_url || "",
         });
+
+        // Buscar TODAS as informações para espelhar o perfil
+        setLoadingAchievements(true);
+        try {
+            // 1. Todas as conquistas do sistema
+            const { data: allAchSystem } = await supabase.from("achievements").select("*").order("created_at", { ascending: true });
+
+            // 2. Conquistas que o usuário já possui/ativou
+            const { data: userOwned } = await supabase.from("user_achievements").select("*, achievements(*)").eq("user_id", user.user_id);
+
+            // 3. Stats de participação (Quiz e Cofre)
+            const { count: quizCount } = await supabase.from('quiz_rankings').select('*', { count: 'exact', head: true }).eq('user_id', user.user_id);
+            const { data: vaultGuesses } = await supabase.from('vault_guesses').select('vault_id').eq('user_id', user.user_id);
+            const uniqueVaults = new Set(vaultGuesses?.map(v => v.vault_id)).size;
+
+            const totalP = (user.tournaments_played || 0) + (quizCount || 0) + uniqueVaults;
+            const participation = Math.max(0, totalP - (user.victories || 0));
+            setUserStats({ participation, victories: user.victories || 0 });
+
+            // 4. Mesclar dados com lógica de auto-desbloqueio
+            if (allAchSystem) {
+                const merged = allAchSystem.map(acc => {
+                    const ownedItem = userOwned?.find(ua => ua.achievement_id === acc.id);
+                    const name = (acc.name || "").toLowerCase();
+                    let isOwned = !!ownedItem;
+
+                    const userCount = ownedItem?.count || 0;
+                    if (acc.type === 'medal' || acc.type === 'trophy') {
+                        if (name.includes('recruta') && userCount >= 1) isOwned = true;
+                        if (name.includes('soldado') && userCount >= 10) isOwned = true;
+                        if (name.includes('veterano') && userCount >= 50) isOwned = true;
+                        if (name.includes('mestre real fire') && userCount >= 100) isOwned = true;
+                        if (name.includes('invencível') && userCount >= 150) isOwned = true;
+                        if (name.includes('participador vip') && userCount >= 150) isOwned = true;
+                    }
+
+                    return {
+                        ...acc,
+                        owned: isOwned,
+                        user_count: userCount,
+                        user_achievement_id: ownedItem?.id,
+                        is_active: ownedItem?.is_active || false
+                    };
+                });
+                setUserAchievements(merged);
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoadingAchievements(false);
+        }
     };
 
     const handleAdminEditUser = async () => {
@@ -1543,9 +1768,9 @@ function AdminUsers() {
                             onClick={() => openUser(user)}
                         >
                             <CardContent className="p-0">
-                                <div className="p-5 flex items-start gap-4">
+                                <div className="p-3 md:p-5 flex items-start gap-3 md:gap-4">
                                     <div className="relative shrink-0">
-                                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
+                                        <div className="h-12 w-12 md:h-16 md:w-16 rounded-xl md:rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/10 overflow-hidden shadow-2xl transition-transform group-hover:scale-105">
                                             {user.avatar_url ? (
                                                 <img src={user.avatar_url} className="h-full w-full object-cover" alt={user.nickname} />
                                             ) : (
@@ -1574,9 +1799,19 @@ function AdminUsers() {
 
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center justify-between gap-2">
-                                            <h4 className="font-black text-white uppercase italic truncate text-base leading-none group-hover:text-neon-orange transition-colors">
-                                                {user.nickname || "N/A"}
-                                            </h4>
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <h4 className="font-black text-white uppercase italic truncate text-sm md:text-base leading-none group-hover:text-neon-orange transition-colors">
+                                                    {user.nickname || "N/A"}
+                                                </h4>
+                                                {user.user_achievements?.filter((ua: any) => ua.is_active).map((ua: any) => {
+                                                    const url = Array.isArray(ua.achievements) ? ua.achievements[0]?.image_url : ua.achievements?.image_url;
+                                                    return url ? (
+                                                        <div key={ua.id} className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[1px] ml-1">
+                                                            <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                        </div>
+                                                    ) : null;
+                                                })}
+                                            </div>
                                             <Badge variant="outline" className="text-[9px] font-black uppercase text-neon-green border-neon-green/20 bg-neon-green/5">
                                                 R$ {Number(user.saldo).toFixed(2)}
                                             </Badge>
@@ -1605,152 +1840,133 @@ function AdminUsers() {
                 )}
             </div>
 
-            {/* Dossier Dialog */}
+            {/* Dossier Dialog - CORREÇÃO DE RESPONSIVIDADE MOBILE */}
             <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-                <DialogContent className="bg-[#050505] border-white/5 text-white w-[98%] max-w-4xl rounded-[2.5rem] max-h-[92vh] overflow-y-auto shadow-2xl p-0">
+                <DialogContent className="bg-[#050505] border-white/5 text-white w-[95%] sm:w-[98%] max-w-4xl rounded-[1.5rem] md:rounded-[2.5rem] max-h-[95vh] md:max-h-[92vh] overflow-y-auto shadow-2xl p-0 custom-scrollbar">
                     {selectedUser && (
                         <div className="flex flex-col">
                             {/* Injected Header for Accessibility */}
-                            <DialogHeader className="p-8 pb-0 flex flex-row items-center justify-between gap-4">
+                            <DialogHeader className="p-4 md:p-8 pb-0 flex flex-row items-start justify-between gap-4">
                                 <div className="flex-1 min-w-0">
-                                    <DialogTitle className="text-2xl font-black uppercase text-white truncate">Dossiê do Jogador</DialogTitle>
-                                    <DialogDescription className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Controle Administrativo Total</DialogDescription>
+                                    <DialogTitle className="text-sm md:text-2xl font-black uppercase text-white truncate">Dossiê do Jogador</DialogTitle>
+                                    <DialogDescription className="text-gray-500 font-bold text-[8px] md:text-[10px] uppercase tracking-widest">Controle Administrativo Total</DialogDescription>
                                 </div>
-                                <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)} className="h-10 w-10 rounded-full hover:bg-white/5 border border-white/5"><X size={18} /></Button>
+                                <Button variant="ghost" size="icon" onClick={() => setSelectedUser(null)} className="h-8 w-8 md:h-10 md:w-10 rounded-full hover:bg-white/5 border border-white/5 shrink-0"><X size={16} /></Button>
                             </DialogHeader>
 
-                            {/* Dialog Header / Profile Hero */}
-                            <div className="relative h-32 bg-gradient-to-r from-neon-orange/20 to-transparent">
+                            {/* Dialog Header / Profile Hero - FORÇADO LADO A LADO NO MOBILE PARA NÃO QUEBRAR A ALTURA */}
+                            <div className="relative h-20 md:h-32 bg-gradient-to-r from-neon-orange/20 to-transparent mt-2 md:mt-0">
                                 <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
-                                <div className="absolute bottom-0 left-0 w-full p-8 flex items-end gap-6 translate-y-1/2">
-                                    <div className="relative">
-                                        <div className="w-28 h-28 rounded-[2rem] bg-black border-4 border-[#050505] overflow-hidden shadow-2xl shrink-0">
+                                <div className="absolute bottom-0 left-0 w-full px-4 md:px-8 flex flex-row items-end gap-3 md:gap-6 translate-y-1/2">
+                                    <div className="relative shrink-0">
+                                        <div className="w-16 h-16 md:w-28 md:h-28 rounded-xl md:rounded-[2rem] bg-black border-2 md:border-4 border-[#050505] overflow-hidden shadow-2xl">
                                             {selectedUser.avatar_url ? (
                                                 <img src={selectedUser.avatar_url} className="w-full h-full object-cover" alt={selectedUser.nickname} />
                                             ) : (
                                                 <div className="h-full w-full flex items-center justify-center text-gray-800 bg-white/5">
-                                                    <Users size={48} />
+                                                    <Users size={24} className="md:w-8 md:h-8" />
                                                 </div>
                                             )}
                                         </div>
-                                        <Badge className="absolute -bottom-2 right-0 bg-neon-orange text-black font-black uppercase text-[10px] tracking-widest px-3 py-1 border-4 border-[#050505]">
+                                        <Badge className="absolute -bottom-2 right-0 md:-right-2 bg-neon-orange text-black font-black uppercase text-[8px] md:text-[10px] tracking-widest px-1.5 md:px-3 py-0 md:py-1 border-2 md:border-4 border-[#050505]">
                                             NV. {selectedUser.freefire_level || 0}
                                         </Badge>
                                     </div>
-                                    <div className="mb-2">
-                                        <h2 className="text-3xl font-black uppercase italic text-white flex gap-2 leading-none items-center flex-wrap">
-                                            {selectedUser.nickname || "N/A"}
-                                            {selectedUser.is_app_banned && <Badge variant="destructive" className="ml-2 font-black tracking-widest shadow-[0_0_15px_rgba(255,0,0,0.5)] animate-pulse">BANIDO APP</Badge>}
+                                    <div className="mb-1 md:mb-2 text-left min-w-0 w-full">
+                                        <h2 className="text-base md:text-3xl font-black uppercase italic text-white flex justify-start gap-2 leading-tight items-center flex-wrap">
+                                            <span className="truncate max-w-[140px] sm:max-w-[200px] md:max-w-none">{selectedUser.nickname || "N/A"}</span>
+                                            {selectedUser.is_app_banned && <Badge variant="destructive" className="font-black tracking-widest shadow-[0_0_15px_rgba(255,0,0,0.5)] animate-pulse text-[8px] shrink-0">BANIDO</Badge>}
                                         </h2>
-                                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">{selectedUser.email || "E-mail não informado"}</p>
+                                        <p className="text-gray-400 font-bold uppercase tracking-widest text-[8px] md:text-[10px] mt-0.5 md:mt-2 truncate w-full">{selectedUser.email || "E-mail não informado"}</p>
                                     </div>
                                 </div>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute top-4 right-4 text-white hover:bg-white/5 rounded-full z-[60]"
-                                    onClick={() => setSelectedUser(null)}
-                                >
-                                    <X size={20} />
-                                </Button>
                             </div>
 
-                            <div className="pt-24 px-8 pb-10 space-y-8">
+                            {/* CONTAINER DE CONTEÚDO COM MARGEM SUPERIOR AJUSTADA PARA MOBILE */}
+                            <div className="pt-16 md:pt-24 px-4 md:px-8 pb-10 space-y-6 md:space-y-8">
                                 {!editMode ? (
                                     <>
-                                        {/* EMERGENCY ACTIONS - FORCED TOP VISIBILITY */}
-                                        <div className="flex flex-col sm:flex-row gap-3">
+                                        {/* EMERGENCY ACTIONS */}
+                                        <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
                                             <Button
                                                 onClick={() => setEditMode(true)}
-                                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-16 rounded-[1.5rem] font-black uppercase text-sm tracking-widest flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(37,99,235,0.3)] transition-all border-b-4 border-blue-800 active:border-b-0 active:translate-y-1"
+                                                className="w-full sm:flex-1 bg-blue-600 hover:bg-blue-500 text-white h-12 md:h-16 rounded-xl md:rounded-[1.5rem] font-black uppercase text-[10px] md:text-sm tracking-widest flex items-center justify-center gap-2 md:gap-3 shadow-lg transition-all border-b-4 border-blue-800 active:translate-y-1 active:border-b-0"
                                             >
-                                                <Edit size={22} /> Editar Perfil e Dados
+                                                <Edit className="w-4 h-4 md:w-5 md:h-5" /> Editar Perfil
                                             </Button>
                                             <Button
                                                 onClick={handleBlockBalance}
                                                 variant="outline"
-                                                className="flex-1 border-2 border-red-500/50 text-red-500 hover:bg-red-500/10 h-16 rounded-[1.5rem] font-black uppercase text-sm tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg shadow-red-900/10"
+                                                className="w-full sm:flex-1 border-2 border-red-500/50 text-red-500 hover:bg-red-500/10 h-12 md:h-16 rounded-xl md:rounded-[1.5rem] font-black uppercase text-[10px] md:text-sm tracking-widest flex items-center justify-center gap-2 md:gap-3 transition-all active:scale-95 shadow-lg"
                                             >
-                                                <DollarSign size={22} /> Zerar Saldo Total
+                                                <DollarSign className="w-4 h-4 md:w-5 md:h-5" /> Zerar Saldo Total
                                             </Button>
                                         </div>
 
-                                        <div className="h-4"></div> {/* Spacer */}
-
-                                        {/* Stats Grid */}
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
-                                                <DollarSign className="text-neon-green h-4 w-4 mb-2" />
-                                                <p className="text-[10px] text-gray-500 font-black uppercase">Saldo Atual</p>
-                                                <p className="text-xl font-black text-neon-green">R$ {Number(selectedUser.saldo || 0).toFixed(2)}</p>
+                                        {/* Stats Grid - Adaptado para 2 colunas seguras no mobile com gap menor */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                                            <div className="bg-white/[0.02] border border-white/5 p-3 md:p-4 rounded-2xl md:rounded-3xl group hover:bg-white/[0.04] transition-all min-w-0">
+                                                <DollarSign className="text-neon-green h-3 w-3 md:h-4 md:w-4 mb-1 md:mb-2" />
+                                                <p className="text-[8px] md:text-[10px] text-gray-500 font-black uppercase">Saldo</p>
+                                                <p className="text-sm md:text-xl font-black text-neon-green truncate">R$ {Number(selectedUser.saldo || 0).toFixed(2)}</p>
                                             </div>
-                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
-                                                <Trophy className="text-yellow-500 h-4 w-4 mb-2" />
-                                                <p className="text-[10px] text-gray-500 font-black uppercase">Winnings</p>
-                                                <p className="text-xl font-black text-white">R$ {Number(selectedUser.total_winnings || 0).toFixed(2)}</p>
+                                            <div className="bg-white/[0.02] border border-white/5 p-3 md:p-4 rounded-2xl md:rounded-3xl group hover:bg-white/[0.04] transition-all min-w-0">
+                                                <Trophy className="text-yellow-500 h-3 w-3 md:h-4 md:w-4 mb-1 md:mb-2" />
+                                                <p className="text-[8px] md:text-[10px] text-gray-500 font-black uppercase">Ganhos</p>
+                                                <p className="text-sm md:text-xl font-black text-white truncate">R$ {Number(selectedUser.total_winnings || 0).toFixed(2)}</p>
                                             </div>
-                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
-                                                <CheckCircle2 className="text-neon-orange h-4 w-4 mb-2" />
-                                                <p className="text-[10px] text-gray-500 font-black uppercase">Vitórias</p>
-                                                <p className="text-xl font-black text-white">{selectedUser.victories || 0}</p>
+                                            <div className="bg-white/[0.02] border border-white/5 p-3 md:p-4 rounded-2xl md:rounded-3xl group hover:bg-white/[0.04] transition-all min-w-0">
+                                                <CheckCircle2 className="text-neon-orange h-3 w-3 md:h-4 md:w-4 mb-1 md:mb-2" />
+                                                <p className="text-[8px] md:text-[10px] text-gray-500 font-black uppercase">Vitórias</p>
+                                                <p className="text-sm md:text-xl font-black text-white truncate">{selectedUser.victories || 0}</p>
                                             </div>
-                                            <div className="bg-white/[0.02] border border-white/5 p-4 rounded-3xl group hover:bg-white/[0.04] transition-all">
-                                                <Gamepad2 className="text-blue-500 h-4 w-4 mb-2" />
-                                                <p className="text-[10px] text-gray-500 font-black uppercase">Torneios</p>
-                                                <p className="text-xl font-black text-white">{selectedUser.tournaments_played || 0}</p>
+                                            <div className="bg-white/[0.02] border border-white/5 p-3 md:p-4 rounded-2xl md:rounded-3xl group hover:bg-white/[0.04] transition-all min-w-0">
+                                                <Gamepad2 className="text-blue-500 h-3 w-3 md:h-4 md:w-4 mb-1 md:mb-2" />
+                                                <p className="text-[8px] md:text-[10px] text-gray-500 font-black uppercase">Torneios</p>
+                                                <p className="text-sm md:text-xl font-black text-white truncate">{selectedUser.tournaments_played || 0}</p>
                                             </div>
                                         </div>
 
-                                        {/* Personal Data Section */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            <div className="space-y-4">
+                                        {/* Data Section - Multi-row/Stack */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
+                                            <div className="space-y-3 md:space-y-4 w-full min-w-0">
                                                 <h5 className="text-[10px] font-black text-neon-orange uppercase tracking-[0.2em] flex items-center gap-2">
                                                     <UserCog className="h-3 w-3" /> Identidade e Perfil
                                                 </h5>
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nome Real</span>
-                                                        <span className="text-xs font-black text-white uppercase italic">{selectedUser.full_name || "—"}</span>
-                                                    </div>
-                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Documento (CPF)</span>
-                                                        <span className="text-xs font-mono font-bold text-white tracking-widest">{selectedUser.cpf || "—"}</span>
-                                                    </div>
-                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cadastro</span>
-                                                        <span className="text-xs font-bold text-white/60">
-                                                            {selectedUser.created_at ? format(new Date(selectedUser.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : "—"}
-                                                        </span>
-                                                    </div>
+                                                <div className="grid grid-cols-1 gap-2 w-full">
+                                                    {[
+                                                        { label: "Nome Real", value: selectedUser.full_name },
+                                                        { label: "CPF", value: selectedUser.cpf, mono: true },
+                                                        { label: "Cadastro", value: selectedUser.created_at ? format(new Date(selectedUser.created_at), "dd/MM/yyyy", { locale: ptBR }) : "—" }
+                                                    ].map((item, idx) => (
+                                                        <div key={idx} className="bg-black/40 border border-white/5 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-4 w-full">
+                                                            <span className="text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest">{item.label}</span>
+                                                            <span className={`text-[11px] md:text-xs font-black text-white uppercase break-all text-left sm:text-right w-full sm:w-auto ${item.mono ? 'font-mono' : 'italic'}`}>{item.value || "—"}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-4">
+                                            <div className="space-y-3 md:space-y-4 w-full min-w-0">
                                                 <h5 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] flex items-center gap-2">
                                                     <ExternalLink className="h-3 w-3" /> Credenciais Online
                                                 </h5>
-                                                <div className="grid grid-cols-1 gap-2">
-                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">ID Free Fire</span>
-                                                        <span className="text-xs font-mono font-black text-neon-orange">{selectedUser.freefire_id || "—"}</span>
+                                                <div className="grid grid-cols-1 gap-2 w-full">
+                                                    <div className="bg-black/40 border border-white/5 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-4 w-full">
+                                                        <span className="text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest shrink-0">ID Free Fire</span>
+                                                        <span className="text-[11px] md:text-xs font-mono font-black text-neon-orange break-all text-left sm:text-right w-full sm:w-auto">{selectedUser.freefire_id || "—"}</span>
                                                     </div>
-                                                    <div className="bg-black/40 border border-white/5 p-4 rounded-2xl flex justify-between items-center group">
-                                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Nick do Jogo</span>
-                                                        <span className="text-xs font-black text-white italic truncate ml-4">{selectedUser.freefire_nick || "—"}</span>
+                                                    <div className="bg-black/40 border border-white/5 p-3 md:p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1 sm:gap-4 w-full">
+                                                        <span className="text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest shrink-0">Nick do Jogo</span>
+                                                        <span className="text-[11px] md:text-xs font-black text-white italic truncate max-w-full text-left sm:text-right">{selectedUser.freefire_nick || "—"}</span>
                                                     </div>
                                                     {(selectedUser.is_chat_banned || selectedUser.is_app_banned || selectedUser.is_balance_locked) && (
-                                                        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex flex-col justify-between items-start gap-2">
-                                                            <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Penalidades Ativas na Conta</span>
-                                                            <div className="flex flex-wrap gap-2">
-                                                                {selectedUser.is_app_banned && (
-                                                                    <Badge className="bg-red-900 border border-red-500 text-white font-black uppercase text-[10px]"><Ban size={10} className="mr-1" /> Banido Entrada App</Badge>
-                                                                )}
-                                                                {selectedUser.is_chat_banned && (
-                                                                    <Badge className="bg-red-600 border border-red-400 text-white font-black uppercase text-[10px]"><MessageSquare size={10} className="mr-1" /> Mudo no Chat</Badge>
-                                                                )}
-                                                                {selectedUser.is_balance_locked && (
-                                                                    <Badge className="bg-yellow-600 border border-yellow-400 text-black font-black uppercase text-[10px]"><Lock size={10} className="mr-1" /> Saldo Trancado no Banco</Badge>
-                                                                )}
+                                                        <div className="bg-red-500/10 border border-red-500/30 p-3 md:p-4 rounded-xl flex flex-col gap-2 w-full">
+                                                            <span className="text-[9px] md:text-[10px] font-black text-red-500 uppercase tracking-widest">Penalidades Ativas</span>
+                                                            <div className="flex flex-wrap gap-1.5">
+                                                                {selectedUser.is_app_banned && <Badge className="bg-red-900 text-[8px] uppercase font-black">Banido App</Badge>}
+                                                                {selectedUser.is_chat_banned && <Badge className="bg-red-600 text-[8px] uppercase font-black">Chat Mudo</Badge>}
+                                                                {selectedUser.is_balance_locked && <Badge className="bg-yellow-600 text-black text-[8px] uppercase font-black">Saldo Bloqueado</Badge>}
                                                             </div>
                                                         </div>
                                                     )}
@@ -1760,103 +1976,132 @@ function AdminUsers() {
 
                                         {/* Proof Image */}
                                         {selectedUser.freefire_proof_url && (
-                                            <div className="space-y-4">
-                                                <h5 className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em] flex items-center gap-2">
-                                                    <Eye className="h-3 w-3" /> Verificação Visual
-                                                </h5>
-                                                <div className="group relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-black/40">
+                                            <div className="space-y-3 md:space-y-4 w-full">
+                                                <h5 className="text-[10px] font-black text-yellow-500 uppercase tracking-[0.2em] flex items-center gap-2"><Eye className="h-3 w-3" /> Verificação Visual</h5>
+                                                <div className="rounded-2xl overflow-hidden border border-white/10 bg-black/40 overflow-x-auto touch-pan-x w-full">
                                                     <img
                                                         src={selectedUser.freefire_proof_url}
-                                                        className="w-full max-h-[400px] object-contain transition-transform group-hover:scale-[1.02] cursor-zoom-in"
-                                                        alt="Verificação Free Fire"
+                                                        className="w-full max-h-[250px] md:max-h-[400px] object-contain cursor-zoom-in"
                                                         onClick={() => window.open(selectedUser.freefire_proof_url, '_blank')}
                                                     />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                                                        <p className="text-[9px] font-black text-white/50 uppercase">Clique para ampliar imagem original</p>
-                                                    </div>
                                                 </div>
                                             </div>
                                         )}
 
-
-                                        <div className="space-y-4 pt-4 border-t border-red-500/20 bg-red-950/10 p-4 rounded-[2rem] border mt-8">
-                                            <h5 className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] flex items-center gap-2"><Lock size={12} /> Sala de Punições do Admin</h5>
-                                            <div className="flex flex-wrap gap-3">
-                                                <Button onClick={handleToggleBalanceLock} variant="outline" className={`h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ${selectedUser.is_balance_locked ? 'bg-yellow-500 border-yellow-500 text-black shadow-[0_0_15px_rgba(255,200,0,0.4)] hover:bg-yellow-400' : 'border-yellow-600/30 text-yellow-500 hover:bg-yellow-500/10'}`}>
-                                                    {selectedUser.is_balance_locked ? <Unlock size={14} /> : <Lock size={14} />}
-                                                    {selectedUser.is_balance_locked ? "Destrancar Dinheiro" : "Trancar Saque/Jogo"}
+                                        {/* Admin Action Room - W-FULL NO MOBILE */}
+                                        <div className="space-y-4 pt-4 border-t border-red-500/20 bg-red-950/10 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border w-full">
+                                            <h5 className="text-[9px] md:text-[10px] font-black text-red-500 uppercase tracking-[0.2em] flex items-center gap-2"><Lock size={12} /> Sala de Punições</h5>
+                                            <div className="flex flex-col sm:flex-row flex-wrap gap-2 md:gap-3 w-full">
+                                                <Button onClick={handleToggleBalanceLock} variant="outline" className={`w-full sm:flex-1 h-10 px-4 rounded-xl font-black uppercase text-[8px] md:text-[10px] flex items-center justify-center gap-2 ${selectedUser.is_balance_locked ? 'bg-yellow-500 text-black' : 'text-yellow-500 border-yellow-600/30'}`}>
+                                                    <Lock size={12} /> {selectedUser.is_balance_locked ? "Destrancar" : "Trancar Saque"}
                                                 </Button>
-
-                                                <Button onClick={handleToggleChatBan} variant="outline" className={`h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 ${selectedUser.is_chat_banned ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'text-red-500 border-red-600/30 hover:bg-red-500/10'}`}>
-                                                    {selectedUser.is_chat_banned ? <MessageSquare size={14} /> : <Ban size={14} />}
-                                                    {selectedUser.is_chat_banned ? "Tirar Mudo do Chat" : "Mudo no Global"}
+                                                <Button onClick={handleToggleChatBan} variant="outline" className={`w-full sm:flex-1 h-10 px-4 rounded-xl font-black uppercase text-[8px] md:text-[10px] flex items-center justify-center gap-2 ${selectedUser.is_chat_banned ? 'bg-red-500/10 text-red-500 border-red-500/50' : 'text-red-500 border-red-600/30'}`}>
+                                                    <MessageSquare size={12} /> {selectedUser.is_chat_banned ? "Tirar Mudo" : "Mudo Chat"}
                                                 </Button>
-
-                                                <Button onClick={handleToggleAppBan} variant="destructive" className={`h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 transition-all ${selectedUser.is_app_banned ? 'bg-black text-red-500 border border-red-500/50' : 'bg-red-800 hover:bg-red-700 shadow-[0_0_20px_rgba(255,0,0,0.5)] border border-red-500'}`}>
-                                                    <Ban size={14} />
-                                                    {selectedUser.is_app_banned ? "Restaurar Acesso de App" : "Banir do App Inteiro (Exílio)"}
-                                                </Button>
-
-                                            </div>
-                                            <div className="flex justify-end pt-4 border-t border-red-500/10 mt-4">
-                                                <Button onClick={handleDeleteUser} variant="ghost" className="text-gray-600 hover:text-red-600 hover:bg-red-950/20 h-11 px-6 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center gap-2 shrink-0">
-                                                    <Trash2 size={14} /> Apagar do Banco de Dados
+                                                <Button onClick={handleToggleAppBan} variant="destructive" className="w-full sm:flex-1 h-10 px-4 rounded-xl font-black uppercase text-[8px] md:text-[10px] flex items-center justify-center gap-2">
+                                                    <Ban size={12} /> {selectedUser.is_app_banned ? "Restaurar App" : "Banir do App"}
                                                 </Button>
                                             </div>
+                                            <div className="flex justify-center sm:justify-end pt-3 border-t border-red-500/5 mt-2">
+                                                <Button onClick={handleDeleteUser} variant="ghost" className="w-full sm:w-auto text-gray-600 hover:text-red-600 text-[8px] md:text-[10px] font-black uppercase italic justify-center">
+                                                    <Trash2 size={12} className="mr-1" /> Apagar do Banco
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* Achievement Section - CATEGORIZADO E EM COLUNAS */}
+                                        <div className="space-y-8 pt-8 border-t border-white/5 w-full min-w-0">
+                                            <div className="flex flex-col gap-1">
+                                                <h5 className="text-[10px] font-black text-neon-orange uppercase tracking-[0.3em] flex items-center gap-2">
+                                                    <Crown className="h-4 w-4" /> Arsenal de Conquistas
+                                                </h5>
+                                                <p className="text-[9px] text-gray-500 font-bold uppercase italic tracking-widest">Visualização Administrativa de Progressão</p>
+                                            </div>
+
+                                            {loadingAchievements ? (
+                                                <div className="flex justify-center py-12">
+                                                    <div className="animate-spin h-6 w-6 border-2 border-neon-orange rounded-full border-t-transparent"></div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-10">
+                                                    {[
+                                                        { label: "Patentes Adquiridas", type: "patent", icon: Shield },
+                                                        { label: "Troféus de Vitória", type: "trophy", icon: Trophy },
+                                                        { label: "Medalhas de Honra", type: "medal", icon: Star }
+                                                    ].map((section) => {
+                                                        const sectionItems = userAchievements
+                                                            .filter((a: any) => a.type === section.type)
+                                                            .sort((a: any, b: any) => getAchievementOrderIndex(a) - getAchievementOrderIndex(b));
+
+                                                        if (sectionItems.length === 0) return null;
+
+                                                        return (
+                                                            <div key={section.type} className="space-y-4">
+                                                                <div className="flex items-center gap-3 px-3 border-l-2 border-neon-orange/40 ml-1">
+                                                                    <section.icon className="h-3 w-3 text-neon-orange" />
+                                                                    <h6 className="text-[10px] font-black uppercase tracking-widest text-white italic">{section.label}</h6>
+                                                                </div>
+
+                                                                {/* GRID DE COLUNAS - RESPONSIVO */}
+                                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 md:gap-4 px-1">
+                                                                    {sectionItems.map((item: any) => (
+                                                                        <div key={item.id} className="relative flex flex-col items-center text-center group">
+                                                                            <div className={`relative h-16 w-16 md:h-20 md:w-20 rounded-2xl mb-2 flex items-center justify-center p-2 border transition-all ${item.owned
+                                                                                ? 'bg-white/5 border-white/10 ring-1 ring-white/5'
+                                                                                : 'bg-black/40 border-white/5 opacity-30 grayscale'}`}>
+                                                                                <img src={item.image_url} alt={item.name} className="max-h-full max-w-full object-contain" />
+                                                                                {item.is_active && (
+                                                                                    <div className="absolute -top-1 -right-1 bg-neon-orange h-4 w-4 rounded-full flex items-center justify-center shadow-lg">
+                                                                                        <Check size={10} className="text-black stroke-[4px]" />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            <p className="text-[7px] md:text-[8px] font-black uppercase text-white truncate w-full px-1">{item.name}</p>
+                                                                            {item.type === 'trophy' && (
+                                                                                <span className="text-[6px] md:text-[7px] font-bold text-neon-orange/60 mt-0.5">
+                                                                                    {item.user_count || 0} VIT.
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
                                         </div>
                                     </>
                                 ) : (
-                                    /* Edit Form */
-                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div className="flex items-center justify-between mb-8">
-                                            <div>
-                                                <h3 className="text-2xl font-black uppercase italic text-neon-orange">Modo de Edição</h3>
-                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Alterações administrativas diretas</p>
-                                            </div>
-                                            <div className="flex gap-2">
-                                                <Button onClick={() => setEditMode(false)} variant="outline" className="rounded-xl border-white/10 text-xs px-6">Cancelar</Button>
-                                                <Button onClick={handleAdminEditUser} className="rounded-xl bg-neon-green text-black font-black uppercase tracking-widest text-[10px] px-8 hover:bg-neon-green/90 shadow-lg shadow-neon-green/20">Salvar Alterações</Button>
+                                    /* Edit Form - Stackable Grid */
+                                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300 w-full">
+                                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4 w-full">
+                                            <h3 className="text-lg md:text-xl font-black uppercase text-neon-orange">Modo de Edição</h3>
+                                            <div className="flex gap-2 w-full sm:w-auto">
+                                                <Button onClick={() => setEditMode(false)} variant="outline" className="flex-1 sm:flex-none h-10 rounded-xl text-[10px] uppercase font-bold">Cancelar</Button>
+                                                <Button onClick={handleAdminEditUser} className="flex-1 sm:flex-none h-10 rounded-xl bg-neon-green text-black font-black text-[10px] uppercase">Salvar</Button>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5">
-                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                    <UserCog size={12} /> Dados Pessoais
-                                                </h4>
-                                                <div className="space-y-3">
-                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nome Completo</Label><Input value={editFields.full_name} onChange={e => setEditFields({ ...editFields, full_name: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">CPF do Jogador</Label><Input value={editFields.cpf} onChange={e => setEditFields({ ...editFields, cpf: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Email Cadastrado</Label><Input value={editFields.email} onChange={e => setEditFields({ ...editFields, email: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                                            <div className="space-y-3 bg-white/[0.02] p-4 rounded-2xl border border-white/5 w-full">
+                                                <Label className="text-[9px] uppercase font-black text-gray-400">Dados Pessoais</Label>
+                                                <Input value={editFields.full_name} onChange={e => setEditFields({ ...editFields, full_name: e.target.value })} placeholder="Nome Completo" className="bg-black border-white/10 h-10 text-xs w-full" />
+                                                <Input value={editFields.cpf} onChange={e => setEditFields({ ...editFields, cpf: e.target.value })} placeholder="CPF" className="bg-black border-white/10 h-10 text-xs w-full" />
+                                                <Input value={editFields.email} onChange={e => setEditFields({ ...editFields, email: e.target.value })} placeholder="E-mail" className="bg-black border-white/10 h-10 text-xs w-full" />
                                             </div>
 
-                                            <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5">
-                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                    <Shield size={12} /> Dados da Conta Fogo
-                                                </h4>
-                                                <div className="space-y-3">
-                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nickname Real Fire</Label><Input value={editFields.nickname} onChange={e => setEditFields({ ...editFields, nickname: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                    <div className="grid grid-cols-2 gap-3">
-                                                        <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">ID Free Fire</Label><Input value={editFields.freefire_id} onChange={e => setEditFields({ ...editFields, freefire_id: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                        <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">Nível Jogo</Label><Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({ ...editFields, freefire_level: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                    </div>
-                                                    <div><Label className="text-[10px] uppercase font-black text-neon-green mb-1 block">Saldo (R$)</Label><Input type="number" step="0.01" value={editFields.saldo} onChange={e => setEditFields({ ...editFields, saldo: e.target.value })} className="bg-neon-green/5 border-neon-green/20 h-11 rounded-xl focus:border-neon-green text-neon-green font-black" /></div>
+                                            <div className="space-y-3 bg-white/[0.02] p-4 rounded-2xl border border-white/5 w-full">
+                                                <Label className="text-[9px] uppercase font-black text-gray-400">Dados Fire</Label>
+                                                <Input value={editFields.nickname} onChange={e => setEditFields({ ...editFields, nickname: e.target.value })} placeholder="Nickname" className="bg-black border-white/10 h-10 text-xs w-full" />
+                                                <div className="grid grid-cols-2 gap-2 w-full">
+                                                    <Input value={editFields.freefire_id} onChange={e => setEditFields({ ...editFields, freefire_id: e.target.value })} placeholder="ID FF" className="bg-black border-white/10 h-10 text-xs w-full" />
+                                                    <Input type="number" value={editFields.freefire_level} onChange={e => setEditFields({ ...editFields, freefire_level: e.target.value })} placeholder="Lvl" className="bg-black border-white/10 h-10 text-xs w-full" />
                                                 </div>
-                                            </div>
-
-                                            <div className="space-y-4 bg-white/[0.02] p-6 rounded-[2rem] border border-white/5 md:col-span-2">
-                                                <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                                    <History size={12} /> Imagens (URLs Externas)
-                                                </h4>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">URL Foto de Perfil</Label><Input value={editFields.avatar_url} onChange={e => setEditFields({ ...editFields, avatar_url: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                    <div><Label className="text-[10px] uppercase font-black text-gray-600 mb-1 block">URL Print de Nível</Label><Input value={editFields.freefire_proof_url} onChange={e => setEditFields({ ...editFields, freefire_proof_url: e.target.value })} className="bg-black border-white/10 h-11 rounded-xl focus:border-neon-orange" /></div>
-                                                </div>
+                                                <Input type="number" step="0.01" value={editFields.saldo} onChange={e => setEditFields({ ...editFields, saldo: e.target.value })} className="bg-neon-green/5 border-neon-green/20 h-10 text-neon-green font-black w-full" />
                                             </div>
                                         </div>
                                     </div>
-
                                 )}
                             </div>
                         </div>
@@ -1882,42 +2127,99 @@ function AdminFinance() {
     // Novo estado para o botão de Automático/Manual
     const [autoApprove, setAutoApprove] = useState(true);
     const [loadingSettings, setLoadingSettings] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [historyLimit, setHistoryLimit] = useState(100);
+    const [hasMore, setHasMore] = useState(true);
 
-    const fetchTx = async () => {
-        // Fetch pendentes
-        const { data: pendData } = await supabase
-            .from("transactions")
-            .select("*")
-            .eq("status", "pending")
-            .order("created_at", { ascending: false });
 
-        // Fetch historico
-        const { data: histData } = await supabase
-            .from("transactions")
-            .select("*")
-            .in("status", ["approved", "rejected"])
-            .order("created_at", { ascending: false })
-            .limit(50);
+    const fetchTx = async (isLoadMore = false) => {
+        try {
+            const currentLimit = isLoadMore ? historyLimit + 100 : historyLimit;
+            if (isLoadMore) setHistoryLimit(currentLimit);
 
-        const allUserIds = [...new Set([...(pendData || []), ...(histData || [])].map(tx => tx.user_id))];
+            // Fetch pendentes (sempre os mais recentes)
+            const { data: pendData, error: pendErr } = await supabase
+                .from("transactions")
+                .select("*")
+                .eq("status", "pending")
+                .order("created_at", { ascending: false });
 
-        let profileMap = new Map();
-        if (allUserIds.length > 0) {
-            const { data: profiles } = await supabase
-                .from("profiles")
-                .select("user_id, nickname, full_name, cpf, email")
-                .in("user_id", allUserIds);
-            profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+            if (pendErr) throw pendErr;
+
+            // Lógica de Busca no Histórico
+            let histQuery = supabase
+                .from("transactions")
+                .select("*")
+                .in("status", ["approved", "rejected"])
+                .order("created_at", { ascending: false });
+
+            // Se houver busca, filtramos pelos IDs de perfil primeiro
+            if (searchTerm.trim()) {
+                const { data: matchedProfiles } = await supabase
+                    .from("profiles")
+                    .select("user_id")
+                    .or(`nickname.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+
+                const matchedIds = matchedProfiles?.map(p => p.user_id) || [];
+                if (matchedIds.length > 0) {
+                    histQuery = histQuery.in("user_id", matchedIds);
+                } else {
+                    // Se buscou algo e não achou perfil, força histórico vazio na busca
+                    histQuery = histQuery.eq("user_id", "00000000-0000-0000-0000-000000000000");
+                }
+            }
+
+            const { data: histData, error: histErr } = await histQuery.limit(currentLimit);
+            if (histErr) throw histErr;
+
+            setHasMore(histData?.length === currentLimit);
+
+            const allUserIds = [...new Set([...(pendData || []), ...(histData || [])].map(tx => tx.user_id))];
+
+            let profileMap = new Map();
+            if (allUserIds.length > 0) {
+                const { data: profiles } = await supabase
+                    .from("profiles")
+                    .select("user_id, nickname, full_name, cpf, email")
+                    .in("user_id", allUserIds);
+
+                if (profiles) {
+                    const userIds = profiles.map(p => p.user_id);
+                    const { data: achievements } = await supabase
+                        .from("user_achievements")
+                        .select("user_id, is_active, achievements(image_url)")
+                        .in("user_id", userIds)
+                        .eq("is_active", true);
+
+                    const patentMap = new Map();
+                    achievements?.forEach(ua => patentMap.set(ua.user_id, ua?.achievements?.image_url));
+
+                    profileMap = new Map(profiles.map(p => [p.user_id, {
+                        ...p,
+                        active_patent_url: patentMap.get(p.user_id)
+                    }]));
+                }
+            }
+
+            const enrich = (list: any[]) => (list || []).map(tx => {
+                const prof = profileMap.get(tx.user_id);
+                return {
+                    ...tx,
+                    nickname: prof?.nickname || "Desconhecido",
+                    full_name: prof?.full_name || "-",
+                    cpf: prof?.cpf || "-",
+                    email: prof?.email || "-",
+                    active_patent_url: prof?.active_patent_url
+                };
+            });
+
+            // Filtra agressivamente usando a referência atualizada do React para realtime event race-conditions
+            setTransactions(enrich(pendData || []).filter(tx => !hiddenTxIdsRef.current.has(tx.id)));
+            setHistoryTx(enrich(histData || []));
+        } catch (e: any) {
+            console.error("Erro critico no Financeiro:", e);
+            toast({ variant: "destructive", title: "Erro ao carregar finanças", description: "Ocorreu um problema ao buscar o histórico." });
         }
-
-        const enrich = (list: any[]) => (list || []).map(tx => {
-            const prof = profileMap.get(tx.user_id);
-            return { ...tx, nickname: prof?.nickname || "Desconhecido", full_name: prof?.full_name || "-", cpf: prof?.cpf || "-", email: prof?.email || "-" };
-        });
-
-        // Filtra agressivamente usando a referência atualizada do React para realtime event race-conditions
-        setTransactions(enrich(pendData || []).filter(tx => !hiddenTxIdsRef.current.has(tx.id)));
-        setHistoryTx(enrich(histData || []));
     };
 
     const hiddenTxIdsRef = React.useRef(hiddenTxIds);
@@ -1950,7 +2252,8 @@ function AdminFinance() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => fetchTx())
             .subscribe();
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [searchTerm]); // Recarrega ao digitar na busca
+
 
     const handleToggleAutoApprove = async (val: boolean) => {
         setAutoApprove(val);
@@ -2182,7 +2485,15 @@ function AdminFinance() {
                                             </Badge>
                                             <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <p className="text-xs text-gray-400">{tx.nickname}</p>
+                                            {tx.active_patent_url && (
+                                                <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                    <img src={tx.active_patent_url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                                </div>
+                                            )}
+                                        </div>
                                         <p className="text-[9px] text-gray-600 font-mono mt-0.5">ID: {tx.id}</p>
                                     </div>
                                     <div className="flex gap-2">
@@ -2202,8 +2513,18 @@ function AdminFinance() {
                 </TabsContent>
 
                 <TabsContent value="historico" className="mt-4 space-y-3">
+                    <div className="relative mb-4">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder="Buscar por Nickname, Nome ou CPF..."
+                            className="pl-10 bg-[#0c0c0c] border-white/10 text-xs py-5"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+
                     <h3 className="text-xs font-bold uppercase text-gray-500">Últimas Movimentações Finalizadas</h3>
-                    {historyTx.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Histórico vazio.</p>}
+                    {historyTx.length === 0 && <p className="text-center text-sm text-gray-600 py-10">Nenhuma transação encontrada.</p>}
                     {historyTx.map(tx => (
                         <Card key={tx.id} className="bg-[#0c0c0c] border-white/5 opacity-80 hover:opacity-100 transition-opacity">
                             <CardContent className="p-3 space-y-2">
@@ -2215,7 +2536,15 @@ function AdminFinance() {
                                             </Badge>
                                             <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
                                         </div>
-                                        <p className="text-xs text-gray-400 mt-1">{tx.nickname}</p>
+                                        <div className="flex items-center gap-1.5 mt-1">
+                                            <p className="text-xs text-gray-400">{tx.nickname}</p>
+                                            {tx.active_patent_url && (
+                                                <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                    <img src={tx.active_patent_url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                     <div>
                                         <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${tx.status === 'approved' ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-500'}`}>
@@ -2230,7 +2559,18 @@ function AdminFinance() {
                             </CardContent>
                         </Card>
                     ))}
+
+                    {hasMore && (
+                        <Button
+                            variant="ghost"
+                            className="w-full text-xs text-gray-500 hover:text-white mt-2"
+                            onClick={() => fetchTx(true)}
+                        >
+                            Carregar Mais Registros...
+                        </Button>
+                    )}
                 </TabsContent>
+
             </Tabs>
         </div>
     );
@@ -2426,13 +2766,27 @@ function AdminSupport() {
         const { data } = await supabase
             .from("support_tickets")
             .select("*")
-            .in("status", ['ai_resolved', 'human_intervention'])
+            .in("status", ['ai_resolved', 'ai_closed', 'human_intervention'])
             .order("created_at", { ascending: false });
         if (!data) return;
         const userIds = [...new Set(data.map((t: any) => t.user_id))];
         if (userIds.length === 0) { setAiTickets([]); return; }
         const { data: profiles } = await supabase.from("profiles").select("user_id, nickname, email").in("user_id", userIds);
-        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+        const { data: achievements } = await supabase
+            .from("user_achievements")
+            .select("user_id, is_active, achievements(image_url)")
+            .in("user_id", userIds)
+            .eq("is_active", true);
+
+        const patentMap = new Map();
+        achievements?.forEach(ua => patentMap.set(ua.user_id, ua?.achievements?.image_url));
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, {
+            nickname: p.nickname,
+            email: p.email,
+            active_patent_url: patentMap.get(p.user_id)
+        }]) || []);
         const enriched = data.map(t => ({ ...t, profile: profileMap.get(t.user_id) || null }));
         setAiTickets(enriched);
     };
@@ -2444,6 +2798,18 @@ function AdminSupport() {
         setAiChatMessages(data || []);
         setLoadingAiChat(false);
     };
+
+    // Realtime chat messages para o ticket_id atual da IA
+    useEffect(() => {
+        if (!aiChatTicket) return;
+        const channel = supabase
+            .channel(`aichat-${aiChatTicket.id}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `ticket_id=eq.${aiChatTicket.id}` }, (payload) => {
+                setAiChatMessages(prev => [...prev, payload.new]);
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [aiChatTicket]);
 
     const handleAiTakeOver = async () => {
         if (!aiChatTicket || !aiChatInput.trim()) return;
@@ -2470,8 +2836,7 @@ function AdminSupport() {
             ticket_id: aiChatTicket.id,
         });
 
-        // 4. Atualizar UI
-        setAiChatMessages(prev => [...prev, { id: Date.now(), message: aiChatInput.trim(), is_admin: true, sender_id: adminId, created_at: new Date().toISOString() }]);
+        // 4. Atualizar UI (mensagem já adicionada via realtime)
         setAiChatTicket((prev: any) => ({ ...prev, status: 'human_intervention' }));
         setAiChatInput("");
         setSendingAiChat(false);
@@ -2508,8 +2873,28 @@ function AdminSupport() {
         const userIds = [...new Set(data.map(t => t.user_id))];
         if (userIds.length === 0) { setTickets([]); return; }
         const { data: profiles } = await supabase.from("profiles").select("user_id, nickname").in("user_id", userIds);
-        const profileMap = new Map(profiles?.map(p => [p.user_id, p.nickname]) || []);
-        const enriched = data.map(t => ({ ...t, nickname: profileMap.get(t.user_id) || "Usuário" }));
+
+        const { data: achievements } = await supabase
+            .from("user_achievements")
+            .select("user_id, is_active, achievements(image_url)")
+            .in("user_id", userIds)
+            .eq("is_active", true);
+
+        const patentMap = new Map();
+        achievements?.forEach(ua => patentMap.set(ua.user_id, ua?.achievements?.image_url));
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, {
+            nickname: p.nickname,
+            active_patent_url: patentMap.get(p.user_id)
+        }]) || []);
+        const enriched = data.map(t => {
+            const prof = profileMap.get(t.user_id);
+            return {
+                ...t,
+                nickname: prof?.nickname || "Usuário",
+                active_patent_url: prof?.active_patent_url
+            };
+        });
         // Coloca os urgentes (waiting_human) primeiro
         enriched.sort((a, b) => (b.status === 'waiting_human' ? 1 : 0) - (a.status === 'waiting_human' ? 1 : 0));
         setTickets(enriched);
@@ -2517,7 +2902,12 @@ function AdminSupport() {
 
     useEffect(() => {
         if (view !== 'ai_history') fetchTickets();
-        if (view !== 'ai_history') {
+
+        // Mantém escuta ativa com base na aba selecionada
+        if (view === 'ai_history') {
+            const channel = supabase.channel('ai_tickets_updates').on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchAiTickets).subscribe();
+            return () => { supabase.removeChannel(channel); };
+        } else {
             const channel = supabase.channel('support_updates').on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchTickets).subscribe();
             return () => { supabase.removeChannel(channel); };
         }
@@ -2626,13 +3016,23 @@ function AdminSupport() {
                                     <CardContent className="p-4">
                                         <div className="flex justify-between items-start">
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-white font-bold text-sm truncate">{ticket.profile?.nickname || 'Usuário'}</p>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <p className="text-white font-bold text-sm truncate">{ticket.profile?.nickname || 'Usuário'}</p>
+                                                    {ticket.profile?.user_achievements?.filter((ua: any) => ua.is_active).map((ua: any) => {
+                                                        const url = Array.isArray(ua.achievements) ? ua.achievements[0]?.image_url : ua.achievements?.image_url;
+                                                        return url ? (
+                                                            <div key={ua.id} className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                                <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                            </div>
+                                                        ) : null;
+                                                    })}
+                                                </div>
                                                 <p className="text-gray-500 text-[10px] truncate">{ticket.profile?.email}</p>
                                                 <p className="text-gray-400 text-xs mt-2 line-clamp-2">{ticket.message}</p>
                                             </div>
-                                            <div className="text-right shrink-0 ml-3">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${ticket.status === 'human_intervention' ? 'bg-blue-900/40 text-blue-400' : 'bg-yellow-900/40 text-yellow-400'}`}>
-                                                    {ticket.status === 'human_intervention' ? 'Humano' : 'IA ✅'}
+                                            <div className="text-right shrink-0 ml-3 flex flex-col items-end">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${ticket.status === 'human_intervention' ? 'bg-blue-900/40 text-blue-400' : ticket.status === 'ai_closed' ? 'bg-green-900/40 text-green-400' : 'bg-yellow-900/40 text-yellow-400'}`}>
+                                                    {ticket.status === 'human_intervention' ? '🧑 Humano' : ticket.status === 'ai_closed' ? '🤖 100% IA Resolvido' : 'IA Atuando...'}
                                                 </span>
                                                 <p className="text-[10px] text-gray-600 mt-2">{new Date(ticket.created_at).toLocaleDateString('pt-BR')}</p>
                                             </div>
@@ -2656,8 +3056,8 @@ function AdminSupport() {
                         <div className="bg-[#111] border border-white/10 rounded-xl p-3">
                             <p className="text-white font-bold text-sm">{aiChatTicket.profile?.nickname || 'Usuário'}</p>
                             <p className="text-gray-500 text-[10px]">{aiChatTicket.profile?.email} • {aiChatTicket.id.substring(0, 8)}...</p>
-                            <span className={`inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded uppercase ${aiChatTicket.status === 'human_intervention' ? 'bg-blue-900/40 text-blue-400' : 'bg-yellow-900/40 text-yellow-400'}`}>
-                                {aiChatTicket.status === 'human_intervention' ? '🧑 Atendimento Humano' : '🤖 Resolvido pela IA'}
+                            <span className={`inline-block mt-2 text-[10px] font-bold px-2 py-0.5 rounded uppercase ${aiChatTicket.status === 'human_intervention' ? 'bg-blue-900/40 text-blue-400' : aiChatTicket.status === 'ai_closed' ? 'bg-green-900/40 text-green-400' : 'bg-yellow-900/40 text-yellow-400'}`}>
+                                {aiChatTicket.status === 'human_intervention' ? '🧑 Atendimento Humano' : aiChatTicket.status === 'ai_closed' ? '✅ Resolvido com Sucesso pela IA' : '🤖 Em Atendimento pela IA'}
                             </span>
                         </div>
 
@@ -2720,7 +3120,15 @@ function AdminSupport() {
                                         </div>
                                         <span className="text-[10px] text-gray-500">{new Date(ticket.created_at).toLocaleString()}</span>
                                     </div>
-                                    <p className="text-sm font-bold text-white mb-1">{ticket.nickname || "Usuário"}</p>
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <p className="text-sm font-bold text-white leading-none">{ticket.nickname || "Usuário"}</p>
+                                        {ticket.active_patent_url && (
+                                            <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                <img src={ticket.active_patent_url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                            </div>
+                                        )}
+                                    </div>
                                     <p className="text-sm text-gray-300 bg-black/20 p-2 rounded mb-3">"{ticket.message}"</p>
                                     <div className="flex justify-end gap-2">
                                         {view === 'open' && (
@@ -2919,11 +3327,42 @@ function AdminAutoHistory() {
 // --- 7. REGISTROS ---
 function AdminLogs() {
     const [logs, setLogs] = useState<any[]>([]);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [limit, setLimit] = useState(100);
+    const [hasMore, setHasMore] = useState(true);
+
+    const fetchLogs = async (isLoadMore = false) => {
+        const currentLimit = isLoadMore ? limit + 100 : limit;
+        if (isLoadMore) setLimit(currentLimit);
+
+        let query = supabase
+            .from("audit_logs")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+        if (searchTerm.trim()) {
+            query = query.or(`action_type.ilike.%${searchTerm}%,details.ilike.%${searchTerm}%`);
+        }
+
+        const { data } = await query.limit(currentLimit);
+
+        if (data) {
+            setLogs(data);
+            setHasMore(data.length === currentLimit);
+        }
+    };
+
+
     useEffect(() => {
-        supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100).then(({ data }) => {
-            if (data) setLogs(data);
-        });
-    }, []);
+        fetchLogs();
+        const channel = supabase.channel('audit_logs_admin_updates')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, () => {
+                fetchLogs();
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [searchTerm]); // Recarrega ao buscar
 
     const getIcon = (type: string) => {
         if (type.startsWith('admin_') || type.startsWith('finance_') || type.startsWith('tournament_') || type === 'payment_link_change') return <Shield className="h-4 w-4 text-neon-orange shrink-0" />;
@@ -2931,21 +3370,44 @@ function AdminLogs() {
     };
 
     return (
-        <div className="space-y-2">
+        <div className="space-y-4">
+            <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <Input
+                    placeholder="Filtrar registros por tipo ou detalhe..."
+                    className="pl-10 bg-[#0c0c0c] border-white/10 text-xs py-5"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+
             <h3 className="text-xs font-bold uppercase text-gray-500 mb-2">Linha do Tempo (Admin e Jogadores)</h3>
-            {logs.length === 0 && <p className="text-xs text-gray-600">Nenhum registro recente.</p>}
-            {logs.map(log => (
-                <div key={log.id} className="text-xs p-3 rounded bg-[#111] border border-white/5 text-gray-400 flex items-start gap-3">
-                    {getIcon(log.action_type)}
-                    <div>
-                        <span className="text-neon-orange font-bold">[{new Date(log.created_at).toLocaleString("pt-BR")}]</span>
-                        <span className="text-[10px] text-gray-600 ml-2 uppercase">{log.action_type}</span>
-                        <span className="block mt-1">{log.details}</span>
+            <div className="space-y-2">
+                {logs.length === 0 && <p className="text-xs text-gray-600">Nenhum registro encontrado.</p>}
+                {logs.map(log => (
+                    <div key={log.id} className="text-xs p-3 rounded bg-[#111] border border-white/5 text-gray-400 flex items-start gap-3">
+                        {getIcon(log.action_type)}
+                        <div>
+                            <span className="text-neon-orange font-bold">[{new Date(log.created_at).toLocaleString("pt-BR")}]</span>
+                            <span className="text-[10px] text-gray-600 ml-2 uppercase">{log.action_type}</span>
+                            <span className="block mt-1">{log.details}</span>
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
+
+            {hasMore && (
+                <Button
+                    variant="ghost"
+                    className="w-full text-xs text-gray-500 hover:text-white mt-2"
+                    onClick={() => fetchLogs(true)}
+                >
+                    Carregar Mais Registros...
+                </Button>
+            )}
         </div>
     );
+
 }
 
 // --- 8. ALERTAS ---
@@ -2954,18 +3416,37 @@ function AdminAlerts() {
 
     useEffect(() => {
         const findDupes = async () => {
-            const { data } = await supabase.from("profiles").select("id, nickname, freefire_id");
-            if (!data) return;
-            const lookup = new Map();
-            const found: any[] = [];
-            data.forEach(u => {
-                if (u.freefire_id && lookup.has(u.freefire_id)) {
-                    found.push({ original: lookup.get(u.freefire_id), dupe: u });
-                } else if (u.freefire_id) {
-                    lookup.set(u.freefire_id, u);
-                }
-            });
-            setDupes(found);
+            const { data: profiles } = await supabase.from("profiles").select("user_id, nickname, freefire_id");
+
+            if (profiles) {
+                const userIds = profiles.map(p => p.user_id);
+                const { data: achievements } = await supabase
+                    .from("user_achievements")
+                    .select("user_id, is_active, achievements(image_url)")
+                    .in("user_id", userIds)
+                    .eq("is_active", true);
+
+                const patentMap = new Map();
+                achievements?.forEach(ua => patentMap.set(ua.user_id, ua));
+
+                const profilesWithPatent = profiles.map(p => ({
+                    ...p,
+                    user_achievements: patentMap.has(p.user_id) ? [patentMap.get(p.user_id)] : []
+                }));
+
+                const data = profilesWithPatent;
+                if (!data) return;
+                const lookup = new Map();
+                const found: any[] = [];
+                data.forEach(u => {
+                    if (u.freefire_id && lookup.has(u.freefire_id)) {
+                        found.push({ original: lookup.get(u.freefire_id), dupe: u });
+                    } else if (u.freefire_id) {
+                        lookup.set(u.freefire_id, u);
+                    }
+                });
+                setDupes(found);
+            }
         };
         findDupes();
     }, []);
@@ -2977,8 +3458,30 @@ function AdminAlerts() {
                 <div key={i} className="bg-red-900/10 border border-red-500/50 p-3 rounded flex justify-between items-center">
                     <div>
                         <p className="font-bold text-red-500 text-sm mb-1 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> ID DUPLICADO: {d.original.freefire_id}</p>
-                        <p className="text-xs text-gray-400">Conta 1: {d.original.nickname}</p>
-                        <p className="text-xs text-gray-400">Conta 2: {d.dupe.nickname}</p>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                            Conta 1: {d.original.nickname}
+                            {(() => {
+                                const url = d.original.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                return url ? (
+                                    <div className="relative h-3.5 w-3.5 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                        <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                    </div>
+                                ) : null;
+                            })()}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                            Conta 2: {d.dupe.nickname}
+                            {(() => {
+                                const url = d.dupe.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                return url ? (
+                                    <div className="relative h-3.5 w-3.5 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                        <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                    </div>
+                                ) : null;
+                            })()}
+                        </div>
                     </div>
                     <Button size="sm" variant="destructive">Bloquear</Button>
                 </div>
@@ -3013,7 +3516,19 @@ function AdminReferrals() {
                     .select("user_id, nickname, email, full_name, freefire_id, freefire_nick, avatar_url")
                     .in("user_id", allIds);
 
-                const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+                const { data: achievements } = await supabase
+                    .from("user_achievements")
+                    .select("user_id, is_active, achievements(image_url)")
+                    .in("user_id", allIds)
+                    .eq("is_active", true);
+
+                const patentMap = new Map();
+                achievements?.forEach(ua => patentMap.set(ua.user_id, ua?.achievements?.image_url));
+
+                const profileMap = new Map((profiles || []).map(p => [p.user_id, {
+                    ...p,
+                    active_patent_url: patentMap.get(p.user_id)
+                }]));
 
                 const enriched = data.map(r => ({
                     ...r,
@@ -3087,7 +3602,18 @@ function AdminReferrals() {
                                 )}
                             </div>
                             <div>
-                                <p className="text-white font-bold">{selectedReferrer.profile?.nickname || "Desconhecido"}</p>
+                                <div className="flex items-center gap-1.5 font-bold text-white">
+                                    <p className="leading-none">{selectedReferrer.profile?.nickname || "Desconhecido"}</p>
+                                    {(() => {
+                                        const url = selectedReferrer.profile?.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                        return url ? (
+                                            <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                            </div>
+                                        ) : null;
+                                    })()}
+                                </div>
                                 <p className="text-xs text-gray-500">{selectedReferrer.profile?.email || ""}</p>
                                 {selectedReferrer.profile?.full_name && <p className="text-xs text-gray-400">{selectedReferrer.profile.full_name}</p>}
                             </div>
@@ -3133,7 +3659,18 @@ function AdminReferrals() {
                                         )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-bold text-white truncate">{r.profile?.nickname || "Desconhecido"}</p>
+                                        <div className="flex items-center gap-1.5 font-bold text-white mb-1">
+                                            <p className="text-sm truncate leading-none">{r.profile?.nickname || "Desconhecido"}</p>
+                                            {(() => {
+                                                const url = r.profile?.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                                return url ? (
+                                                    <div className="relative h-3.5 w-3.5 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                        <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
                                         <p className="text-[10px] text-gray-500">{r.profile?.email || "Sem email"}</p>
                                         {r.profile?.full_name && <p className="text-[10px] text-gray-400">{r.profile.full_name}</p>}
                                         {r.profile?.freefire_id && <p className="text-[10px] text-gray-400">FF ID: {r.profile.freefire_id} {r.profile.freefire_nick ? `• ${r.profile.freefire_nick}` : ''}</p>}
@@ -3178,7 +3715,18 @@ function AdminReferrals() {
                                         )}
                                     </div>
                                     <div className="min-w-0">
-                                        <p className="text-white font-bold text-sm truncate">{r.profile?.nickname || "Desconhecido"}</p>
+                                        <div className="flex items-center gap-1.5 font-bold text-sm text-white mb-0.5">
+                                            <p className="truncate leading-none">{r.profile?.nickname || "Desconhecido"}</p>
+                                            {(() => {
+                                                const url = r.profile?.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                                return url ? (
+                                                    <div className="relative h-3.5 w-3.5 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                        <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                        <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
                                         <p className="text-gray-500 text-[10px] truncate">{r.profile?.email}</p>
                                     </div>
                                 </div>
@@ -3219,12 +3767,34 @@ function AdminReferrals() {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <p className="text-xs text-gray-500 uppercase font-bold">Quem indicou</p>
-                                    <p className="text-sm font-bold text-indigo-400">{r.referrer_profile?.nickname || "Desconhecido"}</p>
+                                    <div className="flex items-center gap-1.5 font-bold text-indigo-400">
+                                        <p className="text-sm leading-none">{r.referrer_profile?.nickname || "Desconhecido"}</p>
+                                        {(() => {
+                                            const url = r.referrer_profile?.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                            return url ? (
+                                                <div className="relative h-3.5 w-3.5 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                    <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                    </div>
                                     <p className="text-[10px] text-gray-600">{r.referrer_profile?.email || ""}</p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-xs text-gray-500 uppercase font-bold">Indicado</p>
-                                    <p className="text-sm font-bold text-white">{r.referred_profile?.nickname || "Desconhecido"}</p>
+                                    <div className="flex items-center justify-end gap-1.5 font-bold text-white">
+                                        {(() => {
+                                            const url = r.referred_profile?.user_achievements?.find((ua: any) => ua.is_active)?.achievements?.image_url;
+                                            return url ? (
+                                                <div className="relative h-3.5 w-3.5 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                    <img src={url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-transparent via-white/[0.1] to-transparent pointer-events-none" />
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                        <p className="text-sm leading-none">{r.referred_profile?.nickname || "Desconhecido"}</p>
+                                    </div>
                                     <p className="text-[10px] text-gray-600">{r.referred_profile?.email || ""}</p>
                                 </div>
                             </div>
@@ -3661,7 +4231,7 @@ const AdminPasses = () => {
     const [plans, setPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [editId, setEditId] = useState<string | null>(null);
-    const [formData, setFormData] = useState<any>({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '' });
+    const [formData, setFormData] = useState<any>({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '', feature_1: '', feature_2: '', feature_3: '', button_text: '' });
     const [listTab, setListTab] = useState<'ativos' | 'inativos'>('ativos');
     const { toast } = useToast();
 
@@ -3699,7 +4269,7 @@ const AdminPasses = () => {
         }
         savePlansToDb(newPlans);
         setEditId(null);
-        setFormData({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '' });
+        setFormData({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '', feature_1: '', feature_2: '', feature_3: '', button_text: '' });
     };
 
     const handleEdit = (p: any) => { setEditId(p.id); setFormData(p); };
@@ -3748,8 +4318,24 @@ const AdminPasses = () => {
                             <Input type="number" value={formData.roomPrice} onChange={e => setFormData({ ...formData, roomPrice: e.target.value })} className="bg-black border-white/10 text-white" placeholder="2" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-xs text-gray-400 font-bold uppercase">Texto Adicional (Opcional)</label>
-                            <Input value={formData.extra_text || ''} onChange={e => setFormData({ ...formData, extra_text: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Ex: Cancele a qualquer momento" />
+                            <label className="text-xs text-gray-400 font-bold uppercase">Texto Adicional (Extra)</label>
+                            <Input value={formData.extra_text || ''} onChange={e => setFormData({ ...formData, extra_text: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Mensagem acima do botão" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Recurso 1</label>
+                            <Input value={formData.feature_1 || ''} onChange={e => setFormData({ ...formData, feature_1: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Padrão: 2 Acessos Vips / Dia" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Recurso 2</label>
+                            <Input value={formData.feature_2 || ''} onChange={e => setFormData({ ...formData, feature_2: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Padrão: Salas de R$ X" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Recurso 3</label>
+                            <Input value={formData.feature_3 || ''} onChange={e => setFormData({ ...formData, feature_3: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Padrão: Sem fidelidade" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-400 font-bold uppercase">Texto do Botão</label>
+                            <Input value={formData.button_text || ''} onChange={e => setFormData({ ...formData, button_text: e.target.value })} className="bg-black border-white/10 text-white" placeholder="Padrão: ASSINAR AGORA" />
                         </div>
                         <div className="space-y-2 md:col-span-2">
                             <label className="text-xs text-gray-400 font-bold uppercase">Ícone (Passe)</label>
@@ -3798,7 +4384,7 @@ const AdminPasses = () => {
                     </div>
                     <div className="flex gap-2 pt-2">
                         <Button onClick={handleSave} className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-widest"><Save className="mr-2 h-4 w-4" /> Salvar Plano</Button>
-                        {editId && <Button onClick={() => { setEditId(null); setFormData({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '' }) }} variant="outline" className="flex-1 bg-transparent text-gray-400">Cancelar</Button>}
+                        {editId && <Button onClick={() => { setEditId(null); setFormData({ title: '', price: '', roomPrice: '', icon: '🎫', color: 'yellow', is_active: true, extra_text: '', feature_1: '', feature_2: '', feature_3: '', button_text: '' }) }} variant="outline" className="flex-1 bg-transparent text-gray-400">Cancelar</Button>}
                     </div>
                 </CardContent>
             </Card>
@@ -3825,6 +4411,7 @@ const AdminPasses = () => {
                                             {p.is_deleted && <span className="text-[9px] bg-red-500/20 text-red-500 font-black px-1.5 py-0.5 rounded">LIXEIRA</span>}
                                         </div>
                                         <p className="text-xs text-gray-400 mt-0.5">Mensalidade: <b className={`${p.is_deleted ? 'text-gray-500' : 'text-white'}`}>R$ {p.price}</b> | Salas: <b className={`${p.is_deleted ? 'text-gray-500' : 'text-green-400'}`}>R$ {p.roomPrice}</b></p>
+                                        {p.extra_text && <p className={`mt-1 text-xs font-bold ${p.is_deleted ? 'text-gray-500 line-through' : `text-${p.color}-500 drop-shadow-md`}`}>{p.extra_text}</p>}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 w-full md:w-auto shrink-0 border-t border-white/5 pt-3 md:pt-0 md:border-t-0 flex-wrap">
@@ -3849,7 +4436,227 @@ const AdminPasses = () => {
             )}
 
             <AdminPassesUsers />
+
+            <div className="mt-8">
+                <AdminSendHonorPass />
+            </div>
         </div>
+    );
+};
+
+const AdminSendHonorPass = () => {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [users, setUsers] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [passQuantity, setPassQuantity] = useState("2");
+    const [passValue, setPassValue] = useState("10");
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (!searchTerm) {
+            setUsers([]);
+            return;
+        }
+        const delayDebounceFn = setTimeout(async () => {
+            setLoading(true);
+            const { data } = await supabase
+                .from("profiles")
+                .select("*")
+                .or(`nickname.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,freefire_id.ilike.%${searchTerm}%,cpf.ilike.%${searchTerm}%`)
+                .limit(5);
+            setUsers(data || []);
+            setLoading(false);
+        }, 500);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchTerm]);
+
+    const handleSendPass = async (user: any) => {
+        if (!confirm(`Deseja enviar ${passQuantity} Passes de Honra (R$ ${passValue} cada) para ${user.nickname}?`)) return;
+
+        try {
+            let currentPlans: any[] = [];
+            try {
+                if (user.plan_type?.startsWith('[')) {
+                    currentPlans = JSON.parse(user.plan_type);
+                } else if (user.plan_type && user.plan_type !== 'Free Avulso') {
+                    currentPlans = [{
+                        id: 'legacy',
+                        title: user.plan_type,
+                        passes_available: user.passes_available || 0,
+                        pass_value: user.pass_value || 0,
+                        last_reset: new Date().toISOString().split('T')[0]
+                    }];
+                }
+            } catch (e) { currentPlans = []; }
+
+            const expiresAt = new Date();
+            expiresAt.setHours(expiresAt.getHours() + 24);
+
+            const qty = parseInt(passQuantity) || 2;
+            const val = parseFloat(passValue) || 10;
+
+            const honorPass = {
+                id: 'honor_' + Date.now(),
+                title: 'VIP por Honra',
+                passes_available: qty,
+                max_passes: qty,
+                pass_value: val,
+                last_reset: new Date().toISOString().split('T')[0],
+                expires_at: expiresAt.toISOString(),
+                is_honor: true
+            };
+
+            const updatedPlans = [...currentPlans, honorPass];
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    plan_type: JSON.stringify(updatedPlans),
+                    passes_available: updatedPlans[0]?.passes_available || 0 // Sincroniza com o primeiro plano ativo
+                })
+                .eq('user_id', user.user_id);
+
+            if (error) throw error;
+
+            await supabase.from('notifications').insert({
+                user_id: user.user_id,
+                title: "🎁 Você ganhou um Passe!",
+                message: `O Admin te enviou um VIP por Honra de 24 horas com ${qty} passes para salas de até R$ ${val}. Aproveite!`,
+                type: 'system'
+            });
+
+            toast({ title: "Passe Enviado!", description: `O jogador ${user.nickname} recebeu o VIP por Honra.` });
+            setSearchTerm("");
+            setUsers([]);
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Erro ao enviar", description: error.message });
+        }
+    };
+
+    const handleExcluirHonra = async (user: any) => {
+        if (!confirm(`Deseja EXCLUIR permanentemente os passes de honra de ${user.nickname}? O plano VIP assinado NÃO será afetado.`)) return;
+
+        try {
+            let currentPlans: any[] = [];
+            try {
+                if (user.plan_type?.startsWith('[')) {
+                    currentPlans = JSON.parse(user.plan_type);
+                } else if (user.plan_type && user.plan_type !== 'Free Avulso') {
+                    // Se for legado, mantemos ele intacto
+                    return toast({ variant: "destructive", title: "Ação não permitida", description: "Este usuário possui um plano antigo que não pode ser excluído por aqui." });
+                }
+            } catch (e) { currentPlans = []; }
+
+            // APENAS remove os passes de honra. NÃO reseta nem altera os planos VIP pagos.
+            // Verifica tanto a flag is_honor quanto o título para garantir a exclusão.
+            const updatedPlans = currentPlans.filter(p => !p.is_honor && !p.title?.toLowerCase().includes('honra'));
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    plan_type: updatedPlans.length > 0 ? JSON.stringify(updatedPlans) : 'Free Avulso',
+                    // Sincroniza o contador principal com o primeiro plano que sobrar (se houver)
+                    passes_available: updatedPlans.length > 0 ? updatedPlans[0].passes_available : 0,
+                    pass_value: updatedPlans.length > 0 ? updatedPlans[0].pass_value : 0
+                })
+                .eq('user_id', user.user_id);
+
+            if (error) throw error;
+
+            // Atualiza o estado local para sumir do painel admin imediatamente
+            setUsers(prev => prev.map(u =>
+                (u.user_id === user.user_id || u.id === user.id)
+                    ? { ...u, plan_type: updatedPlans.length > 0 ? JSON.stringify(updatedPlans) : 'Free Avulso', passes_available: updatedPlans.length > 0 ? updatedPlans[0].passes_available : 0, pass_value: updatedPlans.length > 0 ? updatedPlans[0].pass_value : 0 }
+                    : u
+            ));
+
+            toast({ title: "Honras Excluídas!", description: `Os passes de honra do jogador ${user.nickname} foram removidos.` });
+        } catch (error: any) {
+            toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+        }
+    };
+
+    return (
+        <Card className="bg-[#111] border-orange-500/30 overflow-hidden">
+            <CardHeader className="bg-orange-500/10 border-b border-orange-500/20">
+                <CardTitle className="text-orange-500 uppercase flex items-center gap-2 text-base">
+                    <Search className="h-5 w-5" /> Enviar Passe Unitário (24h)
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-500 uppercase">Qtd de Passes</label>
+                        <Input
+                            type="number"
+                            value={passQuantity}
+                            onChange={(e) => setPassQuantity(e.target.value)}
+                            className="bg-black border-white/10 h-10"
+                            placeholder="Ex: 2"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-black text-gray-500 uppercase">Valor Máximo da Sala (R$)</label>
+                        <Input
+                            type="number"
+                            value={passValue}
+                            onChange={(e) => setPassValue(e.target.value)}
+                            className="bg-black border-white/10 h-10"
+                            placeholder="Ex: 10"
+                        />
+                    </div>
+                </div>
+
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                        placeholder="Pesquisar por Nick, Email, CPF ou ID do FF..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 bg-black border-white/10"
+                    />
+                </div>
+
+                {loading && <div className="flex justify-center py-4"><Loader2 className="animate-spin text-orange-500" /></div>}
+
+                <div className="space-y-2">
+                    {users.map(u => (
+                        <div key={u.user_id} className="flex items-center justify-between p-3 bg-black/60 rounded-xl border border-white/5 hover:border-orange-500/30 transition-all">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-gray-800 overflow-hidden">
+                                    {u.avatar_url ? <img src={u.avatar_url} className="h-full w-full object-cover" /> : <User className="h-full w-full p-2 text-gray-600" />}
+                                </div>
+                                <div>
+                                    <p className="text-sm font-bold text-white">{u.nickname}</p>
+                                    <p className="text-[10px] text-gray-500 uppercase">{u.email}</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleExcluirHonra(u)}
+                                    variant="outline"
+                                    className="border-red-500/20 hover:bg-red-500/10 text-red-500/70 font-bold uppercase text-[10px]"
+                                >
+                                    <Trash2 className="h-3 w-3 mr-1" /> Excluir Honra
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleSendPass(u)}
+                                    className="bg-orange-500 hover:bg-orange-600 text-black font-black uppercase text-[10px]"
+                                >
+                                    <Gift className="h-3 w-3 mr-1" /> Dar Passe
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                    {searchTerm && !loading && users.length === 0 && (
+                        <p className="text-center text-gray-500 text-xs py-4">Nenhum jogador encontrado.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
     );
 };
 
@@ -3894,7 +4701,19 @@ const AdminPassesUsers = () => {
 function AdminCompanyWallet() {
     const [period, setPeriod] = useState<'hoje' | 'semana' | 'mes' | 'tudo'>('semana');
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ totalProfit: 0, totalDeposits: 0, totalWithdrawals: 0, totalPrizes: 0, matchesFinished: 0 });
+    const [stats, setStats] = useState({
+        totalProfit: 0,
+        productProfit: 0,
+        tournamentProfit: 0,
+        totalDeposits: 0,
+        totalWithdrawals: 0,
+        totalPrizes: 0,
+        matchesFinished: 0
+    });
+    const [productBreakdown, setProductBreakdown] = useState<any[]>([]);
+    const [recentProductSales, setRecentProductSales] = useState<any[]>([]);
+
+
     const [chartData, setChartData] = useState<any[]>([]);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const { toast } = useToast();
@@ -3902,103 +4721,152 @@ function AdminCompanyWallet() {
     useEffect(() => {
         const fetchWallet = async () => {
             setLoading(true);
-            const now = new Date();
-            let startRange: Date | null = null;
-            let endRange: Date = endOfDay(now);
+            try {
+                const now = new Date();
+                let startRange: Date | null = null;
+                let endRange: Date = endOfDay(now);
 
-            if (period === 'hoje') startRange = startOfDay(now);
-            else if (period === 'semana') startRange = startOfWeek(now, { weekStartsOn: 0 });
-            else if (period === 'mes') startRange = startOfMonth(now);
+                if (period === 'hoje') startRange = startOfDay(now);
+                else if (period === 'semana') startRange = startOfWeek(now, { weekStartsOn: 0 });
+                else if (period === 'mes') startRange = startOfMonth(now);
 
-            // Fetch wallet reset date
-            const { data: resetData } = await (supabase as any)
-                .from("notification_settings")
-                .select("label")
-                .eq("key_name", "WALLET_RESET_DATE")
-                .maybeSingle();
+                // Fetch wallet reset date
+                const { data: resetData } = await (supabase as any)
+                    .from("notification_settings")
+                    .select("label")
+                    .eq("key_name", "WALLET_RESET_DATE")
+                    .maybeSingle();
 
-            let resetDate: Date | null = null;
-            if (resetData && resetData.label) {
-                resetDate = new Date(resetData.label);
-            }
-
-            if (resetDate) {
-                if (!startRange || resetDate > startRange) {
-                    startRange = resetDate;
+                let resetDate: Date | null = null;
+                if (resetData && resetData.label) {
+                    resetDate = new Date(resetData.label);
                 }
-            }
 
-            let queryTournaments = supabase.from("tournaments").select("updated_at, platform_tax, prize_pool").eq("status", "finished");
-            if (startRange) {
-                queryTournaments = queryTournaments.gte("updated_at", startRange.toISOString()).lte("updated_at", endRange.toISOString());
-            }
-
-            let queryTx = supabase.from("transactions").select("created_at, amount, type").in("status", ["approved"]);
-            if (startRange) {
-                queryTx = queryTx.gte("created_at", startRange.toISOString()).lte("created_at", endRange.toISOString());
-            }
-
-            const [tRes, txRes] = await Promise.all([queryTournaments, queryTx]);
-
-            let sTotal = 0;
-            let sMatches = 0;
-            let sDep = 0;
-            let sWith = 0;
-            let sPrize = 0;
-            const daily: Record<string, any> = {};
-
-            const initDay = (d: string) => {
-                if (!daily[d]) daily[d] = { name: d, lucro: 0, deposit: 0, withdraw: 0, prizes: 0 };
-            };
-
-            if (tRes.data) {
-                tRes.data.forEach(t => {
-                    const profit = Number(t.platform_tax || 0);
-                    const prize = Number(t.prize_pool || 0);
-                    sTotal += profit;
-                    sMatches += 1;
-                    sPrize += prize;
-                    const dateKey = format(new Date(t.updated_at), "dd/MM");
-                    initDay(dateKey);
-                    daily[dateKey].lucro += profit;
-                    daily[dateKey].prizes += prize;
-                });
-            }
-
-            if (txRes.data) {
-                txRes.data.forEach(tx => {
-                    const val = Number(tx.amount || 0);
-                    const isDep = tx.type === 'deposit';
-                    if (isDep) sDep += val;
-                    else sWith += val;
-
-                    const dateKey = format(new Date(tx.created_at), "dd/MM");
-                    initDay(dateKey);
-                    if (isDep) daily[dateKey].deposit += val;
-                    else daily[dateKey].withdraw += val;
-                });
-            }
-
-            const formattedChartData = [];
-            if (period === 'semana') {
-                for (let i = 6; i >= 0; i--) {
-                    const d = format(subDays(now, i), "dd/MM");
-                    formattedChartData.push(daily[d] || { name: d, lucro: 0, deposit: 0, withdraw: 0, prizes: 0 });
+                if (resetDate) {
+                    if (!startRange || resetDate > startRange) {
+                        startRange = resetDate;
+                    }
                 }
-            } else if (period === 'mes') {
-                for (let i = 29; i >= 0; i--) {
-                    const d = format(subDays(now, i), "dd/MM");
-                    formattedChartData.push(daily[d] || { name: d, lucro: 0, deposit: 0, withdraw: 0, prizes: 0 });
-                }
-            } else {
-                Object.keys(daily).sort().forEach(k => {
-                    formattedChartData.push(daily[k]);
-                });
-            }
 
-            setStats({ totalProfit: sTotal, totalDeposits: sDep, totalWithdrawals: sWith, totalPrizes: sPrize, matchesFinished: sMatches });
-            setChartData(formattedChartData);
-            setLoading(false);
+                let queryTournaments = supabase.from("tournaments").select("updated_at, platform_tax, prize_pool").eq("status", "finished");
+                if (startRange) {
+                    queryTournaments = queryTournaments.gte("updated_at", startRange.toISOString()).lte("updated_at", endRange.toISOString());
+                }
+
+                let queryTx = supabase.from("transactions").select("id, created_at, amount, type").in("status", ["approved"]);
+                if (startRange) {
+                    queryTx = queryTx.gte("created_at", startRange.toISOString()).lte("created_at", endRange.toISOString());
+                }
+
+                const [tRes, txRes] = await Promise.all([queryTournaments, queryTx]);
+
+                let sTotal = 0;
+                let sMatches = 0;
+                let sDep = 0;
+                let sWith = 0;
+                let sPrize = 0;
+                let sProducts = 0;
+                const daily: Record<string, any> = {};
+
+                const initDay = (d: string) => {
+                    if (!daily[d]) daily[d] = { name: d, lucro: 0, products: 0, deposit: 0, withdraw: 0, prizes: 0 };
+                };
+
+
+                if (tRes.data) {
+                    tRes.data.forEach(t => {
+                        const profit = Number(t.platform_tax || 0);
+                        const prize = Number(t.prize_pool || 0);
+                        sTotal += profit;
+                        sMatches += 1;
+                        sPrize += prize;
+                        const dateKey = format(new Date(t.updated_at), "dd/MM");
+                        initDay(dateKey);
+                        daily[dateKey].lucro += profit;
+                        daily[dateKey].prizes += prize;
+                    });
+                }
+
+                if (txRes.data) {
+                    const breakdown: Record<string, number> = {};
+                    const sales: any[] = [];
+
+                    txRes.data.forEach(tx => {
+                        const val = Number(tx.amount || 0);
+                        const type = tx.type;
+
+                        if (type === 'deposit') {
+                            sDep += val;
+                        } else if (type === 'withdraw') {
+                            sWith += val;
+                        } else if (['tournament_entry', 'tournament_prize', 'prize', 'reward', 'vault_prize', 'referral_bonus', 'refund'].includes(type)) {
+                            if (type.includes('prize') || type === 'reward' || type === 'referral_bonus') sPrize += val;
+                        } else {
+                            // TUDO QUE SOBRAR É PRODUTO (100% LUCRO)
+                            sTotal += val;
+                            sProducts += val;
+                            breakdown[type] = (breakdown[type] || 0) + val;
+                            if (sales.length < 10) sales.push(tx);
+                        }
+
+                        const dateKey = format(new Date(tx.created_at), "dd/MM");
+                        initDay(dateKey);
+                        if (type === 'deposit') daily[dateKey].deposit += val;
+                        else if (type === 'withdraw') daily[dateKey].withdraw += val;
+                        else if (!['tournament_entry', 'tournament_prize', 'prize', 'reward', 'vault_prize', 'referral_bonus', 'refund'].includes(type)) {
+                            daily[dateKey].lucro += val;
+                            daily[dateKey].products += val;
+                        }
+                    });
+
+                    // Formatar breakdown para o PieChart
+                    const formattedBreakdown = Object.entries(breakdown).map(([name, value]) => ({
+                        name: name === 'patent_purchase' ? 'Patentes' :
+                            name === 'quiz_revive' ? 'Restauração' :
+                                name === 'subscription' ? 'Planos VIP' :
+                                    name === 'battle_entry' ? 'Batalhas' :
+                                        name === 'vault_purchase' ? 'Cofres' : name,
+                        value
+                    })).sort((a, b) => b.value - a.value);
+
+                    setProductBreakdown(formattedBreakdown);
+                    setRecentProductSales(sales);
+                }
+
+                const formattedChartData = [];
+                if (period === 'semana') {
+                    for (let i = 6; i >= 0; i--) {
+                        const d = format(subDays(now, i), "dd/MM");
+                        formattedChartData.push(daily[d] || { name: d, lucro: 0, products: 0, deposit: 0, withdraw: 0, prizes: 0 });
+                    }
+
+                } else if (period === 'mes') {
+                    for (let i = 29; i >= 0; i--) {
+                        const d = format(subDays(now, i), "dd/MM");
+                        formattedChartData.push(daily[d] || { name: d, lucro: 0, products: 0, deposit: 0, withdraw: 0, prizes: 0 });
+                    }
+
+                } else {
+                    Object.keys(daily).sort().forEach(k => {
+                        formattedChartData.push(daily[k]);
+                    });
+                }
+
+                setStats({
+                    totalProfit: sTotal,
+                    productProfit: sProducts,
+                    tournamentProfit: sTotal - sProducts,
+                    totalDeposits: sDep,
+                    totalWithdrawals: sWith,
+                    totalPrizes: sPrize,
+                    matchesFinished: sMatches
+                });
+                setChartData(formattedChartData);
+            } catch (err) {
+                console.error("Erro na Carteira:", err);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchWallet();
     }, [period, refreshTrigger]);
@@ -4057,13 +4925,22 @@ function AdminCompanyWallet() {
                 </div>
             ) : (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                         <Card className="bg-black/60 backdrop-blur-xl border border-white/5 relative overflow-hidden group hover:border-green-500/50 transition-all duration-300 rounded-[2rem]">
                             <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"></div>
                             <CardContent className="p-6 relative z-10 flex flex-col items-center justify-center text-center">
                                 <div className="p-3 bg-green-500/10 rounded-2xl mb-3 group-hover:scale-110 transition-transform"><Wallet className="h-6 w-6 text-green-400" /></div>
-                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Lucro Retido (30%)</p>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Visão Geral (Jogos+Produtos)</p>
                                 <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-200">R$ {stats.totalProfit.toFixed(2)}</p>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="bg-black/60 backdrop-blur-xl border border-white/5 relative overflow-hidden group hover:border-orange-500/50 transition-all duration-300 rounded-[2rem]">
+                            <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-all"></div>
+                            <CardContent className="p-6 relative z-10 flex flex-col items-center justify-center text-center">
+                                <div className="p-3 bg-orange-500/10 rounded-2xl mb-3 group-hover:scale-110 transition-transform"><ShoppingCart className="h-6 w-6 text-orange-400" /></div>
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Lucro de Produtos</p>
+                                <p className="text-3xl font-black text-orange-400 text-glow-orange">R$ {stats.productProfit.toFixed(2)}</p>
                             </CardContent>
                         </Card>
 
@@ -4095,14 +4972,14 @@ function AdminCompanyWallet() {
                         </Card>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <Card className="bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <Card className="lg:col-span-2 bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
                             <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                                 <CardTitle className="text-sm uppercase text-gray-400 flex items-center gap-2">
-                                    <BarChart2 className="h-4 w-4 text-green-500" /> Crescimento do Lucro (Retenção 30%)
+                                    <BarChart2 className="h-4 w-4 text-green-500" /> Crescimento do Lucro Acumulado
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="h-72 p-6">
+                            <CardContent className="h-80 p-6">
                                 {chartData.length === 0 ? (
                                     <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado financeiro.</div>
                                 ) : (
@@ -4113,17 +4990,22 @@ function AdminCompanyWallet() {
                                                     <stop offset="5%" stopColor="#22c55e" stopOpacity={0.5} />
                                                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0.0} />
                                                 </linearGradient>
+                                                <linearGradient id="colorProducts" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.5} />
+                                                    <stop offset="95%" stopColor="#f97316" stopOpacity={0.0} />
+                                                </linearGradient>
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
                                             <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
                                             <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
                                             <RechartsTooltip
                                                 contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', padding: '12px' }}
-                                                itemStyle={{ color: '#22c55e', fontWeight: 'bold' }}
-                                                formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Lucro']}
+                                                itemStyle={{ fontWeight: 'bold' }}
+                                                formatter={(value: number, name: string) => [`R$ ${value.toFixed(2)}`, name === 'lucro' ? 'Lucro Total' : 'Vendas Produtos']}
                                                 labelStyle={{ color: '#888', marginBottom: '8px', fontWeight: 'bold' }}
                                             />
                                             <Area type="monotone" dataKey="lucro" stroke="#22c55e" strokeWidth={3} fillOpacity={1} fill="url(#colorLucro)" />
+                                            <Area type="monotone" dataKey="products" stroke="#f97316" strokeWidth={2} fillOpacity={1} fill="url(#colorProducts)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
                                 )}
@@ -4133,32 +5015,130 @@ function AdminCompanyWallet() {
                         <Card className="bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
                             <CardHeader className="border-b border-white/5 bg-white/[0.02]">
                                 <CardTitle className="text-sm uppercase text-gray-400 flex items-center gap-2">
-                                    <BarChart2 className="h-4 w-4 text-blue-500" /> Fluxo de Caixa (Depósitos vs Saques)
+                                    <PieChart className="h-4 w-4 text-orange-500" /> Origem das Vendas
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="h-72 p-6">
-                                {chartData.length === 0 ? (
-                                    <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado financeiro.</div>
+                            <CardContent className="h-80 p-6 flex flex-col items-center">
+                                {productBreakdown.length === 0 ? (
+                                    <div className="h-full flex items-center justify-center text-xs text-gray-600">Sem vendas no período.</div>
                                 ) : (
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                                            <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
-                                            <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
-                                            <RechartsTooltip
-                                                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', padding: '12px' }}
-                                                formatter={(value: number, name: string) => [`R$ ${value.toFixed(2)}`, name === 'deposit' ? 'Depósito' : 'Saque']}
-                                                labelStyle={{ color: '#888', marginBottom: '8px', fontWeight: 'bold' }}
-                                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                            />
-                                            <Bar dataKey="deposit" name="deposit" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
-                                            <Bar dataKey="withdraw" name="withdraw" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
+                                    <>
+                                        <ResponsiveContainer width="100%" height="60%">
+                                            <RechartsPieChart>
+                                                <Pie
+                                                    data={productBreakdown}
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {productBreakdown.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#f97316', '#3b82f6', '#10b981', '#a855f7', '#ec4899'][index % 5]} />
+                                                    ))}
+                                                </Pie>
+                                                <RechartsTooltip />
+                                            </RechartsPieChart>
+                                        </ResponsiveContainer>
+                                        <div className="mt-4 w-full space-y-2 overflow-y-auto max-h-[120px] px-2">
+                                            {productBreakdown.map((item, i) => (
+                                                <div key={i} className="flex items-center justify-between text-[10px] font-bold">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: ['#f97316', '#3b82f6', '#10b981', '#a855f7', '#ec4899'][i % 5] }}></div>
+                                                        <span className="text-gray-400 uppercase">{item.name}</span>
+                                                    </div>
+                                                    <span className="text-white">R$ {item.value.toFixed(2)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
                                 )}
                             </CardContent>
                         </Card>
                     </div>
+
+                    <Card className="bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
+                        <CardHeader className="border-b border-white/5 bg-white/[0.02] flex flex-row items-center justify-between">
+                            <CardTitle className="text-sm uppercase text-gray-400 flex items-center gap-2">
+                                <History className="h-4 w-4 text-neon-orange" /> Recent Product Sales Activity
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-0">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className="bg-white/[0.02] border-b border-white/5">
+                                            <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-500 tracking-widest">Produto / Serviço</th>
+                                            <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-500 tracking-widest text-center">Data/Hora</th>
+                                            <th className="px-6 py-4 text-[10px] font-black uppercase text-gray-500 tracking-widest text-right">Valor Lucro</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {recentProductSales.length === 0 ? (
+                                            <tr><td colSpan={3} className="px-6 py-10 text-center text-xs text-gray-600 font-bold uppercase tracking-widest">Nenhuma venda de produto recente registrada.</td></tr>
+                                        ) : (
+                                            recentProductSales.map((sale, i) => (
+                                                <tr key={i} className="hover:bg-white/[0.01] transition-colors group">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="p-2 bg-white/5 rounded-lg group-hover:bg-neon-orange/10 group-hover:border-neon-orange/20 border border-transparent transition-all">
+                                                                {sale.type === 'patent_purchase' ? <Trophy className="h-4 w-4 text-yellow-500" /> :
+                                                                    sale.type === 'quiz_revive' ? <Zap className="h-4 w-4 text-blue-400" /> :
+                                                                        sale.type === 'subscription' ? <Star className="h-4 w-4 text-purple-400" /> :
+                                                                            sale.type === 'battle_entry' ? <Swords className="h-4 w-4 text-red-500" /> : <ShoppingBag className="h-4 w-4 text-gray-400" />}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs font-black text-white uppercase tracking-wider">
+                                                                    {sale.type === 'patent_purchase' ? 'Compra de Patente' :
+                                                                        sale.type === 'quiz_revive' ? 'Restauração de Vida' :
+                                                                            sale.type === 'subscription' ? 'Assinatura VIP' :
+                                                                                sale.type === 'battle_entry' ? 'Entrada na Batalha' : sale.type}
+                                                                </p>
+                                                                <p className="text-[9px] text-gray-500 font-medium">Transação: {sale.id.slice(0, 8)}...</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className="text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-1 rounded-md">{new Date(sale.created_at).toLocaleString()}</span>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <span className="text-sm font-black text-green-400">R$ {Number(sale.amount).toFixed(2)}</span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-[#050505] border-white/5 rounded-[2rem] overflow-hidden">
+                        <CardHeader className="border-b border-white/5 bg-white/[0.02]">
+                            <CardTitle className="text-sm uppercase text-gray-400 flex items-center gap-2">
+                                <History className="h-4 w-4 text-neon-orange" /> Fluxo de Caixa (Depósitos vs Saques)
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="h-72 p-6">
+                            {chartData.length === 0 ? (
+                                <div className="h-full flex items-center justify-center text-xs text-gray-600">Nenhum dado financeiro.</div>
+                            ) : (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                                        <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `R$${val}`} />
+                                        <RechartsTooltip
+                                            contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '16px', fontSize: '12px', padding: '12px' }}
+                                            formatter={(value: number, name: string) => [`R$ ${value.toFixed(2)}`, name === 'deposit' ? 'Depósito' : 'Saque']}
+                                            labelStyle={{ color: '#888', marginBottom: '8px', fontWeight: 'bold' }}
+                                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                        />
+                                        <Bar dataKey="deposit" name="deposit" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} />
+                                        <Bar dataKey="withdraw" name="withdraw" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={20} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            )}
+                        </CardContent>
+                    </Card>
 
                     {/* Botão de Reset */}
                     <div className="flex justify-end pt-8 pb-4">
@@ -4174,7 +5154,7 @@ function AdminCompanyWallet() {
             )}
         </div>
     );
-};
+}
 
 // --- 13. CHAT GLOBAL (ADMIN) ---
 function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void }) {
@@ -4184,6 +5164,8 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
     const [sendPush, setSendPush] = useState(false);
     const [pinnedMsg, setPinnedMsg] = useState("");
     const [isSavingPinned, setIsSavingPinned] = useState(false);
+    const [imagesEnabled, setImagesEnabled] = useState(true);
+    const [audioEnabled, setAudioEnabled] = useState(true);
     const { profile } = useAuth();
     const { toast } = useToast();
 
@@ -4194,6 +5176,10 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
             else {
                 await supabase.from('notification_settings').insert({ key_name: 'global_chat_locked', category: 'chat', label: 'Chat Trancado', is_enabled: false });
             }
+            const { data: imgCfg } = await supabase.from('notification_settings').select('is_enabled').eq('key_name', 'global_chat_images_enabled').maybeSingle();
+            if (imgCfg !== null) setImagesEnabled(imgCfg?.is_enabled ?? true);
+            const { data: audCfg } = await supabase.from('notification_settings').select('is_enabled').eq('key_name', 'global_chat_audio_enabled').maybeSingle();
+            if (audCfg !== null) setAudioEnabled(audCfg?.is_enabled ?? true);
         };
         loadState();
 
@@ -4245,8 +5231,35 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
         });
     };
 
+    const toggleImages = async () => {
+        const newState = !imagesEnabled;
+        await (supabase as any).from('notification_settings').upsert({
+            key_name: 'global_chat_images_enabled',
+            category: 'chat',
+            label: 'Permitir Imagens no Chat',
+            is_enabled: newState
+        }, { onConflict: 'key_name' });
+        setImagesEnabled(newState);
+        await supabase.from('global_chat_messages').insert({ sender_id: profile?.user_id, message: 'SYS_CMD_UPDATE_MEDIA', is_admin: true });
+        toast({ title: newState ? "Imagens habilitadas no chat." : "Imagens desabilitadas no chat." });
+    };
+
+    const toggleAudio = async () => {
+        const newState = !audioEnabled;
+        await (supabase as any).from('notification_settings').upsert({
+            key_name: 'global_chat_audio_enabled',
+            category: 'chat',
+            label: 'Permitir Áudios no Chat',
+            is_enabled: newState
+        }, { onConflict: 'key_name' });
+        setAudioEnabled(newState);
+        await supabase.from('global_chat_messages').insert({ sender_id: profile?.user_id, message: 'SYS_CMD_UPDATE_MEDIA', is_admin: true });
+        toast({ title: newState ? "Áudios habilitados no chat." : "Áudios desabilitados no chat." });
+    };
+
     const handleClearChat = async () => {
-        if (!confirm("Tem certeza que deseja LIMPAR TODO o histórico do Chat Global?")) return;
+        const confirmWord = prompt("ATENÇÃO: Esta ação é irreversível e apagará TODO o histórico do chat. Digite 'LIMPAR' para confirmar:");
+        if (confirmWord !== "LIMPAR") return;
         const { error } = await supabase.from('global_chat_messages').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         if (!error) {
             toast({ title: "Chat limpo com sucesso!" });
@@ -4389,6 +5402,18 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
                                     {isLocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
                                     {isLocked ? "Destrancar Chat (Permitir Todos)" : "Trancar Chat (Apenas você fala)"}
                                 </Button>
+
+                                <div className="grid grid-cols-2 gap-2 mt-2">
+                                    <Button onClick={toggleImages} variant="outline" className={`font-bold text-[10px] uppercase tracking-widest h-10 flex items-center gap-2 ${imagesEnabled ? 'border-green-500 text-green-400 hover:bg-green-500/10' : 'border-red-500/50 text-red-500 hover:bg-red-500/10'}`}>
+                                        <ImageIcon className="h-3 w-3" />
+                                        {imagesEnabled ? 'Imagens ON' : 'Imagens OFF'}
+                                    </Button>
+                                    <Button onClick={toggleAudio} variant="outline" className={`font-bold text-[10px] uppercase tracking-widest h-10 flex items-center gap-2 ${audioEnabled ? 'border-green-500 text-green-400 hover:bg-green-500/10' : 'border-red-500/50 text-red-500 hover:bg-red-500/10'}`}>
+                                        <Mic className="h-3 w-3" />
+                                        {audioEnabled ? 'Áudios ON' : 'Áudios OFF'}
+                                    </Button>
+                                </div>
+
                                 <Button onClick={handleClearChat} variant="destructive" className="w-full font-black uppercase text-[10px] tracking-widest h-10 mt-2 bg-red-900/20 text-red-500 border border-red-500/30 hover:bg-red-900/40">
                                     <Trash2 className="h-3 w-3 mr-2" /> Limpar Histórico do Chat
                                 </Button>

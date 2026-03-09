@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { Trophy, ArrowUpCircle, ArrowDownCircle, Copy, Share2, Users, User, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Trophy, ArrowUpCircle, ArrowDownCircle, Copy, Share2, Users, User, ShieldCheck, CheckCircle2, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -44,21 +44,74 @@ export default function Dashboard() {
         .eq("referrer_id", user.id);
       setReferralCount(count || 0);
 
+      // [ALVO 2] Busca Perfil + Conquistas do Usuário Logado
       const { data: profileData } = await supabase.from("profiles").select("*, total_winnings, tournaments_played, victories").eq("user_id", user.id).maybeSingle();
-      setProfile(profileData || { saldo: 0, nickname: user.email?.split('@')[0] });
+
+      const { data: userAchievements } = await supabase
+        .from("user_achievements")
+        .select("is_active, achievements(image_url, type)")
+        .eq("user_id", user.id)
+        .eq("is_active", true);
+
+      const active_patent = userAchievements?.find(ua => {
+        const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+        return ach?.type === 'patent';
+      })?.achievements;
+
+      const active_badge = userAchievements?.find(ua => {
+        const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+        return ach?.type !== 'patent';
+      })?.achievements;
+
+      // [ALVO 1] Escudo de renderização no Nickname e acoplagem de conquistas
+      setProfile({
+        ...(profileData || { saldo: 0, nickname: user?.email?.split('@')[0] || "Jogador" }),
+        active_patent: Array.isArray(active_patent) ? (active_patent as any)[0] : active_patent,
+        active_badge: Array.isArray(active_badge) ? (active_badge as any)[0] : active_badge
+      });
 
       const { data: featured } = await supabase.from("tournaments").select("*").eq("is_featured", true).maybeSingle();
       setFeaturedTournament(featured);
 
-      // Ranking: use total_winnings for ranking - only real winners, descending
-      const { data: players } = await supabase
+      // Ranking: use total_winnings for ranking, descending
+      const { data: players, error: playersError } = await supabase
         .from("profiles")
-        .select("nickname, avatar_url, freefire_level, total_winnings")
-        .gt("total_winnings", 0)
+        .select("nickname, avatar_url, freefire_level, total_winnings, user_id")
         .order("total_winnings", { ascending: false })
         .limit(10);
-      setTopPlayers(players || []);
-      // Fetch promotional products
+
+      if (playersError) {
+        console.error("Erro ao carregar ranking:", playersError);
+        setTopPlayers([]);
+      } else {
+        const playerIds = players?.map(p => p.user_id) || [];
+        const { data: achievements } = await supabase
+          .from("user_achievements")
+          .select("user_id, is_active, achievements(image_url, type)")
+          .in("user_id", playerIds)
+          .eq("is_active", true);
+
+        const patentMap = new Map();
+        const badgeMap = new Map();
+
+        achievements?.forEach(ua => {
+          const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+          if (ach?.type === 'patent') {
+            patentMap.set(ua.user_id, ach.image_url);
+          } else {
+            badgeMap.set(ua.user_id, ach.image_url);
+          }
+        });
+
+        const playersWithPatent = players?.map((p: any) => ({
+          ...p,
+          active_patent_url: patentMap.get(p.user_id),
+          active_badge_url: badgeMap.get(p.user_id)
+        })) || [];
+
+        setTopPlayers(playersWithPatent);
+      }
+
       const { data: promoData } = await supabase.from('notification_settings').select('label').eq('key_name', 'PROMO_PRODUCTS_V1').maybeSingle();
       if (promoData && promoData.label) {
         try {
@@ -71,7 +124,6 @@ export default function Dashboard() {
         setPromotionalProducts([]);
       }
 
-      // Fetch VIP Plans
       const { data: plansData } = await supabase.from('notification_settings').select('label').eq('key_name', 'VIP_PLANS_V1').maybeSingle();
       if (plansData && plansData.label) {
         try {
@@ -107,11 +159,38 @@ export default function Dashboard() {
 
       const uniqueNames = Array.from(new Set(winners.map(w => w.name)));
       if (uniqueNames.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('nickname, avatar_url').in('nickname', uniqueNames);
+        const { data: profiles, error: profError } = await supabase
+          .from('profiles')
+          .select('nickname, avatar_url, user_id')
+          .in('nickname', uniqueNames);
+
         if (profiles) {
+          // Buscar patentes separadamente para os ganhadores recentes
+          const userIds = profiles.map(p => p.user_id);
+          const { data: achievements } = await supabase
+            .from("user_achievements")
+            .select("user_id, is_active, achievements(image_url, type)")
+            .in("user_id", userIds)
+            .eq("is_active", true);
+
+          const patentMap = new Map();
+          const badgeMap = new Map();
+          achievements?.forEach(ua => {
+            const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+            if (ach?.type === 'patent') {
+              patentMap.set(ua.user_id, ach.image_url);
+            } else {
+              badgeMap.set(ua.user_id, ach.image_url);
+            }
+          });
+
           winners.forEach(w => {
             const match = profiles.find(p => p.nickname === w.name);
-            if (match) w.avatar_url = match.avatar_url;
+            if (match) {
+              w.avatar_url = match.avatar_url;
+              (w as any).active_patent_url = patentMap.get(match.user_id);
+              (w as any).active_badge_url = badgeMap.get(match.user_id);
+            }
           });
         }
       }
@@ -159,8 +238,8 @@ export default function Dashboard() {
 
         <div className="bg-gradient-to-r from-black/90 via-[#0a0a0a]/80 to-black/90 backdrop-blur-md absolute inset-0">
           {/* Sombras laterais para fade-out perfeito */}
-          <div className="absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#050505] to-transparent"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#050505] to-transparent"></div>
+          <div className="absolute left-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-r from-[#050505] to-transparent pointer-events-none"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-16 z-10 bg-gradient-to-l from-[#050505] to-transparent pointer-events-none"></div>
 
           <div className="animate-marquee h-full flex items-center">
             {recentWinners.length > 0 ? [...recentWinners, ...recentWinners, ...recentWinners, ...recentWinners].map((winner, i) => (
@@ -169,7 +248,14 @@ export default function Dashboard() {
                   <AvatarImage src={winner.avatar_url || `https://api.dicebear.com/7.x/thumbs/svg?seed=${winner.name}`} />
                   <AvatarFallback className="bg-gradient-to-b from-yellow-400 to-yellow-600 text-[10px] text-black font-black">{winner.name.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors">{winner.name}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-bold text-gray-300 group-hover:text-white transition-colors">{winner.name}</span>
+                  {(winner as any).active_patent_url && (
+                    <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 overflow-hidden flex items-center justify-center p-[0.5px]">
+                      <img src={(winner as any).active_patent_url} alt="Patente" className="h-full w-full object-cover rounded-full" />
+                    </div>
+                  )}
+                </div>
                 <span className="flex items-center text-[11px] font-black text-green-400 drop-shadow-[0_0_5px_rgba(74,222,128,0.5)]">
                   <span className="text-[8px] mr-0.5 opacity-80">R$</span>
                   {winner.amount.replace('R$', '').trim()}
@@ -356,7 +442,16 @@ export default function Dashboard() {
                         <AvatarFallback className="bg-gray-800 text-transparent bg-clip-text bg-gradient-to-b from-gray-300 to-gray-500 font-black text-lg">{player.nickname?.charAt(0).toUpperCase() || "?"}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <p className={`font-black text-sm transition-colors ${isGold ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(234,179,8,0.6)]' : isSilver ? 'text-gray-200' : isBronze ? 'text-orange-300' : 'text-gray-300 group-hover:text-white'}`}>{player.nickname || "Jogador"}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className={`font-black text-sm transition-colors ${isGold ? 'text-yellow-400 drop-shadow-[0_0_5px_rgba(234,179,8,0.6)]' : isSilver ? 'text-gray-200' : isBronze ? 'text-orange-300' : 'text-gray-300 group-hover:text-white'}`}>
+                            {player.nickname || "Jogador"}
+                          </p>
+                          {player.active_patent_url && (
+                            <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 overflow-hidden flex items-center justify-center p-[0.5px] ml-1">
+                              <img src={player.active_patent_url} alt="Patente" className="h-full w-full object-cover rounded-full" />
+                            </div>
+                          )}
+                        </div>
                         <p className={`text-[10px] font-bold tracking-wider mt-0.5 ${isGold ? 'text-yellow-600 uppercase' : 'text-gray-500'}`}>LVL {player.freefire_level || 0}</p>
                       </div>
                     </div>
@@ -391,12 +486,29 @@ export default function Dashboard() {
             <div className="absolute bottom-0 left-0 w-40 h-40 bg-zinc-500/10 rounded-full blur-[60px] pointer-events-none"></div>
 
             <div className="flex items-center gap-3 mb-6 relative z-10">
-              <div className="bg-orange-500/20 p-2.5 rounded-xl border border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.2)]">
-                <User className="h-5 w-5 text-orange-400" />
+              <div className="relative">
+                <Avatar className="h-12 w-12 border-2 border-orange-500/30 shadow-[0_0_15px_rgba(249,115,22,0.2)]">
+                  <AvatarImage src={profile?.avatar_url} />
+                  <AvatarFallback className="bg-orange-500/20 text-orange-400 font-black">
+                    {profile?.nickname?.charAt(0).toUpperCase() || <User className="h-5 w-5" />}
+                  </AvatarFallback>
+                </Avatar>
               </div>
               <div>
-                <h3 className="text-sm font-black text-white uppercase tracking-widest">Sua Jornada</h3>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Histórico de Performance</p>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-black text-white uppercase tracking-widest leading-none">{profile?.nickname || "Jogador"}</h3>
+                  {profile?.active_patent && (
+                    <div className="h-6 w-6 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[1px] shrink-0">
+                      <img src={profile.active_patent.image_url} alt="Patente" className="h-full w-full object-cover rounded-full" />
+                    </div>
+                  )}
+                  {profile?.active_badge && (
+                    <div className="h-6 w-6 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 shadow-[0_2px_5px_rgba(0,0,0,0.5)] overflow-hidden flex items-center justify-center p-[1px] shrink-0 animate-pulse">
+                      <img src={profile.active_badge.image_url} alt="Badge" className="h-full w-full object-cover rounded-full" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">Histórico de Performance</p>
               </div>
             </div>
 
@@ -497,22 +609,22 @@ export default function Dashboard() {
 
                       <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
                         <ul className="space-y-3 text-sm text-gray-300 font-medium">
-                          <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">2 Acessos Vips</span> / Dia</li>
-                          <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> Salas de <b className="text-white ml-1">R$ {Number(plan.roomPrice).toFixed(2).replace('.', ',')}</b></li>
-                          <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> Sem fidelidade</li>
+                          <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">{plan.feature_1 || "2 Acessos Vips / Dia"}</span></li>
+                          <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">{plan.feature_2 || `Salas de R$ ${Number(plan.roomPrice).toFixed(2).replace('.', ',')}`}</span></li>
+                          <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">{plan.feature_3 || "Sem fidelidade"}</span></li>
                         </ul>
                       </div>
 
-                      <Button onClick={() => navigate(`/checkout/${plan.id}`)} className={`w-full relative overflow-hidden font-black uppercase tracking-widest py-6 rounded-xl border-0 group/btn ${btnClass}`}>
-                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-out"></div>
-                        ASSINAR AGORA
-                      </Button>
-
                       {plan.extra_text && (
-                        <p className="text-[10px] text-gray-500 text-center uppercase tracking-widest font-bold pt-1 opacity-70">
+                        <p className={`text-xs ${textColor} text-center uppercase tracking-widest font-bold pb-2 drop-shadow-md`}>
                           {plan.extra_text}
                         </p>
                       )}
+
+                      <Button onClick={() => navigate(`/checkout/${plan.id}`)} className={`w-full relative overflow-hidden font-black uppercase tracking-widest py-6 rounded-xl border-0 group/btn ${btnClass}`}>
+                        <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-out"></div>
+                        {plan.button_text || "ASSINAR AGORA"}
+                      </Button>
                     </CardContent>
                   </Card>
                 </div>
@@ -522,7 +634,21 @@ export default function Dashboard() {
         </div>
 
         {/* 8. CAPTAÇÃO DE PARCEIROS E INDICAÇÕES */}
-        <PartnershipCapture referralLink={referralLink} referralCount={referralCount} />
+        <div className="mt-8">
+          <div className="relative group/cta cursor-pointer" onClick={() => navigate('/partnership')}>
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-600 via-yellow-500 to-orange-600 rounded-3xl blur-xl opacity-40 group-hover/cta:opacity-70 transition-opacity duration-500 animate-pulse pointer-events-none"></div>
+            <Button
+              className="w-full relative overflow-hidden bg-gradient-to-r from-orange-600 via-orange-500 to-yellow-500 hover:from-orange-500 hover:via-yellow-400 text-white font-black uppercase tracking-widest h-20 rounded-3xl shadow-[0_0_40px_rgba(249,115,22,0.6)] border-2 border-yellow-300/50 hover:scale-[1.02] transition-all duration-300"
+            >
+              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-30 mix-blend-overlay"></div>
+              <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent"></div>
+              <div className="absolute -inset-full w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover/cta:translate-x-full transition-transform duration-1000 ease-in-out"></div>
+
+              <Briefcase className="h-8 w-8 mr-4 group-hover/cta:scale-125 group-hover/cta:-rotate-12 transition-transform duration-300 drop-shadow-md" />
+              <span className="text-xl md:text-2xl drop-shadow-lg">Trabalhe com a Gente 🚀</span>
+            </Button>
+          </div>
+        </div>
 
       </div>
     </div>

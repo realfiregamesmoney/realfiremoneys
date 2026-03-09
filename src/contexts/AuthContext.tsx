@@ -25,6 +25,7 @@ interface AuthContextType {
     freefire_nick: string | null;
     freefire_level: number | null;
     freefire_proof_url: string | null;
+    email: string | null;
     total_winnings: number;
     tournaments_played: number;
     victories: number;
@@ -32,6 +33,13 @@ interface AuthContextType {
     is_chat_banned: boolean;
     is_app_banned: boolean;
     is_balance_locked: boolean;
+    plan_type: string | null;
+    pass_value: number | null;
+    passes_available: number | null;
+    active_patent?: {
+      image_url: string;
+      position: 'left' | 'right';
+    } | null;
   } | null;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -57,12 +65,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<AuthContextType["profile"]>(null);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+    // Busca dados básicos separadamente para garantir carregamento mesmo sem tabelas de conquistas
+    const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("nickname, saldo, nivel, avatar_url, full_name, cpf, freefire_id, freefire_nick, freefire_level, freefire_proof_url, total_winnings, tournaments_played, victories, user_id, is_chat_banned, is_app_banned, is_balance_locked")
+      .select(`
+        nickname, saldo, nivel, avatar_url, full_name, cpf, freefire_id, freefire_nick, 
+        freefire_level, freefire_proof_url, total_winnings, tournaments_played, victories, 
+        user_id, is_chat_banned, is_app_banned, is_balance_locked,
+        plan_type, pass_value, passes_available, email
+      `)
       .eq("user_id", userId)
       .maybeSingle();
-    if (data) setProfile(data as any);
+
+    if (profileError) {
+      console.error("Erro ao carregar perfil:", profileError);
+      return;
+    }
+
+    // [SINCRONIZAÇÃO OBRIGATÓRIA DE E-MAIL]
+    const authUser = (await supabase.auth.getUser()).data.user;
+    if (authUser?.email && profileData && !profileData.email) {
+      console.log("Sincronizando e-mail oficial no Dossiê...");
+      await supabase.from("profiles").update({ email: authUser.email }).eq("user_id", userId);
+      profileData.email = authUser.email;
+    }
+
+    if (profileData) {
+      let active_patent = null;
+      let active_badge = null;
+      try {
+        // Busca conquistas ativas (pode ser uma patente e um troféu/medalha simultaneamente)
+        const { data: achievements } = await supabase
+          .from("user_achievements")
+          .select("is_active, achievements(image_url, type)")
+          .eq("user_id", userId)
+          .eq("is_active", true);
+
+        if (achievements) {
+          achievements.forEach((ua: any) => {
+            const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+            if (ach) {
+              if (ach.type === 'patent') {
+                active_patent = { image_url: ach.image_url, type: 'patent' };
+              } else if (ach.type === 'trophy' || ach.type === 'medal') {
+                active_badge = { image_url: ach.image_url, type: ach.type };
+              }
+            }
+          });
+        }
+      } catch (e) {
+        console.warn("Erro ao buscar conquistas ativas:", e);
+      }
+
+      setProfile({
+        ...profileData,
+        active_patent,
+        active_badge
+      } as any);
+
+      localStorage.setItem('rf_current_user', JSON.stringify({
+        name: profileData.nickname || 'Anônimo',
+        img: profileData.avatar_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=Fallback&backgroundColor=ea580c'
+      }));
+    }
   };
 
   const fetchRole = async (userId: string) => {
@@ -139,23 +204,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const newData = payload.new as any;
           setProfile(prev => prev ? {
             ...prev,
-            saldo: newData.saldo,
-            nickname: newData.nickname,
-            nivel: newData.nivel,
-            avatar_url: newData.avatar_url,
-            full_name: newData.full_name,
-            cpf: newData.cpf,
-            freefire_id: newData.freefire_id,
-            freefire_nick: newData.freefire_nick,
-            freefire_level: newData.freefire_level,
-            freefire_proof_url: newData.freefire_proof_url,
+            saldo: newData.saldo ?? prev.saldo,
+            nickname: newData.nickname ?? prev.nickname,
+            nivel: newData.nivel ?? prev.nivel,
+            avatar_url: newData.avatar_url ?? prev.avatar_url,
+            full_name: newData.full_name ?? prev.full_name,
+            cpf: newData.cpf ?? prev.cpf,
+            freefire_id: newData.freefire_id ?? prev.freefire_id,
+            freefire_nick: newData.freefire_nick ?? prev.freefire_nick,
+            freefire_level: newData.freefire_level ?? prev.freefire_level,
+            freefire_proof_url: newData.freefire_proof_url ?? prev.freefire_proof_url,
             total_winnings: newData.total_winnings ?? prev.total_winnings,
             tournaments_played: newData.tournaments_played ?? prev.tournaments_played,
             victories: newData.victories ?? prev.victories,
-            user_id: newData.user_id,
-            is_chat_banned: newData.is_chat_banned,
-            is_app_banned: newData.is_app_banned,
-            is_balance_locked: newData.is_balance_locked,
+            user_id: newData.user_id ?? prev.user_id,
+            is_chat_banned: newData.is_chat_banned ?? prev.is_chat_banned,
+            is_app_banned: newData.is_app_banned ?? prev.is_app_banned,
+            is_balance_locked: newData.is_balance_locked ?? prev.is_balance_locked,
+            plan_type: newData.plan_type ?? prev.plan_type,
+            pass_value: newData.pass_value ?? prev.pass_value,
+            passes_available: newData.passes_available ?? prev.passes_available,
+            email: newData.email ?? prev.email,
           } : null);
         }
       )

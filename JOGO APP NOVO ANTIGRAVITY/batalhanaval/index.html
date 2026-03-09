@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Royal Money Batalha Naval</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="top-bar">
+        <a href="../battle.html" class="back-btn">&larr; VOLTAR</a>
+        <h1>ROYAL <span>NAVAL</span></h1>
+    </div>
+
+    <div class="game-info">
+        <div class="player p2">INIMIGO (Bot) <span id="score2">Vivos: 5</span></div>
+        <div class="turn-indicator" id="turn-indicator">ESCONDA SUA FROTA</div>
+        <div class="player p1 active">SUA FROTA <span id="score1">Vivos: 5</span></div>
+    </div>
+
+    <div class="boards-container">
+        <div class="board-wrapper">
+            <div class="board-title">Oceano Inimigo (Atacar)</div>
+            <div id="board-enemy" class="board disabled"></div>
+        </div>
+
+        <div class="board-wrapper">
+            <div class="board-title">Seu Oceano (Posicionar)</div>
+            <div id="board-player" class="board"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="rotate-btn" class="action-btn">Girar Navio (Horizontal)</button>
+        <button id="start-btn" class="action-btn pass-btn" style="display:none;">Iniciar Guerra</button>
+    </div>
+
+    <div id="status-msg" class="status-msg">Posicione seu Porta-Aviões (5 espaços)</div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>

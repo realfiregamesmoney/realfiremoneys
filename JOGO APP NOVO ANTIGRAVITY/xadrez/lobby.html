@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lobby Torneio - Xadrez</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #050505;
+            font-family: 'Orbitron', sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at top, #1a0a00 0%, #000 100%);
+            box-sizing: border-box;
+        }
+
+        /* Grid de Fundo Hacker */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(255, 170, 0, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 170, 0, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .header-lobby {
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ffaa00;
+            background: rgba(0, 0, 0, 0.8);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9), 0 0 10px rgba(255, 170, 0, 0.2);
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        .back-btn {
+            color: #fff;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            text-transform: uppercase;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 170, 0, 0.2);
+            border-color: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        .header-lobby h1 {
+            font-size: 16px;
+            margin: 0;
+            color: #ffaa00;
+            text-shadow: 0 0 10px #ffaa00;
+            text-align: center;
+        }
+
+        .status-panel {
+            margin: 15px 0 5px 0;
+            text-align: center;
+        }
+
+        .status-text {
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 5px #fff;
+        }
+
+        .status-text.ready {
+            color: #00ffaa;
+            text-shadow: 0 0 10px #00ffaa, 0 0 20px #00ffaa;
+            animation: pulseGreen 1s infinite alternate;
+        }
+
+        @keyframes pulseGreen {
+            0% {
+                opacity: 0.8;
+                transform: scale(1);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+        }
+
+        /* Brackets / Chaves do Torneio */
+        .bracket-container {
+            flex: 1;
+            width: 100%;
+            overflow-x: auto;
+            /* Rolagem horizontal pra caber chaves no celular */
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+        }
+
+        .bracket {
+            display: flex;
+            flex-direction: row;
+            gap: 30px;
+            /* dist entre as colunas */
+            min-width: 600px;
+            /* Garante tamanho minimo para as chaves */
+            margin: 0 auto;
+        }
+
+        .round {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            gap: 15px;
+        }
+
+        .round-title {
+            text-align: center;
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* A partida de 2 jogadores */
+        .matchup {
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.9);
+            position: relative;
+        }
+
+        /* Linhas conectando os brackets (CSS simplificado com borders) */
+        .round-1 .matchup::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -30px;
+            width: 30px;
+            height: 1px;
+            background: #444;
+        }
+
+        .round-2 .matchup::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -30px;
+            width: 30px;
+            height: 1px;
+            background: #444;
+        }
+
+        .round-2 .matchup::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            right: -30px;
+            width: 30px;
+            height: 1px;
+            background: #444;
+        }
+
+        .round-3 .matchup::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -30px;
+            width: 30px;
+            height: 1px;
+            background: #444;
+        }
+
+        /* Conectores verticais */
+        .round-1 .matchup:nth-child(odd)::after {
+            height: 50px;
+            width: 15px;
+            border-top: 2px solid #555;
+            border-right: 2px solid #555;
+            background: none;
+            top: 50%;
+            right: -15px;
+            border-top-right-radius: 4px;
+            border-bottom: none;
+            border-left: none;
+        }
+
+        .round-1 .matchup:nth-child(even)::after {
+            height: 50px;
+            width: 15px;
+            border-bottom: 2px solid #555;
+            border-right: 2px solid #555;
+            background: none;
+            bottom: 50%;
+            right: -15px;
+            top: auto;
+            border-bottom-right-radius: 4px;
+            border-top: none;
+            border-left: none;
+        }
+
+        .round-2 .matchup:nth-child(odd)::after {
+            height: 100px;
+            width: 15px;
+            border-top: 2px solid #555;
+            border-right: 2px solid #555;
+            background: none;
+            top: 50%;
+            right: -15px;
+            border-top-right-radius: 4px;
+        }
+
+        .round-2 .matchup:nth-child(even)::after {
+            height: 100px;
+            width: 15px;
+            border-bottom: 2px solid #555;
+            border-right: 2px solid #555;
+            background: none;
+            bottom: 50%;
+            right: -15px;
+            top: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+
+        .player-slot {
+            width: 140px;
+            padding: 8px 10px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid #222;
+            transition: all 0.3s;
+        }
+
+        .player-slot:last-child {
+            border-bottom: none;
+        }
+
+        .player-slot .avatar {
+            width: 20px;
+            height: 20px;
+            background: #222;
+            border: 1px dashed #555;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .player-slot.waiting {
+            color: #666;
+            font-style: italic;
+        }
+
+        .player-slot.waiting .name {
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.3;
+            }
+        }
+
+        .player-slot.filled {
+            color: #fff;
+            font-style: normal;
+            background: linear-gradient(90deg, rgba(255, 170, 0, 0.1), transparent);
+            border-left: 3px solid #ffaa00;
+        }
+
+        .player-slot.filled .avatar {
+            border: 1px solid #ffaa00;
+            background: radial-gradient(circle at top, #ffcc00, #ff5500);
+            box-shadow: 0 0 5px #ffaa00;
+        }
+
+        .player-slot.you {
+            color: #fff;
+            font-weight: bold;
+            background: linear-gradient(90deg, rgba(255, 51, 0, 0.2), transparent);
+            border-left: 3px solid #ff3300;
+            text-shadow: 0 0 5px #ff3300;
+        }
+
+        .player-slot.you .avatar {
+            border: 1px solid #ff3300;
+            background: radial-gradient(circle at top, #ff0000, #880000);
+            box-shadow: 0 0 10px #ff3300;
+        }
+
+        /* Cadeados das rodadas futuras */
+        .player-slot.locked {
+            color: #333;
+            background: #0a0a0a;
+            justify-content: center;
+        }
+
+        .loading-bar-container {
+            width: 80%;
+            max-width: 400px;
+            height: 4px;
+            background: #222;
+            margin: 10px auto;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-bar {
+            width: 12.5%;
+            height: 100%;
+            background: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+            transition: width 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header-lobby">
+        <a href="../battle.html" class="back-btn">◁ CANCELAR</a>
+        <h1>SALA DO TORNEIO</h1>
+        <div style="width: 80px;"></div> <!-- Spacer -->
+    </div>
+
+    <div class="status-panel">
+        <div class="status-text" id="statusText">Buscando Jogadores... (1/8)</div>
+        <div class="loading-bar-container">
+            <div class="loading-bar" id="loadingBar"></div>
+        </div>
+    </div>
+
+    <div class="bracket-container">
+        <div class="bracket">
+            <!-- QUARTAS DE FINAL (8 players) -->
+            <div class="round round-1">
+                <div class="round-title">Quartas</div>
+                <div class="matchup">
+                    <div class="player-slot you" id="p1">
+                        <div class="avatar"></div>
+                        <div class="name">VOCÊ (Neon)</div>
+                    </div>
+                    <div class="player-slot waiting" id="p2">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                </div>
+                <div class="matchup">
+                    <div class="player-slot waiting" id="p3">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                    <div class="player-slot waiting" id="p4">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                </div>
+                <div class="matchup">
+                    <div class="player-slot waiting" id="p5">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                    <div class="player-slot waiting" id="p6">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                </div>
+                <div class="matchup">
+                    <div class="player-slot waiting" id="p7">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                    <div class="player-slot waiting" id="p8">
+                        <div class="avatar"></div>
+                        <div class="name">Buscando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEMIFINAL (4 players locked) -->
+            <div class="round round-2">
+                <div class="round-title">Semi</div>
+                <div class="matchup">
+                    <div class="player-slot locked">Venc. Q1</div>
+                    <div class="player-slot locked">Venc. Q2</div>
+                </div>
+                <div class="matchup">
+                    <div class="player-slot locked">Venc. Q3</div>
+                    <div class="player-slot locked">Venc. Q4</div>
+                </div>
+            </div>
+
+            <!-- FINAL (2 players locked) -->
+            <div class="round round-3">
+                <div class="round-title">Final</div>
+                <div class="matchup">
+                    <div class="player-slot locked">Venc. S1</div>
+                    <div class="player-slot locked">Venc. S2</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Mocking Real Time Matchmaking
+        const poolNames = [
+            "ShadowKiller", "Viper23", "CryptoKing", "NeoSamurai",
+            "GhostRider", "Titan_BR", "CyberPuck", "Maverick", "ProGamer99"
+        ];
+
+        // Aleatorizar nomes
+        poolNames.sort(() => Math.random() - 0.5);
+
+        let playersJoined = 1; // Você já está na sala
+        const maxPlayers = 8;
+        const statusText = document.getElementById('statusText');
+        const loadingBar = document.getElementById('loadingBar');
+
+        // Simulate joining loop
+        function simulateJoining() {
+            if (playersJoined >= maxPlayers) {
+                finishLobby();
+                return;
+            }
+
+            // Tempo randomico para parecer que pessoas reais estao entrando (500ms a 2.5s)
+            const waitTime = Math.random() * 2000 + 500;
+
+            setTimeout(() => {
+                playersJoined++;
+                const slot = document.getElementById('p' + playersJoined);
+                slot.classList.remove('waiting');
+                slot.classList.add('filled');
+                slot.querySelector('.name').innerText = poolNames[playersJoined - 2];
+
+                statusText.innerText = `Buscando Jogadores... (${playersJoined}/8)`;
+                loadingBar.style.width = `${(playersJoined / 8) * 100}%`;
+
+                // Somzinho rapido de PING? (opcional) // Toca se der
+                simulateJoining();
+
+            }, waitTime);
+        }
+
+        function finishLobby() {
+            statusText.innerText = "TORNEIO FECHADO! PREPARANDO MESA...";
+            statusText.classList.add('ready');
+            loadingBar.style.background = "#00ffaa";
+            loadingBar.style.boxShadow = "0 0 15px #00ffaa";
+
+            // Trava por 3 segundos para o jogador ver a tabela pronta, e redireciona pro Jogo de Xadrez
+            let count = 3;
+            const t = setInterval(() => {
+                statusText.innerText = `INICIANDO PARTIDA CONTRA ${document.getElementById('p2').innerText.trim()} EM ${count}...`;
+                count--;
+                if (count < 0) {
+                    clearInterval(t);
+                    // Vai pra o tabuleiro Real
+                    window.location.href = './index.html';
+                }
+            }, 1000);
+        }
+
+        // Iniciar Mck quando abrir a pagina
+        // setTimeout(simulateJoining, 1500); // DESATIVADO: Apenas jogadores reais conectarão
+
+    </script>
+</body>
+
+</html>

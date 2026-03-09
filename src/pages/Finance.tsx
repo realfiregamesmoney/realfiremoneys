@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import KycModal from "@/components/KycModal";
+import { performBiometricVerification } from "@/utils/webauthn";
 
 export default function Finance() {
   const navigate = useNavigate();
@@ -315,6 +316,7 @@ function WithdrawTab() {
       });
       return;
     }
+
     const val = parseFloat(amount);
     if (isNaN(val) || val <= 0) {
       toast({ variant: "destructive", title: "Preencha um valor válido" });
@@ -329,25 +331,26 @@ function WithdrawTab() {
       toast({ variant: "destructive", title: "Saldo insuficiente", description: `Seu saldo é R$ ${currentBalance.toFixed(2)}. Você não pode sacar mais do que tem.` });
       return;
     }
-    // Double-check: resulting balance must not be negative
-    if (currentBalance - val < 0) {
-      toast({ variant: "destructive", title: "Operação bloqueada", description: "Saque resultaria em saldo negativo." });
-      return;
-    }
+
     if (!profile?.cpf) {
       toast({ variant: "destructive", title: "CPF não cadastrado", description: "Faça um depósito primeiro para registrar seu CPF." });
       return;
     }
+
     const { error } = await supabase.from("transactions").insert({
-      user_id: user.id, type: "withdraw", amount: val, status: "pending",
+      user_id: user.id,
+      type: "withdraw",
+      amount: val,
+      status: "pending",
     });
+
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      toast({ variant: "destructive", title: "Erro na Operação", description: error.message });
     } else {
       await supabase.from("audit_logs").insert({
         admin_id: user.id,
         action_type: "withdraw_request",
-        details: `Jogador ${profile?.nickname} solicitou saque de R$${val.toFixed(2)} (Saldo antes: R$${currentBalance.toFixed(2)})`
+        details: `Jogador ${profile?.nickname} solicitou saque de R$${val.toFixed(2)}`
       });
       setDone(true);
     }
@@ -401,7 +404,16 @@ function HistoryTab() {
 
   const statusColor = (s: string) => s === "approved" ? "text-neon-green" : s === "rejected" ? "text-destructive" : "text-yellow-400";
   const statusLabel = (s: string) => s === "approved" ? "Aprovado" : s === "rejected" ? "Rejeitado" : "Pendente";
-  const typeLabel = (t: string) => t === "deposit" ? "Depósito" : t === "withdraw" ? "Saque" : "Inscrição";
+  const typeLabel = (t: string) => {
+    if (t === "deposit") return "Depósito";
+    if (t === "withdraw") return "Saque";
+    if (t === "patent_purchase") return "Patente";
+    if (t === "vault_purchase") return "Cofre";
+    if (t === "vault_prize") return "Prêmio Cofre";
+    if (t === "quiz_revive") return "Restauração";
+    if (t === "subscription") return "VIP";
+    return "Inscrição";
+  };
 
   return (
     <div className="space-y-3 pt-4">

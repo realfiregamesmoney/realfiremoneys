@@ -33,8 +33,10 @@ export default function Tournaments() {
   const [passModalOpen, setPassModalOpen] = useState(false);
   const [tournamentToUsePass, setTournamentToUsePass] = useState<any>(null);
 
+  // [REPARO FINANCEIRO] Trava Anti-Spam
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
   const fetchData = async () => {
-    // ACRESCIMO: Log de monitoramento com timestamp para evitar cache do navegador
     console.log(`[REAL FIRE DEBUG] Atualizando dados: ${new Date().toISOString()}`);
     const { data: ts, error } = await supabase.from("tournaments").select("*").not("title", "like", "%[ARQUIVADO]%").order("scheduled_at", { ascending: true });
     if (error) {
@@ -42,7 +44,7 @@ export default function Tournaments() {
       toast({ variant: "destructive", title: "Erro ao carregar torneios", description: error.message });
       return;
     }
-    // ACRESCIMO: Contagem real baseada na tabela 'tournament_participants'
+
     const { data: participants } = await supabase.from("tournament_participants").select("tournament_id").eq("status", "paid");
 
     let accurateTs = ts || [];
@@ -76,36 +78,49 @@ export default function Tournaments() {
   useEffect(() => { fetchData(); }, [user]);
 
   useEffect(() => {
-    // ACRESCIMO: Escuta ativa refinada para capturar o evento exato de UPDATE e novos pagamentos
     const channel = supabase
       .channel("tournaments-realtime-v2")
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, (payload) => {
-        console.log("Mudança detectada no banco (Payload):", payload);
-        if (payload.eventType === "DELETE" || ((payload.new as any)?.title && (payload.new as any).title.startsWith('[ARQUIVADO]'))) {
-          setTournaments(prev => prev.filter(t => t.id !== ((payload.old as any)?.id || (payload.new as any)?.id)));
+        const newData = payload.new as any;
+        const oldData = payload.old as any;
+
+        // Gerenciar arquivamento/deleção
+        if (payload.eventType === "DELETE" || (newData?.title && newData.title.startsWith("[ARQUIVADO]"))) {
+          setTournaments(prev => prev.filter(t => t.id !== (oldData?.id || newData?.id)));
         }
+
+        // --- AJUSTE FINAL: SINCRONIZAÇÃO DE LINK DA SALA EM TEMPO REAL ---
+        if (payload.eventType === "UPDATE" && newData?.room_link) {
+          // Usamos a função de atualização de estado para acessar a lista mais recente de inscritos sem fechar escopo
+          setEnrolledIds(prevIds => {
+            if (prevIds.has(newData.id)) {
+              setRoomLinks(prevLinks => ({
+                ...prevLinks,
+                [newData.id]: newData.room_link
+              }));
+            }
+            return prevIds;
+          });
+        }
+
         fetchData();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "tournament_participants" }, (payload) => {
-        console.log("[REAL FIRE] Novo participante pago (Realtime):", payload);
-        if (payload.new && payload.new.tournament_id && payload.new.status === 'paid') {
-          // Atualização otimista imediata para todos os usuários vendo a tela
+        if (payload.new && payload.new.tournament_id && payload.new.status === "paid") {
           setTournaments(prev => prev.map(t =>
             t.id === payload.new.tournament_id
               ? { ...t, current_players: (t.current_players || 0) + 1 }
               : t
           ));
-          fetchData(); // Garante o sync final
+          fetchData();
         }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user]);
 
-  // --- 1. SISTEMA DE NOTIFICAÇÕES AUTOMÁTICAS PARA TODOS OS JOGADORES (10m, 5m, 1m) ---
   useEffect(() => {
     if (!user) return;
-
     const checkNotifications = () => {
       const now = new Date();
       tournaments.forEach(t => {
@@ -131,14 +146,14 @@ export default function Tournaments() {
         }
       });
     };
-
     const interval = setInterval(checkNotifications, 10000);
-    checkNotifications(); // check immediately
+    checkNotifications();
     return () => clearInterval(interval);
   }, [tournaments, enrolledIds, user]);
-  // --- 2. LÓGICA DE INSCRIÇÃO COM REDIRECIONAMENTO SE CHEIO ---
+
+  // --- 2. LÓGICA DE INSCRIÇÃO COM REDIRECIONAMENTO SE CHEIO (REPARADA) ---
   const handleEnroll = async (tournament: any, bypassPassCheck: boolean = false) => {
-    if (!user || !profile) return;
+    if (!user || !profile || isEnrolling) return;
 
     if ((profile as any).is_balance_locked) {
       toast({
@@ -149,169 +164,160 @@ export default function Tournaments() {
       return;
     }
 
-    // Verificar se a sala possui trava de nível
     if (tournament.max_level) {
       const userLvl = profile.freefire_level ? Number(profile.freefire_level) : -1;
       if (userLvl === -1) {
-        toast({ variant: "destructive", title: "Nível não definido", description: "Atualize o seu nível do jogo no Perfil antes de entrar nesta sala nivelada." });
+        toast({ variant: "destructive", title: "Nível não definido", description: "Atualize o seu nível no Perfil." });
         return;
       }
       if (userLvl > tournament.max_level) {
-        toast({ variant: "destructive", title: "Nível Bloqueado", description: `A sala permite jogadores até o nível ${tournament.max_level}. Seu nível é ${userLvl}.` });
+        toast({ variant: "destructive", title: "Nível Bloqueado", description: `Limite até nível ${tournament.max_level}.` });
         return;
       }
     }
 
-    // Verificar se sala está cheia
+    setIsEnrolling(true);
+
     const isFull = tournament.current_players >= tournament.max_players;
     if (isFull) {
-      // Auto-add to waiting list
-      await (supabase as any).from("waiting_list").upsert({
-        user_id: user.id,
-        tournament_id: tournament.id,
-        status: 'waiting',
-      }, { onConflict: 'user_id,tournament_id' });
+      try {
+        await (supabase as any).from("waiting_list").upsert({ user_id: user.id, tournament_id: tournament.id, status: 'waiting' }, { onConflict: 'user_id,tournament_id' });
+        const nextAvailable = tournaments.find(t => t.id !== tournament.id && t.current_players < t.max_players && t.status === 'open' && !enrolledIds.has(t.id));
 
-      // Find next available tournament and auto-enroll
-      const nextAvailable = tournaments.find(t =>
-        t.id !== tournament.id &&
-        t.current_players < t.max_players &&
-        t.status === 'open' &&
-        !enrolledIds.has(t.id)
-      );
+        if (nextAvailable && Number(profile.saldo) >= Number(nextAvailable.entry_fee)) {
+          setSelectedTournament(tournament);
+          setNextTournament(nextAvailable);
+          setFullRoomModal(true);
 
-      if (nextAvailable && Number(profile.saldo) >= Number(nextAvailable.entry_fee)) {
-        // Auto-enroll in next tournament
-        setSelectedTournament(tournament);
-        setNextTournament(nextAvailable);
-        setFullRoomModal(true);
+          let balanceCharged = false;
+          try {
+            const newSaldo = Number(profile.saldo) - Number(nextAvailable.entry_fee);
+            const { error: balanceErr } = await supabase.from("profiles").update({ saldo: newSaldo, tournaments_played: (profile.tournaments_played || 0) + 1 }).eq("user_id", user.id);
+            if (balanceErr) throw balanceErr;
+            balanceCharged = true;
 
-        // Auto-enroll immediately
-        try {
-          const newSaldo = Number(profile.saldo) - Number(nextAvailable.entry_fee);
-          const newTournamentsPlayed = (profile.tournaments_played || 0) + 1;
-          await supabase.from("profiles").update({ saldo: newSaldo, tournaments_played: newTournamentsPlayed }).eq("user_id", user.id);
-          await supabase.from("transactions").insert({ user_id: user.id, type: "entry_fee", amount: Number(nextAvailable.entry_fee), status: "approved" });
-          await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: nextAvailable.id, status: "paid" });
-          await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: nextAvailable.id });
+            const { error: partErr } = await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: nextAvailable.id, status: "paid" });
+            const { error: enrollErr } = await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: nextAvailable.id });
+            if (partErr || enrollErr) throw (partErr || enrollErr);
 
-          // --- ADIÇÃO EXATA: Chama a função RPC blindada no Supabase ---
-          const { error: rpcErrorNext } = await (supabase as any).rpc("increment_tournament_players", { t_id: nextAvailable.id });
-          if (rpcErrorNext) console.error("Erro na RPC:", rpcErrorNext);
-          // --------------------------------------------------------------
+            await supabase.from("transactions").insert({ user_id: user.id, type: "entry_fee", amount: Number(nextAvailable.entry_fee), status: "approved" });
+            await (supabase as any).rpc("increment_tournament_players", { t_id: nextAvailable.id });
 
-          // Atualização otimista imediata no estado local
-          setTournaments(prev => prev.map(t =>
-            t.id === nextAvailable.id ? { ...t, current_players: (t.current_players || 0) + 1 } : t
-          ));
-
-          await refreshProfile();
-          toast({ title: "Inscrito automaticamente no próximo torneio! 🎉", description: `Sala lotada. Você foi inscrito em "${nextAvailable.title}" e adicionado à fila de espera da sala original.` });
-          fetchData();
-        } catch (err: any) {
-          toast({ variant: "destructive", title: "Erro na inscrição automática", description: err.message });
+            await refreshProfile();
+            toast({ title: "Inscrito automaticamente! 🎉" });
+            fetchData();
+          } catch (autoErr: any) {
+            if (balanceCharged) await supabase.from("profiles").update({ saldo: profile.saldo }).eq("user_id", user.id);
+            throw autoErr;
+          }
+        } else {
+          setSelectedTournament(tournament);
+          setNextTournament(null);
+          setFullRoomModal(true);
         }
-      } else {
-        setSelectedTournament(tournament);
-        setNextTournament(null);
-        setFullRoomModal(true);
-        toast({ title: "Fila de Espera", description: "Você foi adicionado à fila de espera. Será notificado quando uma vaga abrir." });
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Erro na fila", description: err.message });
+      } finally {
+        setIsEnrolling(false);
       }
       return;
     }
 
-    // CHECK PASS LIVRE VIP (Interrompe saldo normal se aplicável)
-    if (!bypassPassCheck && Number((profile as any).passes_available) > 0 && Number((profile as any).pass_value) === Number(tournament.entry_fee)) {
+    let activePlans: any[] = [];
+    try {
+      if (profile?.plan_type?.startsWith('[')) activePlans = JSON.parse(profile.plan_type);
+      else if (profile?.plan_type && profile.plan_type !== 'Free Avulso') {
+        activePlans = [{ title: profile.plan_type, passes_available: profile.passes_available || 0, pass_value: profile.pass_value || 0 }];
+      }
+    } catch (e) { activePlans = []; }
+
+    const matchingPlan = activePlans.find(p => Number(p.passes_available) > 0 && Number(p.pass_value) === Number(tournament.entry_fee));
+
+    if (!bypassPassCheck && matchingPlan) {
       setTournamentToUsePass(tournament);
       setPassModalOpen(true);
+      setIsEnrolling(false);
       return;
     }
 
     if (Number(profile.saldo) < Number(tournament.entry_fee)) {
-      toast({ variant: "destructive", title: "Saldo insuficiente", description: "Deposite mais para se inscrever." });
+      toast({ variant: "destructive", title: "Saldo insuficiente" });
+      setIsEnrolling(false);
       return;
     }
 
+    let balanceCharged = false;
     try {
-      const newSaldo = Number(profile.saldo) - Number(tournament.entry_fee);
-      const newTournamentsPlayed = (profile.tournaments_played || 0) + 1;
-      const { error: balanceErr } = await supabase.from("profiles").update({
-        saldo: newSaldo,
-        tournaments_played: newTournamentsPlayed
-      }).eq("user_id", user.id);
+      const { error: balanceErr } = await supabase.from("profiles").update({ saldo: Number(profile.saldo) - Number(tournament.entry_fee), tournaments_played: (profile.tournaments_played || 0) + 1 }).eq("user_id", user.id);
       if (balanceErr) throw balanceErr;
+      balanceCharged = true;
 
-      await supabase.from("transactions").insert({
-        user_id: user.id, type: "entry_fee", amount: Number(tournament.entry_fee), status: "approved",
-      });
+      const { error: partErr } = await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: tournament.id, status: "paid" });
+      const { error: enrollErr } = await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: tournament.id });
+      if (partErr || enrollErr) throw (partErr || enrollErr);
 
-      await supabase.from("tournament_participants").insert({
-        user_id: user.id, tournament_id: tournament.id, status: "paid",
-      });
-
-      const { error: enrollErr } = await supabase.from("enrollments").insert({
-        user_id: user.id, tournament_id: tournament.id,
-      });
-      if (enrollErr) throw enrollErr;
-
-      // --- ADIÇÃO EXATA: Chama a função RPC blindada no Supabase ---
-      const { error: rpcError } = await (supabase as any).rpc("increment_tournament_players", { t_id: tournament.id });
-      if (rpcError) console.error("Erro na RPC:", rpcError);
-      // --------------------------------------------------------------
-
-      // Atualização otimista imediata no estado local
-      setTournaments(prev => prev.map(t =>
-        t.id === tournament.id ? { ...t, current_players: (t.current_players || 0) + 1 } : t
-      ));
+      await supabase.from("transactions").insert({ user_id: user.id, type: "entry_fee", amount: Number(tournament.entry_fee), status: "approved" });
+      await (supabase as any).rpc("increment_tournament_players", { t_id: tournament.id });
 
       await refreshProfile();
       toast({ title: "Inscrito com sucesso! 🎉" });
       navigate(`/tournament/${tournament.id}`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro na inscription", description: err.message || "Tente novamente." });
+      if (balanceCharged) await supabase.from("profiles").update({ saldo: profile.saldo }).eq("user_id", user.id);
+      toast({ variant: "destructive", title: "Erro na inscrição", description: "Falha na transação. Saldo preservado." });
+    } finally {
+      setIsEnrolling(false);
     }
   };
 
   const confirmEnrollWithPass = async () => {
-    if (!user || !profile || !tournamentToUsePass) return;
+    if (!user || !profile || !tournamentToUsePass || isEnrolling) return;
     setPassModalOpen(false);
+    setIsEnrolling(true);
 
     try {
-      const newPasses = Number((profile as any).passes_available) - 1;
-      const newTournamentsPlayed = (profile.tournaments_played || 0) + 1;
+      let activePlans: any[] = JSON.parse(profile.plan_type?.startsWith('[') ? profile.plan_type : "[]");
+      if (activePlans.length === 0 && profile.plan_type && profile.plan_type !== 'Free Avulso') {
+        activePlans = [{ title: profile.plan_type, passes_available: profile.passes_available || 0, pass_value: profile.pass_value || 0 }];
+      }
+
+      const planIdx = activePlans.findIndex(p => Number(p.passes_available) > 0 && Number(p.pass_value) === Number(tournamentToUsePass.entry_fee));
+      if (planIdx === -1) throw new Error("Passe incompatível com este valor de sala.");
+
+      const originalPlanState = JSON.stringify(activePlans);
+      activePlans[planIdx].passes_available -= 1;
 
       const { error: balanceErr } = await (supabase as any).from("profiles").update({
-        passes_available: newPasses,
-        tournaments_played: newTournamentsPlayed
+        plan_type: JSON.stringify(activePlans),
+        passes_available: activePlans[0].passes_available,
+        tournaments_played: (profile.tournaments_played || 0) + 1
       }).eq("user_id", user.id);
       if (balanceErr) throw balanceErr;
 
-      await supabase.from("tournament_participants").insert({
-        user_id: user.id, tournament_id: tournamentToUsePass.id, status: "paid"
-      });
+      let enrolledOk = false;
+      try {
+        const { error: partErr } = await supabase.from("tournament_participants").insert({ user_id: user.id, tournament_id: tournamentToUsePass.id, status: "paid" });
+        const { error: enrollErr } = await supabase.from("enrollments").insert({ user_id: user.id, tournament_id: tournamentToUsePass.id });
+        if (partErr || enrollErr) throw (partErr || enrollErr);
+        enrolledOk = true;
+      } catch (enrollFail) {
+        await (supabase as any).from("profiles").update({ plan_type: originalPlanState, passes_available: JSON.parse(originalPlanState)[0].passes_available }).eq("user_id", user.id);
+        throw enrollFail;
+      }
 
-      const { error: enrollErr } = await supabase.from("enrollments").insert({
-        user_id: user.id, tournament_id: tournamentToUsePass.id
-      });
-      if (enrollErr) throw enrollErr;
-
-      const { error: rpcError } = await (supabase as any).rpc("increment_tournament_players", { t_id: tournamentToUsePass.id });
-
-      setTournaments(prev => prev.map(t =>
-        t.id === tournamentToUsePass.id ? { ...t, current_players: (t.current_players || 0) + 1 } : t
-      ));
-
+      await (supabase as any).rpc("increment_tournament_players", { t_id: tournamentToUsePass.id });
       await refreshProfile();
-      toast({ title: "Inscrito via Passe Livre! 🎟️", description: "Seu passe diário foi consumido." });
+      toast({ title: "Inscrito via Passe Livre! 🎟️" });
       navigate(`/tournament/${tournamentToUsePass.id}`);
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro usando passe", description: err.message });
+      toast({ variant: "destructive", title: "Erro no Passe", description: err.message });
+    } finally {
+      setIsEnrolling(false);
     }
   };
 
   const handleJoinNext = () => {
     setFullRoomModal(false);
-    // Already auto-enrolled, just navigate
     if (nextTournament) {
       navigate(`/tournament/${nextTournament.id}`);
     }
@@ -392,6 +398,7 @@ export default function Tournaments() {
                   <div className="flex flex-col">
                     <button
                       onClick={() => handleEnroll(t)}
+                      disabled={isEnrolling}
                       className="flex w-full items-center justify-center gap-2 py-3 text-sm font-extrabold uppercase tracking-widest text-white transition-all hover:brightness-110 active:scale-[0.98]"
                       style={{
                         background: isFull
@@ -401,6 +408,8 @@ export default function Tournaments() {
                               : t.button_color === 'pink' ? "linear-gradient(135deg, #db2777, #ec4899)"
                                 : t.button_color === 'purple' ? "linear-gradient(135deg, #9333ea, #a855f7)"
                                   : "linear-gradient(135deg, #FF5500, #FF8800)",
+                        opacity: isEnrolling ? 0.7 : 1,
+                        cursor: isEnrolling ? "not-allowed" : "pointer"
                       }}
                     >
                       <Flame className="h-4 w-4" />
@@ -571,7 +580,27 @@ export default function Tournaments() {
               Usar Passe Livre?
             </DialogTitle>
             <DialogDescription className="text-center text-gray-300 text-sm mt-2">
-              Você tem <b className="text-green-400">{profile?.passes_available} passe(s)</b> livres disponíveis.<br /> Deseja usar 1 Passe Livre para entrar nesta sala gratuita?
+              {(() => {
+                let activePlans: any[] = [];
+                try {
+                  if (profile?.plan_type?.startsWith('[')) {
+                    activePlans = JSON.parse(profile.plan_type);
+                  } else if (profile?.plan_type && profile.plan_type !== 'Free Avulso') {
+                    activePlans = [{ passes_available: profile.passes_available || 0, pass_value: profile.pass_value || 0 }];
+                  }
+                } catch (e) { activePlans = []; }
+
+                const matching = activePlans.find(p =>
+                  Number(p.passes_available) > 0 &&
+                  Number(p.pass_value) === Number(tournamentToUsePass?.entry_fee)
+                );
+
+                return (
+                  <>
+                    Você tem <b className="text-green-400">{matching?.passes_available || 0} passe(s)</b> compatíveis com esta sala (R$ {Number(tournamentToUsePass?.entry_fee).toFixed(2)}).<br /> Deseja usar 1 agora?
+                  </>
+                );
+              })()}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col gap-3 mt-4">

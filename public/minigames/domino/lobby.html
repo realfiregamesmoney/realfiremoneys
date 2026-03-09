@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lobby Torneio - Real Fire</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #050505;
+            font-family: 'Outfit', sans-serif;
+            color: #ffffff;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        /* Dashboard Premium Background */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 50% -10%, rgba(234, 88, 12, 0.15), transparent 60%),
+                linear-gradient(180deg, #050505 0%, #0a0a0a 100%);
+            z-index: -2;
+        }
+
+        /* Subtle Grid */
+        body::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Header Dashboard */
+        .dashboard-header {
+            width: 100%;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 24px;
+            background: rgba(10, 10, 10, 0.8);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+            box-sizing: border-box;
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-title span {
+            color: #f97316;
+            text-shadow: 0 0 15px rgba(234, 88, 12, 0.4);
+        }
+
+        /* Top Layout for Status and Radar */
+        .top-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            z-index: 2;
+        }
+
+        .live-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(234, 88, 12, 0.1);
+            border: 1px solid rgba(234, 88, 12, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #f97316;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #f97316;
+            animation: pulseDot 1.5s infinite alternate;
+        }
+
+        @keyframes pulseDot {
+            0% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
+        .live-text {
+            color: #f97316;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Large Radar */
+        .circle-loader-container {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .radar {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid rgba(234, 88, 12, 0.2);
+            box-shadow: inset 0 0 20px rgba(234, 88, 12, 0.1);
+            overflow: hidden;
+        }
+
+        .radar::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 50%;
+            background: linear-gradient(45deg, rgba(234, 88, 12, 0.8), transparent 60%);
+            transform-origin: 0% 0%;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .radar.ready {
+            border-color: rgba(34, 197, 94, 0.8);
+        }
+
+        .radar.ready::before {
+            background: linear-gradient(45deg, #22c55e, transparent);
+        }
+
+        .counter {
+            font-size: 28px;
+            font-weight: 900;
+            color: #fff;
+            z-index: 2;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: baseline;
+            gap: 2px;
+        }
+
+        .counter span {
+            font-size: 14px;
+            color: #f97316;
+        }
+
+        /* Bracket Scroll Area */
+        .bracket-scroll-area {
+            flex: 1;
+            width: 100%;
+            overflow: auto;
+            position: relative;
+            padding: 50px 40px 60px 40px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: flex-start;
+            align-items: flex-start;
+        }
+
+        /* Custom Scrollbar */
+        .bracket-scroll-area::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+
+        .bracket-scroll-area::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
+
+        .bracket-scroll-area::-webkit-scrollbar-thumb {
+            background: rgba(234, 88, 12, 0.4);
+            border-radius: 4px;
+        }
+
+        .bracket-scroll-area::-webkit-scrollbar-thumb:hover {
+            background: rgba(234, 88, 12, 0.6);
+        }
+
+        /* Tournament Bracket Engine */
+        .bracket {
+            display: flex;
+            flex-direction: row;
+            gap: 60px;
+            min-width: 1000px;
+            min-height: min-content;
+            align-items: stretch;
+            margin: 0 auto;
+        }
+
+        .round {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            width: 260px;
+            position: relative;
+        }
+
+        .round-header {
+            position: absolute;
+            top: -30px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 900;
+            color: #71717a;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .match-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            flex: 1;
+            position: relative;
+        }
+
+        .round:not(:last-child) .match-group::after {
+            content: '';
+            position: absolute;
+            top: 25%;
+            bottom: 25%;
+            right: -30px;
+            width: 30px;
+            border-top: 2px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            border-right: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0 6px 6px 0;
+            z-index: 1;
+        }
+
+        .round:not(:first-child) .match::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: -30px;
+            width: 30px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 1;
+        }
+
+        .round-1 .match {
+            margin: 10px 0;
+        }
+
+        .match {
+            background: rgba(15, 15, 18, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            padding: 6px;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+
+        .match.match-active {
+            border-color: rgba(234, 88, 12, 0.5);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(234, 88, 12, 0.2);
+            transform: scale(1.02);
+            animation: matchGlow 2s infinite alternate;
+        }
+
+        @keyframes matchGlow {
+            0% {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(234, 88, 12, 0.1);
+            }
+
+            100% {
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px rgba(234, 88, 12, 0.4);
+            }
+        }
+
+        .player-slot {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            border: 1px solid transparent;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-slot.filled {
+            background: rgba(255, 255, 255, 0.03);
+            border-color: rgba(255, 255, 255, 0.05);
+            opacity: 1;
+        }
+
+        .player-slot.you {
+            background: linear-gradient(90deg, rgba(234, 88, 12, 0.15), rgba(0, 0, 0, 0.4));
+            border-color: rgba(234, 88, 12, 0.3);
+            opacity: 1;
+        }
+
+        .player-slot.you::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: #f97316;
+            box-shadow: 0 0 10px #f97316;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #18181b;
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            flex-shrink: 0;
+            position: relative;
+            z-index: 2;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .player-slot.filled .avatar {
+            border: 2px solid #3f3f46;
+        }
+
+        .player-slot.you .avatar {
+            border: 2px solid #f97316;
+            box-shadow: 0 0 10px rgba(234, 88, 12, 0.4);
+        }
+
+        .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .player-slot.filled .avatar img,
+        .player-slot.you .avatar img {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .player-name {
+            font-size: 11px;
+            font-weight: 800;
+            color: #71717a;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        .player-slot.filled .player-name {
+            color: #f4f4f5;
+        }
+
+        .player-slot.you .player-name {
+            color: #f97316;
+        }
+
+        .player-status {
+            font-size: 11px;
+            font-weight: 500;
+            color: #52525b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .player-slot.filled .player-status {
+            color: #22c55e;
+        }
+
+        .player-slot.you .player-status {
+            color: #f97316;
+            opacity: 0.8;
+        }
+
+        .player-slot.tbd .player-name {
+            font-style: italic;
+            color: #52525b;
+            font-weight: 600;
+        }
+
+        .player-slot.tbd .player-status {
+            color: #3f3f46;
+        }
+
+        .transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .transition-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .vs-text {
+            font-size: max(80px, 15vw);
+            font-weight: 900;
+            font-style: italic;
+            color: transparent;
+            -webkit-text-stroke: 3px rgba(255, 255, 255, 0.15);
+            position: absolute;
+            z-index: -1;
+            user-select: none;
+            letter-spacing: -5px;
+            text-shadow: 0 0 50px rgba(255, 255, 255, 0.05);
+            animation: pulseVS 1s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes pulseVS {
+            0% {
+                transform: scale(1);
+                -webkit-text-stroke-color: rgba(255, 255, 255, 0.1);
+            }
+
+            100% {
+                transform: scale(1.05);
+                -webkit-text-stroke-color: rgba(234, 88, 12, 0.4);
+                text-shadow: 0 0 80px rgba(234, 88, 12, 0.3);
+            }
+        }
+
+        .combatants {
+            display: flex;
+            align-items: center;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+
+        .fighter {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .fighter img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 4px solid #3f3f46;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.8), 0 0 0 4px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            animation: floatFighter 3s infinite ease-in-out;
+        }
+
+        @keyframes floatFighter {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .fighter.you img {
+            border-color: #f97316;
+            box-shadow: 0 10px 30px rgba(234, 88, 12, 0.4);
+        }
+
+        .fighter span {
+            display: none !important;
+        }
+
+        .fighter.you span {
+            color: #f97316;
+        }
+
+        .countdown {
+            font-size: 24px;
+            font-weight: 600;
+            color: #a1a1aa;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .countdown span {
+            color: #fff;
+            font-weight: 900;
+            font-size: 28px;
+        }
+
+        @media screen and (max-width: 640px) {
+            .dashboard-header {
+                height: 55px;
+                padding: 0 15px;
+            }
+
+            .header-title {
+                font-size: 15px;
+                letter-spacing: 0.5px;
+            }
+
+            .top-container {
+                margin-top: 10px;
+                gap: 8px;
+            }
+
+            .circle-loader-container {
+                width: 85px;
+                height: 85px;
+            }
+
+            .counter {
+                font-size: 20px;
+            }
+
+            .bracket-scroll-area {
+                padding: 40px 15px 50px 15px;
+            }
+
+            .bracket {
+                min-width: 800px;
+                gap: 35px;
+            }
+
+            .round {
+                width: 200px;
+            }
+
+            .round-header {
+                font-size: 10px;
+                top: -25px;
+            }
+
+            .player-slot {
+                padding: 6px 10px;
+                gap: 8px;
+            }
+
+            .avatar {
+                width: 30px;
+                height: 30px;
+            }
+
+            .player-name {
+                font-size: 10px;
+            }
+
+            .player-status {
+                font-size: 9px;
+            }
+
+            .vs-text {
+                font-size: 48px;
+            }
+
+            .combatants {
+                gap: 25px;
+            }
+
+            .fighter img {
+                width: 90px;
+                height: 90px;
+                border-width: 3px;
+            }
+
+            .countdown {
+                font-size: 16px;
+            }
+
+            .countdown span {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header class="dashboard-header">
+        <div class="header-title">TORNEIO <span>BATTLE</span></div>
+    </header>
+
+    <div class="top-container">
+        <div class="live-status">
+            <div class="live-dot" id="liveDot"></div>
+            <div class="live-text" id="liveText">Aguardando Sala</div>
+        </div>
+
+        <div class="circle-loader-container">
+            <div class="radar" id="hubRadar"></div>
+            <!-- Radar Player Info (YOU) -->
+            <div id="radarPlayer"
+                style="position: absolute; top: -55px; display: flex; flex-direction: column; align-items: center; z-index: 5; background: rgba(0,0,0,0.6); padding: 6px 10px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); backdrop-filter: blur(10px); box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
+                <img id="radarPlayerImg" src=""
+                    style="width: 36px; height: 36px; border-radius: 50%; border: 2px solid #f97316; object-fit: cover; display: none; margin-bottom: 4px;">
+                <span id="radarPlayerName"
+                    style="font-size: 10px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;"></span>
+            </div>
+            <div class="counter" id="hubValue">1<span>/8</span></div>
+        </div>
+    </div>
+
+    <main class="bracket-scroll-area">
+        <div class="bracket">
+
+            <div class="round round-1">
+                <div class="round-header">Quartas de Final</div>
+                <div class="match-group">
+                    <div class="match" id="match-1">
+                        <div class="player-slot tbd" id="slot-0">
+                            <div class="avatar"><img src="" id="img-0" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-0">Aguardando...</div>
+                                <div class="player-status" id="status-0"></div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-1">
+                            <div class="avatar"><img src="" id="img-1" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-1">Aguardando...</div>
+                                <div class="player-status" id="status-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="match" id="match-2">
+                        <div class="player-slot tbd" id="slot-2">
+                            <div class="avatar"><img src="" id="img-2" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-2">Aguardando...</div>
+                                <div class="player-status" id="status-2"></div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-3">
+                            <div class="avatar"><img src="" id="img-3" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-3">Aguardando...</div>
+                                <div class="player-status" id="status-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="match-group">
+                    <div class="match" id="match-3">
+                        <div class="player-slot tbd" id="slot-4">
+                            <div class="avatar"><img src="" id="img-4" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-4">Aguardando...</div>
+                                <div class="player-status" id="status-4"></div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-5">
+                            <div class="avatar"><img src="" id="img-5" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-5">Aguardando...</div>
+                                <div class="player-status" id="status-5"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="match" id="match-4">
+                        <div class="player-slot tbd" id="slot-6">
+                            <div class="avatar"><img src="" id="img-6" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-6">Aguardando...</div>
+                                <div class="player-status" id="status-6"></div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-7">
+                            <div class="avatar"><img src="" id="img-7" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-7">Aguardando...</div>
+                                <div class="player-status" id="status-7"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="round round-2">
+                <div class="round-header">Semifinal</div>
+                <div class="match-group">
+                    <div class="match" id="match-5">
+                        <div class="player-slot tbd" id="slot-8">
+                            <div class="avatar"><img src="" id="img-8" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-8">Vencedor M1</div>
+                                <div class="player-status" id="status-8">Aguardando</div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-9">
+                            <div class="avatar"><img src="" id="img-9" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-9">Vencedor M2</div>
+                                <div class="player-status" id="status-9">Aguardando</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="match-group">
+                    <div class="match" id="match-6">
+                        <div class="player-slot tbd" id="slot-10">
+                            <div class="avatar"><img src="" id="img-10" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-10">Vencedor M3</div>
+                                <div class="player-status" id="status-10">Aguardando</div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-11">
+                            <div class="avatar"><img src="" id="img-11" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-11">Vencedor M4</div>
+                                <div class="player-status" id="status-11">Aguardando</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="round round-3">
+                <div class="round-header">Final</div>
+                <div class="match-group">
+                    <div class="match" id="match-7">
+                        <div class="player-slot tbd" id="slot-12">
+                            <div class="avatar"><img src="" id="img-12" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-12">Vencedor S1</div>
+                                <div class="player-status" id="status-12">Aguardando</div>
+                            </div>
+                        </div>
+                        <div class="player-slot tbd" id="slot-13">
+                            <div class="avatar"><img src="" id="img-13" style="display:none;"></div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-13">Vencedor S2</div>
+                                <div class="player-status" id="status-13">Aguardando</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="round round-winner" style="width: 200px;">
+                <div class="round-header" style="color:#f59e0b;">CAMPEÃO</div>
+                <div class="match-group">
+                    <div class="match" style="border-color:#f59e0b; background: rgba(245, 158, 11, 0.05);">
+                        <div class="player-slot tbd" id="slot-14">
+                            <div class="avatar" style="border-color:#f59e0b;">
+                                <svg id="svg-14" width="16" height="16"
+                                    style="color:#f59e0b; fill:none; stroke:currentColor; stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round;"
+                                    viewBox="0 0 24 24">
+                                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                                    <path d="M4 22h16" />
+                                    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                                    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                                    <path d="M18 2H6v7a6 6 0 0 0 12 0z" />
+                                </svg>
+                                <img src="" id="img-14"
+                                    style="display:none; width:100%; height:100%; object-fit:cover;">
+                            </div>
+                            <div class="player-info">
+                                <div class="player-name" id="name-14" style="color:#f59e0b;">1º Colocado</div>
+                                <div class="player-status" id="status-14" style="color:#f59e0b;">Indefinido</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Match Transition Overlay -->
+    <div class="transition-overlay" id="transitionOverlay">
+        <div class="vs-text">VS</div>
+        <div class="combatants">
+            <div class="fighter you">
+                <img src="" alt="You" id="myImgTrans">
+                <span id="myNameTrans">VOCÊ</span>
+            </div>
+            <div class="fighter" id="opponentFighter">
+                <img src="" alt="Opponent" id="opImg">
+                <span id="opName">RIVAL</span>
+            </div>
+        </div>
+        <div class="countdown" id="transitionCount">A partida começa em <span>3</span>...</div>
+    </div>
+
+    <script>
+        // Setup Toast System UI
+        const customToast = document.createElement('div');
+        customToast.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(10,10,10,0.9); border: 1px solid #333;
+            padding: 12px 24px; border-radius: 8px; color: #fff;
+            font-weight: 700; z-index: 9999; display: none; text-align: center;
+        `;
+        document.body.appendChild(customToast);
+
+        function showToastMsg(msg, color) {
+            customToast.innerHTML = msg;
+            customToast.style.borderColor = color;
+            customToast.style.boxShadow = `0 0 20px ${color}40`;
+            customToast.style.display = 'block';
+            setTimeout(() => customToast.style.display = 'none', 3000);
+        }
+
+        const OTHERS = [
+            { name: "Viper23", img: "https://randomuser.me/api/portraits/men/32.jpg" },
+            { name: "ShadowKiller", img: "https://randomuser.me/api/portraits/women/44.jpg" },
+            { name: "NeoSamurai", img: "https://randomuser.me/api/portraits/men/46.jpg" },
+            { name: "CryptoKing", img: "https://randomuser.me/api/portraits/men/22.jpg" },
+            { name: "GhostRider", img: "https://randomuser.me/api/portraits/women/12.jpg" },
+            { name: "Titan_BR", img: "https://randomuser.me/api/portraits/men/64.jpg" },
+            { name: "CyberPuck", img: "https://randomuser.me/api/portraits/women/68.jpg" },
+            { name: "Maverick", img: "https://randomuser.me/api/portraits/men/90.jpg" }
+        ].sort(() => Math.random() - 0.5);
+
+        const STORAGE_KEY = 'rf_domino_sim';
+
+        let tourney = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+
+        if (!tourney) {
+            let myProfile = { name: "VOCÊ", img: "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=ea580c" };
+            try {
+                const lsUser = JSON.parse(localStorage.getItem('rf_current_user'));
+                if (lsUser) {
+                    if (lsUser.name) myProfile.name = lsUser.name.substring(0, 20).toUpperCase();
+                    if (lsUser.img) myProfile.img = lsUser.img;
+                }
+            } catch (e) { }
+
+            tourney = {
+                round: 0,
+                isSpectator: false,
+                slots: Array(15).fill(null)
+            };
+            tourney.slots[0] = { name: myProfile.name, img: myProfile.img, isYou: true, state: 'Pronto' };
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tourney));
+        }
+
+        const MATCHES_LOGIC = [
+            { r: 1, a: 0, b: 1, dest: 8 },
+            { r: 1, a: 2, b: 3, dest: 9 },
+            { r: 1, a: 4, b: 5, dest: 10 },
+            { r: 1, a: 6, b: 7, dest: 11 },
+            { r: 2, a: 8, b: 9, dest: 12 },
+            { r: 2, a: 10, b: 11, dest: 13 },
+            { r: 3, a: 12, b: 13, dest: 14 }
+        ];
+
+        function save() { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tourney)); }
+
+        function renderBoard() {
+            for (let i = 0; i < 15; i++) {
+                const p = tourney.slots[i];
+                const slotEl = document.getElementById(`slot-${i}`);
+                if (!slotEl) continue;
+
+                if (p) {
+                    slotEl.className = p.isYou ? "player-slot you" : "player-slot filled";
+                    if (p.state === 'Eliminado') slotEl.style.opacity = '0.3';
+
+                    const img = document.getElementById(`img-${i}`);
+                    if (img) { img.src = p.img; img.style.display = "block"; }
+                    if (i === 14) {
+                        const svg = document.getElementById(`svg-14`);
+                        if (svg) svg.style.display = "none";
+                    }
+
+                    const name = document.getElementById(`name-${i}`);
+                    if (name) name.innerText = p.name;
+
+                    const status = document.getElementById(`status-${i}`);
+                    if (status) status.innerText = p.state || "Classificado";
+                }
+            }
+
+            // Radar Sync (YOU)
+            const rImg = document.getElementById('radarPlayerImg');
+            const rName = document.getElementById('radarPlayerName');
+            const me = tourney.slots[0];
+            if (rImg && me) {
+                rImg.src = me.img;
+                rImg.style.display = 'block';
+            }
+            if (rName && me) {
+                rName.innerText = me.name;
+            }
+        }
+
+        const hubRadar = document.getElementById('hubRadar');
+        const liveText = document.getElementById('liveText');
+        const liveDot = document.getElementById('liveDot');
+        const hubValue = document.getElementById('hubValue');
+
+        if (tourney.round === 0) {
+            liveText.innerText = "Buscando Jogadores";
+            let joined = 1;
+            renderBoard();
+
+            function joinNext() {
+                if (joined >= 8) {
+                    liveText.innerText = "CHAVES FECHADAS";
+                    liveText.style.color = "#22c55e";
+                    liveDot.style.background = "#22c55e";
+                    liveDot.style.boxShadow = "0 0 10px #22c55e";
+                    hubRadar.classList.add('ready');
+
+                    setTimeout(() => {
+                        let op = tourney.slots[1];
+                        triggerTransition(tourney.slots[0], op, () => {
+                            tourney.round = 1; save();
+                            window.location.href = './index.html';
+                        });
+                    }, 2000);
+                    return;
+                }
+
+                setTimeout(() => {
+                    const profile = OTHERS.pop();
+                    tourney.slots[joined] = { name: profile.name, img: profile.img, isYou: false, state: 'Conectado' };
+                    joined++;
+                    hubValue.innerHTML = `${joined}<span>/8</span>`;
+                    renderBoard();
+                    joinNext();
+                }, Math.random() * 800 + 400);
+            }
+            setTimeout(joinNext, 800);
+
+        } else if (tourney.round > 0 && tourney.round <= 3) {
+            hubValue.innerHTML = `8<span>/8</span>`;
+            hubRadar.classList.add('ready');
+            renderBoard();
+        }
+
+        function triggerTransition(me, opponent, callback) {
+            const overlay = document.getElementById('transitionOverlay');
+            document.getElementById('myImgTrans').src = me.img;
+            document.getElementById('opImg').src = opponent.img;
+            overlay.classList.add('show');
+
+            let count = 3;
+            const counterEl = document.getElementById('transitionCount');
+            const t = setInterval(() => {
+                count--;
+                counterEl.innerHTML = `A partida começa em <span>${count}</span>...`;
+                if (count <= 0) {
+                    clearInterval(t);
+                    callback();
+                }
+            }, 1000);
+        }
+
+        renderBoard();
+    </script>
+</body>
+
+</html>

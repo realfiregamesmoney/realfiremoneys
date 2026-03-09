@@ -1,0 +1,360 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0a0a;
+    font-family: 'Orbitron', sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #1a0c00 0%, #000000 100%);
+    position: relative;
+    box-sizing: border-box;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(0deg, rgba(255, 85, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 170, 0, 0.05) 3px, rgba(255, 170, 0, 0.05) 3px);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 15px 20px;
+    box-sizing: border-box;
+}
+
+.back-btn {
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.2s;
+}
+
+.back-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: #ffaa00;
+    box-shadow: 0 0 10px #ffaa00;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0;
+    color: #fff;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+h1 span {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 10px 15px;
+    margin-bottom: 5px;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    flex-shrink: 0;
+}
+
+.player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    color: #888;
+    opacity: 0.5;
+    transition: 0.3s;
+}
+
+.player.active {
+    opacity: 1;
+}
+
+.player span {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.player.p1.active {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.player.p1 span {
+    color: #ffaa00;
+}
+
+.player.p2.active {
+    color: #ff5500;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+.player.p2 span {
+    color: #ff5500;
+}
+
+.turn-indicator {
+    font-size: 12px;
+    align-self: center;
+    color: #fff;
+    text-shadow: 0 0 5px #fff;
+    text-align: center;
+}
+
+.status-msg {
+    color: #ffaa00;
+    font-size: 12px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    text-shadow: 0 0 5px #ffaa00;
+    height: 15px;
+}
+
+/* Mesa (Deck e Lixo) */
+.table-area {
+    flex-grow: 1;
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+}
+
+.card {
+    width: 60px;
+    height: 90px;
+    border-radius: 6px;
+    border: 1px solid #444;
+    /* Borda 3D */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow:
+        inset 0 0 10px rgba(0, 0, 0, 0.8),
+        /* Sombra HD na Borda */
+        0 8px 15px rgba(0, 0, 0, 0.9);
+    /* Sombra 3D */
+    user-select: none;
+    background: radial-gradient(circle at 30% 30%, #e0e0e0, #a0a0a0);
+    /* Baralho Tradicional Luxo/Gelo Escuro */
+    color: #111;
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-sizing: border-box;
+}
+
+@media (min-width: 500px) {
+    .card {
+        width: 80px;
+        height: 120px;
+        font-size: 24px;
+    }
+}
+
+/* Naipes HD Brilhantes */
+.suit-hearts,
+.suit-diamonds {
+    color: #ff3300;
+    text-shadow: 0 1px 2px rgba(255, 51, 0, 0.8);
+    border-color: #aa1100;
+}
+
+.suit-clubs,
+.suit-spades {
+    color: #050505;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    border-color: #333;
+}
+
+/* Posicionamentos dos Valores nas Cartas de Cacheta/Poker Tradicionais */
+.card .top-left {
+    align-self: flex-start;
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.card .bottom-right {
+    align-self: flex-end;
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: rotate(180deg);
+}
+
+.card .center-suit {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 40px;
+    opacity: 0.15;
+    text-shadow: none;
+    /* Pra n pesar o centro */
+}
+
+/* Lixo / Deck Vazios */
+.card.empty {
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px dashed rgba(255, 170, 0, 0.3);
+    color: rgba(255, 170, 0, 0.5);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    justify-content: center;
+    font-size: 14px;
+    text-shadow: none;
+}
+
+/* Costas Padrão Ouro/Fibra de Carbono pra combinar com UNO/Plataforma */
+.card.card-back {
+    background: repeating-linear-gradient(45deg, #111, #111 5px, #1a1a1a 5px, #1a1a1a 10px);
+    border: 2px solid #ffaa00;
+    color: #ffaa00;
+    font-size: 12px;
+    cursor: pointer;
+    text-shadow: 0 0 10px #ffaa00;
+    box-shadow:
+        inset 0 0 20px rgba(0, 0, 0, 0.9),
+        0 8px 15px rgba(0, 0, 0, 0.9);
+    justify-content: center;
+}
+
+.card.card-back:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 170, 0, 0.5);
+}
+
+#discard-pile.card:not(.empty) {
+    cursor: pointer;
+}
+
+#discard-pile.card:not(.empty):hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.9), 0 0 25px rgba(255, 170, 0, 0.8);
+    border-color: #ffaa00;
+}
+
+/* Área da Mão (Mesa do Jogador) */
+.player-hand-container {
+    width: 100%;
+    max-width: 800px;
+    height: 150px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(15, 15, 15, 0.85));
+    border-top: 2px solid #ffaa00;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.9);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 25px 15px 15px 15px;
+    /* Mais espaço pra elas subirem no hover */
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    z-index: 10;
+}
+
+.player-hand {
+    display: flex;
+    gap: -35px;
+    /* Cacheta usa muitas cartas, o leque tem que ser bem fechado */
+    padding: 0 10px;
+    flex-wrap: nowrap;
+}
+
+.player-hand .card {
+    cursor: pointer;
+    box-shadow: -8px 0 15px rgba(0, 0, 0, 0.9);
+}
+
+.player-hand .card:last-child {
+    margin-right: 0;
+}
+
+.player-hand .card:hover,
+.player-hand .card.selected {
+    transform: translateY(-20px) scale(1.1);
+    z-index: 50;
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 170, 0, 0.5);
+    border-color: #ffaa00;
+}
+
+.player-hand .card.selected {
+    border-color: #ff5500;
+    transform: translateY(-30px) scale(1.15);
+    /* Selecionada sobe BEM mais na Cacheta pra vc ver os trincas */
+    box-shadow: 0 20px 30px rgba(0, 0, 0, 0.9), 0 0 25px rgba(255, 85, 0, 0.8);
+}
+
+.controls {
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    z-index: 10;
+    margin-bottom: 5px;
+}
+
+.action-btn {
+    background: transparent;
+    border: 2px solid #ffaa00;
+    color: #ffaa00;
+    font-family: 'Orbitron', sans-serif;
+    padding: 10px 15px;
+    font-size: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-shadow: 0 0 5px #ffaa00;
+    box-shadow: inset 0 0 10px rgba(255, 170, 0, 0.3);
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    box-shadow: 0 0 15px #ffaa00, inset 0 0 15px rgba(255, 170, 0, 0.5);
+}
+
+.action-btn.pass-btn {
+    border-color: #ff5500;
+    color: #ff5500;
+    text-shadow: 0 0 5px #ff5500;
+    box-shadow: inset 0 0 10px rgba(255, 85, 0, 0.3);
+}
+
+.action-btn.pass-btn:hover {
+    background: rgba(255, 85, 0, 0.2);
+    box-shadow: 0 0 15px #ff5500, inset 0 0 15px rgba(255, 85, 0, 0.5);
+}

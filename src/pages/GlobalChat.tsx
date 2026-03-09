@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Send, Lock, Star, MessageSquare, Smile, X, Pin, CheckCheck, Trash2, Swords } from "lucide-react";
+import { Send, Lock, Star, MessageSquare, Smile, X, Pin, CheckCheck, Trash2, Swords, ImageIcon, Mic, MicOff } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ChatBattleCard from "@/components/chat/ChatBattleCard";
+import { encryptMessageP2P, decryptMessageP2P } from "@/utils/security";
 
 const ALL_EMOJIS = [
     // Rosto e Emoções
@@ -47,11 +49,46 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
     const [pinnedMsg, setPinnedMsg] = useState("");
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
     const [openBattleOptions, setOpenBattleOptions] = useState(false);
     const [battleFormat, setBattleFormat] = useState('1x1');
     const [battleFee, setBattleFee] = useState('10');
     const [battleTax, setBattleTax] = useState('30');
     const [battleLink, setBattleLink] = useState('');
+    const [imagesEnabled, setImagesEnabled] = useState(true);
+    const [audioEnabled, setAudioEnabled] = useState(true);
+    const [isRecording, setIsRecording] = useState(false);
+    const [playedAudios, setPlayedAudios] = useState<Set<string>>(new Set());
+    const profileCache = useRef<Record<string, any>>({});
+
+    // Carregar áudios ouvidos do LocalStorage
+    useEffect(() => {
+        const saved = localStorage.getItem("chat_played_audios");
+        if (saved) {
+            try { setPlayedAudios(new Set(JSON.parse(saved))); } catch (e) { }
+        }
+
+        // Cleanup da gravação de áudio ao desmontar o componente para segurança e privacidade
+        return () => {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            }
+            setIsRecording(false);
+        };
+    }, []);
+
+    const markAudioAsPlayed = (id: string) => {
+        if (playedAudios.has(id)) return;
+        const newSet = new Set(playedAudios);
+        newSet.add(id);
+        setPlayedAudios(newSet);
+        localStorage.setItem("chat_played_audios", JSON.stringify(Array.from(newSet)));
+    };
+
+
 
     const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
         messagesEndRef.current?.scrollIntoView({ behavior });
@@ -70,13 +107,56 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                 .maybeSingle();
             if (config) setIsLocked(config.is_enabled);
 
+            const { data: imgCfg } = await supabase.from("notification_settings").select("is_enabled").eq("key_name", "global_chat_images_enabled").maybeSingle();
+            if (imgCfg !== null) setImagesEnabled(imgCfg?.is_enabled ?? true);
+            const { data: audCfg } = await supabase.from("notification_settings").select("is_enabled").eq("key_name", "global_chat_audio_enabled").maybeSingle();
+            if (audCfg !== null) setAudioEnabled(audCfg?.is_enabled ?? true);
+
             const { data: fetchMsgs } = await supabase
                 .from("global_chat_messages")
-                .select(`*, sender:profiles(nickname, avatar_url)`)
+                .select(`*, sender_profile:profiles(nickname, avatar_url, user_id)`)
                 .order("created_at", { ascending: false })
                 .limit(100);
 
-            if (fetchMsgs) setMessages(fetchMsgs.reverse().filter((m: any) => !m.message.startsWith('SYS_CMD_')));
+            if (fetchMsgs) {
+                // Buscar conquistas separadamente para os remetentes
+                const senderIds = [...new Set(fetchMsgs.map((m: any) => m.sender_id))];
+                const { data: achievements } = await supabase
+                    .from("user_achievements")
+                    .select("user_id, is_active, achievements(image_url, type)")
+                    .in("user_id", senderIds)
+                    .eq("is_active", true);
+
+                const patentMap = new Map();
+                const badgeMap = new Map();
+
+                achievements?.forEach(ua => {
+                    const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+                    if (ach?.type === 'patent') {
+                        patentMap.set(ua.user_id, ach.image_url);
+                    } else {
+                        badgeMap.set(ua.user_id, ach.image_url);
+                    }
+                });
+
+                fetchMsgs.forEach((m: any) => {
+                    if (!profileCache.current[m.sender_id]) {
+                        profileCache.current[m.sender_id] = {
+                            ...m.sender_profile,
+                            active_patent_url: patentMap.get(m.sender_id),
+                            active_badge_url: badgeMap.get(m.sender_id)
+                        };
+                    }
+                });
+
+                const msgsWithPatent = fetchMsgs.map((m: any) => ({
+                    ...m,
+                    message: m.message ? decryptMessageP2P(m.message) : m.message,
+                    sender: profileCache.current[m.sender_id]
+                }));
+
+                setMessages(msgsWithPatent.reverse().filter((m: any) => !(m.message && m.message.startsWith('SYS_CMD_'))));
+            }
 
             const { data: fetchReactions } = await supabase
                 .from("global_chat_reactions")
@@ -117,25 +197,69 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
             .on("postgres_changes", { event: "INSERT", schema: "public", table: "global_chat_messages" }, async (payload) => {
 
                 // Intercept system commands
-                if (payload.new.message === 'SYS_CMD_RELOAD') {
+                if (payload.new.message && payload.new.message === 'SYS_CMD_RELOAD') {
                     setMessages([]);
                     return;
                 }
-                if (payload.new.message === 'SYS_CMD_UPDATE_PIN') {
+                if (payload.new.message && payload.new.message === 'SYS_CMD_UPDATE_PIN') {
                     const { data: fetchPinned } = await supabase.from("notification_settings").select("label, is_enabled").eq("key_name", "global_chat_pinned_message").maybeSingle();
                     if (fetchPinned && fetchPinned.is_enabled) setPinnedMsg(fetchPinned.label);
                     else setPinnedMsg("");
                     return;
                 }
-                if (payload.new.message === 'SYS_CMD_UPDATE_LOCK') {
+                if (payload.new.message && payload.new.message === 'SYS_CMD_UPDATE_LOCK') {
                     const { data: config } = await supabase.from("notification_settings").select("is_enabled").eq("key_name", "global_chat_locked").maybeSingle();
                     if (config) setIsLocked(config.is_enabled);
                     return;
                 }
+                if (payload.new.message && payload.new.message === 'SYS_CMD_UPDATE_MEDIA') {
+                    const { data: imgCfg } = await supabase.from("notification_settings").select("is_enabled").eq("key_name", "global_chat_images_enabled").maybeSingle();
+                    setImagesEnabled(imgCfg?.is_enabled ?? true);
+                    const { data: audCfg } = await supabase.from("notification_settings").select("is_enabled").eq("key_name", "global_chat_audio_enabled").maybeSingle();
+                    setAudioEnabled(audCfg?.is_enabled ?? true);
+                    return;
+                }
 
                 // Normal message
-                const { data: sender } = await supabase.from("profiles").select("nickname, avatar_url").eq("user_id", payload.new.sender_id).single();
-                const msgWithSender = { ...payload.new, sender };
+                const senderId = payload.new.sender_id;
+                let senderData;
+
+                if (profileCache.current[senderId]) {
+                    senderData = profileCache.current[senderId];
+                } else {
+                    const { data: profile } = await supabase.from("profiles").select("nickname, avatar_url, user_id").eq("user_id", senderId).single();
+                    const { data: achievements } = await supabase
+                        .from("user_achievements")
+                        .select("is_active, achievements(image_url, type)")
+                        .eq("user_id", senderId)
+                        .eq("is_active", true);
+
+                    let active_patent_url = null;
+                    let active_badge_url = null;
+
+                    if (achievements) {
+                        achievements.forEach((ua: any) => {
+                            const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+                            if (ach?.type === 'patent') active_patent_url = ach.image_url;
+                            else active_badge_url = ach.image_url;
+                        });
+                    }
+
+                    senderData = {
+                        ...profile,
+                        active_patent_url,
+                        active_badge_url
+                    };
+                    profileCache.current[senderId] = senderData;
+                }
+
+                // Descriptografa a nova mensagem em tempo real
+                const decryptedMessagePayload = {
+                    ...payload.new,
+                    message: payload.new.message ? decryptMessageP2P(payload.new.message) : payload.new.message,
+                };
+
+                const msgWithSender = { ...decryptedMessagePayload, sender: senderData };
                 setMessages((prev) => [...prev, msgWithSender]);
             })
             .on("postgres_changes", { event: "DELETE", schema: "public", table: "global_chat_messages" }, (payload) => {
@@ -171,9 +295,10 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
         setNewMessage("");
         setShowEmojiPicker(false);
 
+        // Dispara criptografando P2P no Banco de Dados
         const { error } = await supabase.from("global_chat_messages").insert({
             sender_id: profile.user_id,
-            message: currentMsg,
+            message: encryptMessageP2P(currentMsg),
             is_admin: isAdmin,
         });
 
@@ -234,11 +359,100 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
 
     const deleteMessage = async (msgId: string) => {
         if (!isAdmin) return;
+        const msg = messages.find(m => m.id === msgId);
+
+        if (msg?.media_url) {
+            try {
+                const bucketName = 'chat-media';
+                const urlParts = msg.media_url.split(`${bucketName}/`);
+                if (urlParts.length > 1) {
+                    const filePath = decodeURIComponent(urlParts[1].split('?')[0]);
+                    const { error: storageError } = await supabase.storage.from(bucketName).remove([filePath]);
+                    if (storageError) console.warn("Mídia não encontrada ou erro ao apagar no Storage:", storageError);
+                }
+            } catch (err) {
+                console.warn("Falha ao tentar limpar mídia órfã:", err);
+            }
+        }
+
         const { error } = await supabase.from("global_chat_messages").delete().eq("id", msgId);
         if (error) {
             toast.error("Erro ao apagar mensagem");
             console.error(error);
         }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!profile || !imagesEnabled) return;
+        if (isLocked && !isAdmin) { toast.error("Chat trancado."); return; }
+        if (profile.is_chat_banned && !isAdmin) { toast.error("Você está banido."); return; }
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5MB por imagem."); return; }
+        const path = `${profile.user_id}/${Date.now()}_${file.name}`;
+        const { error: storageError } = await supabase.storage.from('chat-media').upload(path, file);
+        if (storageError) {
+            console.error("Storage Error:", storageError);
+            toast.error(`Erro no Storage: ${storageError.message}`);
+            return;
+        }
+        const { data: { publicUrl } } = supabase.storage.from('chat-media').getPublicUrl(path);
+        const { error: dbError } = await supabase.from("global_chat_messages").insert({
+            sender_id: profile.user_id,
+            message: '📷 Imagem',
+            media_url: publicUrl,
+            media_type: 'image',
+            is_admin: isAdmin,
+        });
+        if (dbError) {
+            console.error("DB Error:", dbError);
+            toast.error(`Erro no Banco: ${dbError.message}`);
+        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleStartRecording = async () => {
+        if (!profile || !audioEnabled) return;
+        if (isLocked && !isAdmin) { toast.error("Chat trancado."); return; }
+        if (profile.is_chat_banned && !isAdmin) { toast.error("Você está banido."); return; }
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+            recorder.ondataavailable = (e) => { audioChunksRef.current.push(e.data); };
+            recorder.onstop = async () => {
+                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const path = `${profile.user_id}/${Date.now()}_audio.webm`;
+                const { error: storageError } = await supabase.storage.from('chat-media').upload(path, blob);
+                if (storageError) {
+                    console.error("Storage Error:", storageError);
+                    toast.error(`Erro no Áudio: ${storageError.message}`);
+                    return;
+                }
+                const { data: { publicUrl } } = supabase.storage.from('chat-media').getPublicUrl(path);
+                const { error: dbError } = await supabase.from("global_chat_messages").insert({
+                    sender_id: profile.user_id,
+                    message: '🎵 Áudio',
+                    media_url: publicUrl,
+                    media_type: 'audio',
+                    is_admin: isAdmin,
+                });
+                if (dbError) {
+                    console.error("DB Error:", dbError);
+                    toast.error(`Erro no Banco: ${dbError.message}`);
+                }
+                stream.getTracks().forEach(t => t.stop());
+            };
+            recorder.start();
+            setIsRecording(true);
+            toast.success("Gravando... clique no botão novamente para parar.");
+        } catch { toast.error("Permissão de microfone negada."); }
+    };
+
+    const handleStopRecording = () => {
+        mediaRecorderRef.current?.stop();
+        setIsRecording(false);
     };
 
     const stringToHslColor = (str: string = "") => {
@@ -301,7 +515,7 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                         return acc;
                     }, {} as Record<string, number>);
 
-                    const isPriorityAdminMessage = msg.is_admin && msg.message.startsWith('📢 [PRIORIDADE]');
+                    const isPriorityAdminMessage = msg.is_admin && msg.message && msg.message.startsWith('📢 [PRIORIDADE]');
                     if (isPriorityAdminMessage) {
                         return (
                             <div key={msg.id} className="w-full flex justify-center py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -337,7 +551,7 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                         );
                     }
 
-                    if (msg.message.startsWith('SYS_BATTLE:')) {
+                    if (msg.message && msg.message.startsWith('SYS_BATTLE:')) {
                         const bId = msg.message.replace('SYS_BATTLE:', '').trim();
                         return (
                             <div key={msg.id} className="relative">
@@ -369,19 +583,53 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                         <div className={`absolute top-0 w-2 h-2 ${isMe ? '-right-1.5 bg-neon-orange/20' : '-left-1.5 bg-[#1a1a1a]'} clip-path-triangle`}></div>
                                     )}
 
-                                    {showHeader && msg.is_admin && (
-                                        <span className="font-black text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1 text-orange-400 drop-shadow-sm">
-                                            <Star className="h-3 w-3 fill-orange-400" /> ADMIN REAL FIRE
-                                        </span>
-                                    )}
-                                    {!isMe && showHeader && !msg.is_admin && (
-                                        <span className="font-black text-[10px] uppercase tracking-wider mb-1 block drop-shadow-sm text-white">
-                                            {msg.sender?.nickname || 'Jogador'}
-                                        </span>
+                                    {showHeader && (
+                                        <div className={`flex flex-col mb-1 ${isMe ? 'items-end' : 'items-start'}`}>
+                                            {msg.is_admin && (
+                                                <span className="font-black text-[10px] uppercase tracking-wider mb-0.5 flex items-center gap-1 text-orange-400 drop-shadow-sm">
+                                                    <Star className="h-3 w-3 fill-orange-400" /> ADMIN REAL FIRE
+                                                </span>
+                                            )}
+                                            <div className="flex items-center gap-1.5">
+                                                {!isMe && (
+                                                    <span className="font-black text-[10px] uppercase tracking-wider block drop-shadow-sm text-white">
+                                                        {msg.sender?.nickname || 'Jogador'}
+                                                    </span>
+                                                )}
+                                                {msg.sender?.active_patent_url && (
+                                                    <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                        <img src={msg.sender.active_patent_url} alt="Patente" className="h-full w-full object-cover rounded-full" />
+                                                    </div>
+                                                )}
+                                                {msg.sender?.active_badge_url && (
+                                                    <div className="relative h-4 w-4 bg-gradient-to-b from-[#1a1a1a] to-[#000] rounded-full border border-white/10 overflow-hidden flex items-center justify-center p-[0.5px]">
+                                                        <img src={msg.sender.active_badge_url} alt="Selo" className="h-full w-full object-cover rounded-full" />
+                                                    </div>
+                                                )}
+                                                {isMe && (
+                                                    <span className="font-black text-[8px] uppercase tracking-widest block drop-shadow-sm text-white/30 ml-1">
+                                                        VOCÊ
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                     <p className="text-[13px] font-medium text-gray-100 break-words leading-relaxed">
-                                        {msg.message}
+                                        {msg.media_type ? null : msg.message}
                                     </p>
+                                    {msg.media_type === 'image' && msg.media_url && (
+                                        <img src={msg.media_url} alt="Imagem" className="max-w-[240px] w-full rounded-xl mt-1 border border-white/10 cursor-pointer" onClick={() => window.open(msg.media_url, '_blank')} />
+                                    )}
+                                    {msg.media_type === 'audio' && msg.media_url && (
+                                        <div className={`mt-2 p-1 rounded-xl transition-all duration-500 border-2 ${playedAudios.has(msg.id) ? 'border-white/5 opacity-70' : 'border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)] animate-pulse'}`}>
+                                            <audio
+                                                controls
+                                                src={msg.media_url}
+                                                className="w-full max-w-[240px] h-10"
+                                                onPlay={() => markAudioAsPlayed(msg.id)}
+                                            />
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-end gap-1.5 mt-1">
                                         {isAdmin && (
                                             <button onClick={() => deleteMessage(msg.id)} className={`text-red-500/50 hover:text-red-400 p-0.5 transition-colors ${isMe ? 'ml-auto' : 'mr-auto'}`} title="Apagar Mensagem">
@@ -403,7 +651,11 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
             <div className="relative z-20 px-4 py-3 bg-[#0c0c0c] border-t border-white/5 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
 
                 <form onSubmit={sendMessage} className="flex gap-2 items-center">
+                    {/* Hidden file input for images */}
+                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+
                     <div className="relative flex-1">
+
                         <Input
                             disabled={isLocked && !isAdmin}
                             value={newMessage}
@@ -442,6 +694,20 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                     >
                         <Send className="h-5 w-5 text-white" />
                     </Button>
+
+                    {/* Botão Imagem */}
+                    {imagesEnabled && (
+                        <Button type="button" onClick={() => fileInputRef.current?.click()} disabled={isLocked && !isAdmin} className="bg-[#1a1a1a] border border-white/5 hover:bg-white/10 h-11 w-11 rounded-2xl p-0 shrink-0" title="Enviar Imagem">
+                            <ImageIcon className="h-5 w-5 text-gray-400" />
+                        </Button>
+                    )}
+
+                    {/* Botão Áudio */}
+                    {audioEnabled && (
+                        <Button type="button" onClick={isRecording ? handleStopRecording : handleStartRecording} disabled={isLocked && !isAdmin} className={`h-11 w-11 rounded-2xl p-0 shrink-0 ${isRecording ? 'bg-red-600 animate-pulse border-0' : 'bg-[#1a1a1a] border border-white/5 hover:bg-white/10'}`} title={isRecording ? "Parar Gravação" : "Gravar Áudio"}>
+                            {isRecording ? <MicOff className="h-5 w-5 text-white" /> : <Mic className="h-5 w-5 text-gray-400" />}
+                        </Button>
+                    )}
 
                     {isAdmin && (
                         <Popover open={openBattleOptions} onOpenChange={setOpenBattleOptions}>
@@ -490,21 +756,3 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
     );
 }
 
-function CheckCheck({ className }: { className?: string }) {
-    return (
-        <svg
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={className}
-        >
-            <path d="M2 13.5L7 18.5L14 9.5" />
-            <path d="M12 18.5L22 6.5" />
-        </svg>
-    );
-}

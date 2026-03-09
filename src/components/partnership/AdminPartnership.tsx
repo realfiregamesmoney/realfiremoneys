@@ -59,21 +59,31 @@ export default function AdminPartnership() {
 
     const handleSave = async () => {
         setSaving(true);
-        const ops = [
-            supabase.from('app_settings').upsert({ key: 'parceria_cutoff', value: cutoff.toString() }, { onConflict: 'key' }),
-            supabase.from('app_settings').upsert({ key: 'parceria_whatsapp', value: whatsapp }, { onConflict: 'key' }),
-            supabase.from('app_settings').upsert({ key: 'parceria_questions', value: JSON.stringify(questions) }, { onConflict: 'key' }),
-            supabase.from('app_settings').upsert({ key: 'parceria_affiliates', value: JSON.stringify(affiliates) }, { onConflict: 'key' }),
-            supabase.from('app_settings').upsert({ key: 'parceria_ui_config', value: JSON.stringify(uiConfig) }, { onConflict: 'key' })
-        ];
-        const results = await Promise.all(ops);
-        const hasError = results.some(r => r.error != null);
+        const { data: { user } } = await supabase.auth.getUser();
 
-        if (hasError) {
-            console.error(results);
-            toast({ title: "Erro ao salvar configurações", variant: "destructive" });
-        } else {
-            toast({ title: "Configurações atualizadas com sucesso!" });
+        try {
+            // Because app_settings might have RLS or missing rows, we do individual updates.
+            // Or we can use an RPC, or notification_settings style. Let's just use standard upserts but handle errors cleanly.
+            const ops = [
+                supabase.from('app_settings').upsert({ key: 'parceria_cutoff', value: cutoff.toString() }, { onConflict: 'key' }),
+                supabase.from('app_settings').upsert({ key: 'parceria_whatsapp', value: whatsapp }, { onConflict: 'key' }),
+                supabase.from('app_settings').upsert({ key: 'parceria_questions', value: JSON.stringify(questions) }, { onConflict: 'key' }),
+                supabase.from('app_settings').upsert({ key: 'parceria_affiliates', value: JSON.stringify(affiliates) }, { onConflict: 'key' }),
+                supabase.from('app_settings').upsert({ key: 'parceria_ui_config', value: JSON.stringify(uiConfig) }, { onConflict: 'key' })
+            ];
+
+            const results = await Promise.all(ops);
+            const errors = results.filter(r => r.error).map(r => r.error);
+
+            if (errors.length > 0) {
+                console.error("Save Errors:", errors);
+                toast({ title: "Erro ao salvar", description: errors[0]?.message || "Verifique o console.", variant: "destructive" });
+            } else {
+                toast({ title: "Tudo salvo com sucesso!", className: "bg-green-600 border-none text-white" });
+            }
+        } catch (error: any) {
+            console.error(error);
+            toast({ title: "Erro crasso ao salvar", description: error.message, variant: "destructive" });
         }
         setSaving(false);
     };

@@ -36,10 +36,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "User ID not found in description" }), { status: 200 }) // Retorna 200 pro Asaas não ficar tentando de novo
     }
 
-    // VERIFICA SE É ASSINATURA VIP (Lógica 100% Automática)
+    // VERIFICA SE É ASSINATURA VIP (Lógica de Múltiplos Planos)
     const isSubscription = description.includes("Assinatura VIP Real Fire");
     if (isSubscription) {
-      console.log("Processando Assinatura VIP Asaas...");
+      console.log("Processando Assinatura VIP Asaas (Múltiplos Planos)...");
       const planMatch = description.match(/PLAN:\s*([a-zA-Z0-9_]+)/i);
       const planId = planMatch ? planMatch[1] : null;
 
@@ -59,34 +59,80 @@ Deno.serve(async (req) => {
       }
 
       if (!planConfig) {
-        console.error("Configuração do plano não encontrada. Abortando ativação.");
+        console.error("Configuração do plano não encontrada.");
         return new Response(JSON.stringify({ error: "Plan config not found" }), { status: 200 });
       }
 
-      // Renovar Assinatura (1 mês) - Libera 2 ingressos e sala específica
+      // Buscar perfil atual para pegar planos existentes
+      const { data: profile } = await supabaseClient.from("profiles").select("plan_type").eq("user_id", userId).single();
+      let currentPlans: any[] = [];
+      try {
+        if (profile?.plan_type && profile.plan_type.startsWith('[')) {
+          currentPlans = JSON.parse(profile.plan_type);
+        } else if (profile?.plan_type && profile.plan_type !== 'Free Avulso') {
+          // Converte plano legado para o novo formato
+          currentPlans = [{
+            id: 'legacy',
+            title: profile.plan_type,
+            passes_available: 2,
+            pass_value: 5, // Valor genérico para legado
+            expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            last_reset: new Date().toISOString().split('T')[0]
+          }];
+        }
+      } catch (e) { currentPlans = []; }
+
+      // Adicionar ou Atualizar o plano comprado
       const expirationDate = new Date();
       expirationDate.setMonth(expirationDate.getMonth() + 1);
 
+      const newPlan = {
+        id: planId,
+        title: planConfig.title,
+        passes_available: 2,
+        pass_value: planConfig.roomPrice,
+        expires_at: expirationDate.toISOString(),
+        last_reset: new Date().toISOString().split('T')[0]
+      };
+
+      const existingPlanIndex = currentPlans.findIndex(p => p.id === planId);
+      if (existingPlanIndex >= 0) {
+        currentPlans[existingPlanIndex] = newPlan;
+      } else {
+        currentPlans.push(newPlan);
+      }
+
+      // Atualizar perfil com o JSON dos planos
       await supabaseClient.from("profiles").update({
-        plan_type: planConfig.title,
+        plan_type: JSON.stringify(currentPlans),
+        // Mantemos estas colunas para compatibilidade legado (último plano comprado)
         passes_available: 2,
         pass_value: planConfig.roomPrice,
         plan_expiration: expirationDate.toISOString()
       }).eq("user_id", userId);
 
+      // NOVO: Registrar no Histórico Financeiro
+      await supabaseClient.from('transactions').insert({
+        user_id: userId,
+        type: 'subscription',
+        amount: planConfig.price,
+        status: 'approved',
+        source: 'automatic'
+      });
+
       await supabaseClient.from('audit_logs').insert({
         action_type: 'subscription_auto',
-        details: `Asaas Webhook: Assinatura do ${planConfig.title} confirmada para usuário ${userId}. Valor original na tag: ${planConfig.price}.`
+        details: `Asaas: Assinatura do ${planConfig.title} confirmada. Usuário agora possui ${currentPlans.length} planos ativos.`
       });
 
       await supabaseClient.from('notifications').insert({
         user_id: userId,
         title: 'Assinatura Ativada! 💎',
-        message: `Pagamento Asaas concluído. Seu ${planConfig.title} está liberando seus passes livres.`,
+        message: `Pagamento Asaas concluído. Seu ${planConfig.title} foi adicionado aos seus passes livres.`,
         type: 'subscription_confirmed'
       });
 
-      return new Response(JSON.stringify({ success: "Subscription Auto Granted" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      return new Response(JSON.stringify({ success: "Subscription Multi-Plan Granted" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // 1. DEPÓSITOS NORMAIS - VERIFICAR SE O MODO AUTOMÁTICO ESTÁ LIGADO
@@ -153,7 +199,7 @@ Deno.serve(async (req) => {
     // Pega saldo atual
     const { data: profile } = await supabaseClient
       .from('profiles')
-      .select('saldo')
+      .select('saldo, nickname')
       .eq('user_id', userId)
       .single()
 
@@ -168,7 +214,7 @@ Deno.serve(async (req) => {
     // 4. REGISTRAR LOG E NOTIFICAR
     await supabaseClient.from('audit_logs').insert({
       action_type: 'finance_approve_auto',
-      details: `Asaas Webhook: Depósito de R$ ${payment.value} aprovado automaticamente para usuário ${userId}.`,
+      details: `PIX Automático Asaas: Depósito de R$ ${payment.value} aprovado e creditado para ${profile?.nickname || 'Usuário Sem Nick'}`,
       // admin_id fica null pois foi o sistema
     })
 
@@ -180,7 +226,6 @@ Deno.serve(async (req) => {
     })
 
     // --- LÓGICA DE INDICAÇÃO (REFERRAL) ---
-    // Verifica se esse depósito ativa a confirmação de uma indicação
     const { data: referral } = await supabaseClient
       .from("referrals")
       .select("*")
@@ -189,9 +234,52 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (referral) {
+      // 1. Confirmar a indicação
       await supabaseClient.from("referrals").update({ status: "confirmed" }).eq("id", referral.id);
-      // (A lógica de contar até 10 e dar bônus é complexa para repetir aqui, 
-      // mas a confirmação básica já garante que o contador suba no Admin)
+
+      // 2. Contar quantos indicados confirmados o referrer tem agora
+      const { count: totalConfirmed } = await supabaseClient
+        .from("referrals")
+        .select("*", { count: "exact", head: true })
+        .eq("referrer_id", referral.referrer_id)
+        .eq("status", "confirmed");
+
+      const confirmed = totalConfirmed || 0;
+
+      // 3. Se atingiu múltiplo de 10, creditar R$10 no saldo do indicador
+      if (confirmed > 0 && confirmed % 10 === 0) {
+        const bonusValue = 10.00;
+        const { data: referrerProfile } = await supabaseClient
+          .from("profiles")
+          .select("saldo, nickname")
+          .eq("user_id", referral.referrer_id)
+          .single();
+
+        const newSaldo = (Number(referrerProfile?.saldo) || 0) + bonusValue;
+
+        await supabaseClient.from("profiles")
+          .update({ saldo: newSaldo })
+          .eq("user_id", referral.referrer_id);
+
+        await supabaseClient.from("transactions").insert({
+          user_id: referral.referrer_id,
+          type: "referral_bonus",
+          amount: bonusValue,
+          status: "approved"
+        });
+
+        await supabaseClient.from("audit_logs").insert({
+          action_type: "referral_bonus",
+          details: `Bônus de indicação: ${referrerProfile?.nickname} atingiu ${confirmed} indicados pagantes e recebeu R$ ${bonusValue}`
+        });
+
+        await supabaseClient.from("notifications").insert({
+          user_id: referral.referrer_id,
+          title: "Bônus de Indicação Recebido! 🎉",
+          message: `Parabéns! Você atingiu ${confirmed} indicados que pagaram e ganhou R$ ${bonusValue.toFixed(2)} no seu saldo!`,
+          type: "referral_bonus"
+        });
+      }
     }
 
     return new Response(

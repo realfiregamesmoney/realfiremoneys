@@ -1,0 +1,139 @@
+import { useState, useEffect } from "react";
+import { ShieldCheck, CheckCircle2, ArrowLeft, Loader2 } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+
+export default function VipPlans() {
+    const navigate = useNavigate();
+    const [vipPlans, setVipPlans] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const { data: plansData } = await supabase.from('notification_settings').select('label').eq('key_name', 'VIP_PLANS_V1').maybeSingle();
+                if (plansData && plansData.label) {
+                    const parsedPlans = JSON.parse(plansData.label);
+                    setVipPlans(parsedPlans.filter((p: any) => p.is_active && !p.is_deleted));
+                }
+            } catch (error) {
+                console.error("Erro ao carregar planos", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchPlans();
+    }, []);
+
+    if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-orange-500 rounded-full border-t-transparent"></div></div>;
+
+    return (
+        <div className="min-h-screen bg-[#050505] text-white p-4 pb-24 font-sans selection:bg-orange-500/30">
+            <div className="flex items-center gap-4 mb-6">
+                <Button variant="ghost" className="p-2 hover:bg-white/5 border-0 hover:text-white" onClick={() => navigate(-1)}>
+                    <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <h1 className="text-2xl font-black uppercase tracking-tighter italic">Detalhes VIP</h1>
+            </div>
+
+            <div className="mt-4">
+                <div className="flex items-center gap-2 mb-4">
+                    <ShieldCheck className="h-6 w-6 text-neon-orange" />
+                    <h2 className="text-xl font-black uppercase text-white">Planos VIP Real Fire</h2>
+                </div>
+                <p className="text-gray-400 text-sm mb-6">Assine e tenha direito a <b className="text-white">2 Passes Livres diários</b> para jogar sem gastar seu saldo!</p>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 xl:max-w-7xl xl:mx-auto">
+                    {vipPlans.map((plan: any) => {
+                        const baseColor = plan.color || 'yellow';
+
+                        let bgGradientFrom = `from-${baseColor}-500/20`;
+                        let textColor = `text-${baseColor}-500`;
+                        let borderClass = `border-${baseColor}-500/30`;
+                        let shadowColor = baseColor === 'yellow' ? '234,179,8' : baseColor === 'cyan' ? '6,182,212' : baseColor === 'purple' ? '168,85,247' : baseColor === 'orange' ? '249,115,22' : '234,179,8';
+                        let customStyleClass = '';
+                        let btnClass = `bg-gradient-to-r from-${baseColor}-600 to-${baseColor}-500 hover:from-${baseColor}-500 hover:to-${baseColor}-400 shadow-[0_0_20px_rgba(${shadowColor},0.3)]`;
+                        let cardGlowClass = `from-${baseColor}-500/50 via-transparent to-${baseColor}-600/50`;
+
+                        if (baseColor === 'gold') {
+                            textColor = "text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.8)]";
+                            shadowColor = '234,179,8';
+                            bgGradientFrom = "from-yellow-400/20 via-yellow-600/10";
+                            btnClass = "bg-gradient-to-br from-yellow-300 via-yellow-500 to-amber-600 hover:from-yellow-200 hover:via-yellow-400 hover:to-amber-500 shadow-[0_0_25px_rgba(234,179,8,0.5)] text-black";
+                            cardGlowClass = "from-yellow-300/60 via-amber-500/20 to-yellow-600/60";
+                        } else if (baseColor === 'silver') {
+                            textColor = "text-gray-300 drop-shadow-[0_0_8px_rgba(209,213,219,0.8)]";
+                            shadowColor = '209,213,219';
+                            bgGradientFrom = "from-gray-300/20 via-gray-500/10";
+                            btnClass = "bg-gradient-to-br from-gray-200 via-gray-400 to-gray-600 hover:from-white hover:via-gray-300 hover:to-gray-500 shadow-[0_0_25px_rgba(209,213,219,0.4)] text-black";
+                            cardGlowClass = "from-gray-300/60 via-gray-500/20 to-gray-400/60";
+                        } else if (baseColor === 'bronze') {
+                            textColor = "text-amber-500 drop-shadow-[0_0_8px_rgba(217,119,6,0.8)]";
+                            shadowColor = '217,119,6';
+                            bgGradientFrom = "from-amber-600/20 via-orange-800/10";
+                            btnClass = "bg-gradient-to-br from-amber-500 via-orange-600 to-amber-800 hover:from-amber-400 hover:via-orange-500 hover:to-amber-700 shadow-[0_0_25px_rgba(217,119,6,0.5)]";
+                            cardGlowClass = "from-amber-500/60 via-orange-700/20 to-amber-700/60";
+                        } else if (baseColor === 'diamond') {
+                            textColor = "text-cyan-300 drop-shadow-[0_0_10px_rgba(34,211,238,0.9)]";
+                            shadowColor = '34,211,238';
+                            bgGradientFrom = "from-cyan-300/30 via-blue-500/10";
+                            btnClass = "bg-gradient-to-br from-cyan-300 via-cyan-500 to-blue-600 hover:from-cyan-200 hover:via-cyan-400 hover:to-blue-500 shadow-[0_0_30px_rgba(34,211,238,0.6)] text-black";
+                            cardGlowClass = "from-cyan-300/60 via-blue-500/20 to-cyan-500/60";
+                        }
+
+                        return (
+                            <div key={plan.id} className="relative group/plan rounded-3xl p-[1px] overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:-translate-y-1">
+                                {/* Borda Animada */}
+                                <div className={`absolute inset-0 bg-gradient-to-br ${cardGlowClass} opacity-50 group-hover/plan:opacity-100 transition-opacity`}></div>
+
+                                <Card className={`relative bg-[#050505]/95 backdrop-blur-xl border-0 h-full overflow-hidden shadow-[0_0_20px_rgba(${shadowColor},0.1)] group-hover/plan:shadow-[0_0_40px_rgba(${shadowColor},0.3)] rounded-3xl`}>
+                                    {/* Efeitos Internos de Vidro/Luz */}
+                                    <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl ${bgGradientFrom} to-transparent blur-2xl opacity-60 group-hover/plan:opacity-100 transition-all`}></div>
+                                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay"></div>
+
+                                    <CardHeader className="text-center pb-2 relative z-10 pt-6">
+                                        <div className="text-5xl mb-4 flex justify-center group-hover/plan:scale-110 transition-transform duration-500 drop-shadow-2xl">{plan.icon}</div>
+                                        <CardTitle className={`text-2xl font-black uppercase ${textColor} tracking-tight`}>{plan.title}</CardTitle>
+                                        <CardDescription className="text-gray-400 font-bold tracking-widest uppercase text-xs mt-1">Salas de R$ {Number(plan.roomPrice).toFixed(2).replace('.', ',')}</CardDescription>
+                                    </CardHeader>
+
+                                    <CardContent className="space-y-5 relative z-10 mt-2">
+                                        <div className="text-center mb-6">
+                                            <div className="inline-flex justify-center items-start">
+                                                <span className={`text-sm mt-1 mr-1 font-bold ${textColor}`}>R$</span>
+                                                <span className="text-5xl font-black text-white drop-shadow-md">{Number(plan.price).toFixed(2).split('.')[0]}</span>
+                                                <span className="text-xl text-gray-300 font-black mt-1">,{Number(plan.price).toFixed(2).split('.')[1]}</span>
+                                            </div>
+                                            <span className="text-gray-500 text-xs uppercase tracking-widest font-black block mt-1">/mês</span>
+                                        </div>
+
+                                        <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                                            <ul className="space-y-3 text-sm text-gray-300 font-medium">
+                                                <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">{plan.feature_1 || "2 Acessos Vips / Dia"}</span></li>
+                                                <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">{plan.feature_2 || `Salas de R$ ${Number(plan.roomPrice).toFixed(2).replace('.', ',')}`}</span></li>
+                                                <li className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.3)] rounded-full" /> <span className="text-white font-bold tracking-wide">{plan.feature_3 || "Sem fidelidade"}</span></li>
+                                            </ul>
+                                        </div>
+
+                                        {plan.extra_text && (
+                                            <p className={`text-xs ${textColor} text-center uppercase tracking-widest font-bold pb-2 drop-shadow-md`}>
+                                                {plan.extra_text}
+                                            </p>
+                                        )}
+
+                                        <Button onClick={() => navigate(`/checkout/${plan.id}`)} className={`w-full relative overflow-hidden font-black uppercase tracking-widest py-6 rounded-xl border-0 group/btn ${btnClass}`}>
+                                            <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover/btn:translate-x-full transition-transform duration-700 ease-out"></div>
+                                            {plan.button_text || "ASSINAR AGORA"}
+                                        </Button>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}

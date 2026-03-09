@@ -1,0 +1,398 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0a0a;
+    font-family: 'Orbitron', sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #1a0c00 0%, #000000 100%);
+    position: relative;
+    box-sizing: border-box;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(0deg, rgba(255, 85, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 170, 0, 0.05) 3px, rgba(255, 170, 0, 0.05) 3px);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 15px 20px;
+    box-sizing: border-box;
+}
+
+.back-btn {
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.2s;
+}
+
+.back-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: #ffaa00;
+    box-shadow: 0 0 10px #ffaa00;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0;
+    color: #fff;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+h1 span {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 10px 15px;
+    margin-bottom: 5px;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    flex-shrink: 0;
+}
+
+.player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    color: #888;
+    opacity: 0.5;
+    transition: 0.3s;
+}
+
+.player.active {
+    opacity: 1;
+}
+
+.player span {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.player.p1.active {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.player.p1 span {
+    color: #ffaa00;
+}
+
+.player.p2.active {
+    color: #ff5500;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+.player.p2 span {
+    color: #ff5500;
+}
+
+.turn-indicator {
+    font-size: 12px;
+    align-self: center;
+    color: #fff;
+    text-shadow: 0 0 5px #fff;
+    text-align: center;
+}
+
+.status-msg {
+    color: #ffaa00;
+    font-size: 12px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    text-shadow: 0 0 5px #ffaa00;
+    height: 15px;
+}
+
+/* Área da Mesa (Deck e Lixo) */
+.table-area {
+    flex-grow: 1;
+    width: 100%;
+    max-width: 800px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    background: radial-gradient(circle at center, rgba(255, 85, 0, 0.1) 0%, transparent 70%);
+}
+
+.card {
+    width: 70px;
+    height: 105px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    /* Borda externa escura */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: bold;
+    box-shadow:
+        inset 0 0 10px rgba(0, 0, 0, 0.8),
+        /* Sombra das bordas pra dentro */
+        0 8px 15px rgba(0, 0, 0, 0.9);
+    /* Sombra pesada 3D da carta sobre as outras */
+    user-select: none;
+    position: relative;
+    text-shadow: 2px 3px 5px rgba(0, 0, 0, 0.9);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: #111;
+    text-align: center;
+    overflow: hidden;
+}
+
+@media (min-width: 500px) {
+    .card {
+        width: 90px;
+        height: 135px;
+        font-size: 40px;
+    }
+}
+
+/* Pseudo-borda oval clássica do UNO esculpida 3D */
+.card::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    /* Faz o oval do Uno */
+    transform: rotate(-25deg) scale(1.2);
+    box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+    /* Sulco 3D do Oval */
+    pointer-events: none;
+}
+
+
+/* Cores Neon das Cartas Ajustadas p/ Textura Metálica/Carbono Gamer */
+.card.red {
+    background: radial-gradient(circle at 30% 30%, #ff3333, #880000);
+    border-color: #ff3333;
+    color: #fff;
+}
+
+.card.blue {
+    background: radial-gradient(circle at 30% 30%, #0088ff, #001133);
+    border-color: #0088ff;
+    color: #fff;
+}
+
+.card.green {
+    background: radial-gradient(circle at 30% 30%, #00cc88, #003311);
+    border-color: #00cc88;
+    color: #fff;
+}
+
+.card.yellow {
+    background: radial-gradient(circle at 30% 30%, #ffcc00, #664400);
+    border-color: #ffcc00;
+    color: #fff;
+}
+
+.card.black {
+    background: radial-gradient(circle at 30% 30%, #444444, #050505);
+    border-color: #ffaa00;
+    /* As Wilds ganham contorno Laranja Neon Ouro da nossa marca */
+    box-shadow:
+        inset 0 0 10px rgba(0, 0, 0, 0.8),
+        0 0 15px rgba(255, 170, 0, 0.4),
+        0 8px 15px rgba(0, 0, 0, 0.9);
+    color: #fff;
+}
+
+/* Traseira da Carta (Deck de Puxar) Estiloso Fibra de Carbono c/ Laranja */
+.card.card-back {
+    background: repeating-linear-gradient(45deg, #111, #111 5px, #1a1a1a 5px, #1a1a1a 10px);
+    border: 2px solid #ffaa00;
+    color: #ffaa00;
+    font-size: 22px;
+    font-weight: 900;
+    cursor: pointer;
+    text-shadow: 0 0 10px #ffaa00;
+    box-shadow:
+        inset 0 0 20px rgba(0, 0, 0, 0.9),
+        0 0 15px rgba(255, 170, 0, 0.2);
+}
+
+.card.card-back::before {
+    display: none;
+    /* Sem oval nas costas */
+}
+
+.card.card-back:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.9), 0 0 25px rgba(255, 170, 0, 0.6);
+    border-color: #fff;
+    color: #fff;
+}
+
+/* Área da Mão (Em Baixo) - Fibra/Metal Escuro */
+.player-hand-container {
+    width: 100%;
+    max-width: 800px;
+    height: 160px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.95), rgba(15, 15, 15, 0.85));
+    border-top: 2px solid #ffaa00;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.9);
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 25px 15px 15px 15px;
+    /* Mais padding top pro efeito de hover pular bonito */
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    z-index: 10;
+}
+
+.player-hand {
+    display: flex;
+    gap: -25px;
+    /* Sobrepor ainda mais as bordas criando um leque real */
+    padding: 0 10px;
+    flex-wrap: nowrap;
+}
+
+.player-hand .card {
+    margin-right: -25px;
+    /* Sobreposição elegante */
+    cursor: pointer;
+}
+
+.player-hand .card:last-child {
+    margin-right: 0;
+}
+
+.player-hand .card:hover {
+    transform: translateY(-20px) scale(1.1);
+    z-index: 50;
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.9), 0 0 20px rgba(255, 170, 0, 0.5);
+}
+
+/* Base de Controle (Botão Uno) */
+.controls {
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    z-index: 10;
+    margin-bottom: 10px;
+}
+
+.action-btn {
+    background: rgba(255, 0, 0, 0.2);
+    border: 2px solid #ff0000;
+    color: #ff0000;
+    font-family: 'Orbitron', sans-serif;
+    padding: 12px 30px;
+    font-weight: bold;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-shadow: 0 0 10px #ff0000;
+    box-shadow: inset 0 0 10px rgba(255, 0, 0, 0.3);
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: rgba(255, 0, 0, 0.5);
+    box-shadow: 0 0 20px #ff0000, inset 0 0 20px rgba(255, 0, 0, 0.8);
+    transform: scale(1.05);
+}
+
+/* Modal Coringa */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background: #111;
+    border: 2px solid #ffaa00;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(255, 170, 0, 0.3);
+}
+
+.color-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.c-btn {
+    padding: 15px;
+    border: none;
+    border-radius: 5px;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    text-shadow: 1px 1px 2px #000;
+}
+
+.c-btn.red {
+    background: #ff0055;
+}
+
+.c-btn.blue {
+    background: #0088ff;
+}
+
+.c-btn.green {
+    background: #00ffaa;
+    color: #000;
+    text-shadow: none;
+}
+
+.c-btn.yellow {
+    background: #ffcc00;
+    color: #000;
+    text-shadow: none;
+}

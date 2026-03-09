@@ -1,0 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #050505;
+    font-family: 'Outfit', sans-serif;
+    color: white;
+}
+
+canvas {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+}
+
+#ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    background: radial-gradient(circle at top center, rgba(234, 88, 12, 0.05) 0%, transparent 80%);
+}
+
+#score, #health, #level {
+    position: absolute;
+    font-style: italic;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+#score {
+    top: 20px;
+    right: 20px;
+    font-size: 20px;
+    color: #f97316;
+    text-shadow: 0 0 10px rgba(234, 88, 12, 0.5);
+}
+
+#level {
+    top: 50px;
+    right: 20px;
+    font-size: 14px;
+    color: #f97316;
+    text-shadow: 0 0 10px rgba(234, 88, 12, 0.5);
+}
+
+#health {
+    top: 20px;
+    left: 20px;
+    font-size: 20px;
+    color: #ef4444;
+    text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 5px 15px;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+#instructions {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    font-size: 10px;
+    font-weight: bold;
+    color: #aaaaaa;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+#gameover {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    background: rgba(5, 5, 5, 0.95);
+    padding: 40px 60px;
+    border: 2px dashed #f97316;
+    border-radius: 30px;
+    box-shadow: 0 0 40px rgba(234, 88, 12, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+#gameover h1 {
+    margin: 0 0 10px 0;
+    font-size: 40px;
+    color: #f97316;
+    font-style: italic;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    text-shadow: 0 0 15px rgba(234, 88, 12, 0.5);
+}
+
+#gameover p {
+    font-size: 14px;
+    color: #888;
+    margin: 10px 0;
+    font-weight: bold;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+#start-screen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: auto;
+}
+
+#start-btn {
+    background: transparent;
+    color: #f97316;
+    border: 3px solid #f97316;
+    padding: 15px 50px;
+    font-size: 28px;
+    font-family: inherit;
+    font-weight: 900;
+    font-style: italic;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(234, 88, 12, 0.3), inset 0 0 20px rgba(234, 88, 12, 0.1);
+    text-shadow: 0 0 10px rgba(234, 88, 12, 0.5);
+    transition: all 0.3s ease;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+}
+
+#start-btn:hover {
+    background: #f97316;
+    color: #050505;
+    box-shadow: 0 0 40px rgba(234, 88, 12, 0.6);
+}

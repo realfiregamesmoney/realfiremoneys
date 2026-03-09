@@ -1,0 +1,386 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0a0a;
+    font-family: 'Orbitron', sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #1a0c00 0%, #000000 100%);
+    position: relative;
+    box-sizing: border-box;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(0deg, rgba(255, 85, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 170, 0, 0.05) 3px, rgba(255, 170, 0, 0.05) 3px);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 15px 20px;
+    box-sizing: border-box;
+}
+
+.back-btn {
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.2s;
+}
+
+.back-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: #ffaa00;
+    box-shadow: 0 0 10px #ffaa00;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0;
+    color: #fff;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+h1 span {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+.player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    color: #888;
+    opacity: 0.5;
+    transition: 0.3s;
+}
+
+.player.active {
+    opacity: 1;
+}
+
+.player span {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.player.p1.active {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.player.p1 span {
+    color: #ffaa00;
+}
+
+.player.p2.active {
+    color: #ff5500;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+.player.p2 span {
+    color: #ff5500;
+}
+
+.turn-indicator {
+    font-size: 12px;
+    align-self: center;
+    color: #fff;
+    text-shadow: 0 0 5px #fff;
+    text-align: center;
+}
+
+.status-msg {
+    color: #ffaa00;
+    font-size: 12px;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    text-shadow: 0 0 5px #ffaa00;
+    height: 15px;
+}
+
+/* Grids do Mar */
+.boards-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+    max-width: 900px;
+    flex-wrap: wrap;
+    overflow-y: auto;
+    padding-bottom: 20px;
+    perspective: 800px;
+    /* Para o efeito 3D top-down se quisermos inclinar, mas manteremos flat-3d por gora */
+}
+
+@media (max-width: 600px) {
+    .boards-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+}
+
+.board-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(0, 0, 0, 0.95));
+    padding: 15px;
+    border-radius: 12px;
+    border: 2px solid #333;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(0, 0, 0, 0.8);
+    position: relative;
+}
+
+.board-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    bottom: -4px;
+    left: -4px;
+    border: 1px solid rgba(255, 170, 0, 0.2);
+    border-radius: 14px;
+    pointer-events: none;
+}
+
+#board-enemy-wrapper::before {
+    /* Classe mock ou inline, vamos garantir via id */
+    border-color: rgba(255, 85, 0, 0.2);
+}
+
+.board-title {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 12px;
+    color: #fff;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8);
+    letter-spacing: 2px;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(10, 30px);
+    grid-template-rows: repeat(10, 30px);
+    border: 4px solid #111;
+    background: #050505;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(255, 170, 0, 0.1);
+    gap: 1px;
+    /* Fina linha do grid */
+    border-radius: 4px;
+    padding: 2px;
+}
+
+@media (min-width: 400px) {
+    .board {
+        grid-template-columns: repeat(10, 35px);
+        grid-template-rows: repeat(10, 35px);
+    }
+}
+
+#board-enemy {
+    border-color: #1a0a00;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.9), inset 0 0 30px rgba(255, 85, 0, 0.1);
+}
+
+.board.disabled {
+    opacity: 0.6;
+    pointer-events: none;
+    filter: grayscale(0.5);
+}
+
+.cell {
+    width: 100%;
+    height: 100%;
+    background-color: #1a1a1a;
+    /* Mar Escuro Metálico/Aço */
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.05), inset 0 -2px 4px rgba(0, 0, 0, 0.5);
+    border: 1px solid #000;
+    box-sizing: border-box;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.cell::after {
+    /* Mira tática padrão nas celulas vazias*/
+    content: '+';
+    color: rgba(255, 255, 255, 0.05);
+    font-size: 10px;
+    position: absolute;
+}
+
+.cell:hover {
+    background-color: rgba(255, 170, 0, 0.2);
+    transform: scale(1.1);
+    z-index: 5;
+    box-shadow: 0 0 10px #ffaa00, inset 0 0 5px #ffaa00;
+    border-color: #ffaa00;
+}
+
+#board-enemy .cell:hover {
+    background-color: rgba(255, 85, 0, 0.2);
+    box-shadow: 0 0 10px #ff5500, inset 0 0 5px #ff5500;
+    border-color: #ff5500;
+}
+
+/* Elementos do Jogo 3D */
+.cell.ship {
+    background: radial-gradient(circle at 30% 30%, #444, #111) !important;
+    /* Casco de Aço do Navio */
+    box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.3),
+        inset 0 -2px 5px rgba(0, 0, 0, 0.9),
+        0 4px 6px rgba(0, 0, 0, 0.8) !important;
+    border: 1px solid #666 !important;
+    position: relative;
+    z-index: 2;
+}
+
+
+/* Adiciona um led dourado em cima do navio pra ele não ser um black box morto */
+.cell.ship::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: #ffcc66;
+    border-radius: 50%;
+    box-shadow: 0 0 5px #ffaa00;
+}
+
+.cell.miss {
+    background: radial-gradient(circle at center, #111, #000) !important;
+    box-shadow: inset 0 5px 10px rgba(0, 0, 0, 0.9) !important;
+    border-color: #000 !important;
+}
+
+.cell.miss::after {
+    content: '○';
+    color: #555;
+    font-size: 14px;
+    font-weight: bold;
+    text-shadow: 0 1px 1px #000;
+}
+
+.cell.hit {
+    background: radial-gradient(circle at center, #ff3300, #330000) !important;
+    /* Impacto de Fogo */
+    box-shadow:
+        inset 0 0 15px rgba(255, 0, 0, 0.9),
+        0 0 20px rgba(255, 51, 0, 0.6) !important;
+    border-color: #ffaa00 !important;
+    animation: pulseFire 2s infinite alternate;
+    z-index: 3;
+}
+
+@keyframes pulseFire {
+    from {
+        box-shadow: inset 0 0 15px rgba(255, 0, 0, 0.9), 0 0 10px rgba(255, 51, 0, 0.4);
+    }
+
+    to {
+        box-shadow: inset 0 0 25px rgba(255, 0, 0, 1), 0 0 25px rgba(255, 51, 0, 0.8);
+    }
+}
+
+.cell.hit::after {
+    content: '✕';
+    color: #fff;
+    font-size: 18px;
+    font-weight: 900;
+    text-shadow: 0 0 8px #fff, 0 0 15px #ffaa00;
+}
+
+/* Hover de posicionamento */
+.cell.hover-ship {
+    background-color: rgba(255, 170, 0, 0.5) !important;
+    border-color: #fff !important;
+}
+
+.cell.hover-error {
+    background-color: rgba(255, 0, 0, 0.5) !important;
+}
+
+
+.controls {
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    z-index: 10;
+}
+
+.action-btn {
+    background: transparent;
+    border: 2px solid #ffaa00;
+    color: #ffaa00;
+    font-family: 'Orbitron', sans-serif;
+    padding: 10px 20px;
+    font-size: 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-shadow: 0 0 5px #ffaa00;
+    box-shadow: inset 0 0 10px rgba(255, 170, 0, 0.3);
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    box-shadow: 0 0 15px #ffaa00, inset 0 0 15px rgba(255, 170, 0, 0.5);
+}
+
+.action-btn.pass-btn {
+    border-color: #ff5500;
+    color: #ff5500;
+    text-shadow: 0 0 5px #ff5500;
+    box-shadow: inset 0 0 10px rgba(255, 85, 0, 0.3);
+}
+
+.action-btn.pass-btn:hover {
+    background: rgba(255, 85, 0, 0.2);
+    box-shadow: 0 0 15px #ff5500, inset 0 0 15px rgba(255, 85, 0, 0.5);
+}

@@ -1,0 +1,461 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0a0a;
+    font-family: 'Orbitron', sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    min-height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #1a0c00 0%, #000000 100%);
+    position: relative;
+    box-sizing: border-box;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(0deg, rgba(255, 85, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 170, 0, 0.05) 3px, rgba(255, 170, 0, 0.05) 3px);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 15px 20px;
+    box-sizing: border-box;
+    z-index: 10;
+}
+
+.back-btn {
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.2s;
+}
+
+.back-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    border-color: #ffaa00;
+    box-shadow: 0 0 10px #ffaa00;
+}
+
+h1 {
+    font-size: 20px;
+    margin: 0;
+    color: #fff;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+h1 span {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+    z-index: 10;
+}
+
+.player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    color: #888;
+    opacity: 0.5;
+    transition: 0.3s;
+}
+
+.player.active {
+    opacity: 1;
+}
+
+.player span {
+    font-size: 14px;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.player.p1.active {
+    color: #ffaa00;
+    text-shadow: 0 0 10px #ffaa00;
+}
+
+.player.p1 span {
+    color: #ffaa00;
+}
+
+.player.p2.active {
+    color: #ff5500;
+    text-shadow: 0 0 10px #ff5500;
+}
+
+.player.p2 span {
+    color: #ff5500;
+}
+
+.turn-indicator {
+    font-size: 12px;
+    align-self: center;
+    color: #fff;
+    text-shadow: 0 0 5px #fff;
+}
+
+/* Tabuleiro 2D Flutuante */
+.board-container {
+    flex-grow: 1;
+    width: 95%;
+    max-width: 800px;
+    background: linear-gradient(135deg, #111 0%, #050505 100%);
+    border: 4px solid #333;
+    border-radius: 10px;
+    box-shadow: inset 0 0 20px rgba(255, 85, 0, 0.1), 0 15px 35px rgba(0, 0, 0, 0.9);
+    margin-bottom: 10px;
+    overflow: auto;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.board-container::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    right: -6px;
+    bottom: -6px;
+    border: 1px solid rgba(255, 170, 0, 0.3);
+    border-radius: 12px;
+    pointer-events: none;
+}
+
+.board-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    padding: 50px;
+    /* buffer para scroll se crescer muito */
+    transition: transform 0.3s;
+}
+
+.player-hand-container {
+    width: 100%;
+    max-width: 800px;
+    height: 120px;
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.6));
+    border-top: 2px solid #333;
+    overflow-x: auto;
+    padding: 10px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    z-index: 10;
+}
+
+.player-hand {
+    display: flex;
+    gap: 15px;
+    padding: 0 10px;
+    flex-wrap: nowrap;
+}
+
+.controls {
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    z-index: 10;
+    margin-bottom: 10px;
+}
+
+.action-btn {
+    background: transparent;
+    border: 2px solid #ffaa00;
+    color: #ffaa00;
+    font-family: 'Orbitron', sans-serif;
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-shadow: 0 0 5px #ffaa00;
+    box-shadow: inset 0 0 10px rgba(255, 170, 0, 0.3);
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: rgba(255, 170, 0, 0.2);
+    box-shadow: 0 0 15px #ffaa00, inset 0 0 15px rgba(255, 170, 0, 0.5);
+}
+
+.action-btn:disabled {
+    border-color: #555;
+    color: #555;
+    text-shadow: none;
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.action-btn.pass-btn {
+    border-color: #ff5500;
+    color: #ff5500;
+    text-shadow: 0 0 5px #ff5500;
+    box-shadow: inset 0 0 10px rgba(255, 85, 0, 0.3);
+}
+
+.action-btn.pass-btn:hover {
+    background: rgba(255, 85, 0, 0.2);
+    box-shadow: 0 0 15px #ff5500, inset 0 0 15px rgba(255, 85, 0, 0.5);
+}
+
+/* PEDRA DE DOMINÓ 3D */
+.domino-tile {
+    width: 44px;
+    height: 88px;
+    background: radial-gradient(circle at 30% 30%, #2a2a2a, #0a0a0a);
+    /* Pedra Preta com Luz de Cima */
+    border: 1px solid #444;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    /* Sombras drop 3D e Edge highlight Inset */
+    box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.2),
+        inset 0 -2px 5px rgba(0, 0, 0, 0.8),
+        inset 0 0 10px rgba(0, 0, 0, 0.9),
+        0 8px 15px rgba(0, 0, 0, 0.9);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.2), box-shadow 0.2s, background 0.2s;
+    position: relative;
+    user-select: none;
+}
+
+.domino-tile:hover {
+    transform: translateY(-15px) scale(1.05);
+    /* Pulo Otimizado 3D na Mão */
+    border-color: #ffaa00;
+    box-shadow:
+        inset 0 2px 2px rgba(255, 255, 255, 0.3),
+        inset 0 -2px 5px rgba(0, 0, 0, 0.9),
+        0 15px 25px rgba(0, 0, 0, 0.9),
+        0 0 20px rgba(255, 170, 0, 0.4);
+    z-index: 5;
+    background: radial-gradient(circle at 30% 30%, #333, #111);
+}
+
+.domino-half {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 4px;
+    position: relative;
+}
+
+.domino-half.top {
+    border-bottom: 2px solid #111;
+    box-shadow: inset 0 -2px 3px rgba(0, 0, 0, 0.5);
+    /* Sombra do fosso da pedra */
+}
+
+.dot {
+    width: 7px;
+    height: 7px;
+    background: #ffcc66;
+    /* Dot Dourado no lugar de branco chapado */
+    border-radius: 50%;
+    align-self: center;
+    justify-self: center;
+    box-shadow:
+        inset 0 2px 2px rgba(0, 0, 0, 0.5),
+        /* Furo realistico na pedra */
+        0 0 5px rgba(255, 170, 0, 0.8);
+    /* Brilho Laranja do Dot */
+}
+
+/* Configuração dos PONTOS na grade 3x3 baseada em números (1 a 6) */
+.dot-pos-1 {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.dot-pos-2-1 {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.dot-pos-2-2 {
+    grid-column: 3;
+    grid-row: 3;
+}
+
+.dot-pos-3-1 {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.dot-pos-3-2 {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.dot-pos-3-3 {
+    grid-column: 3;
+    grid-row: 3;
+}
+
+.dot-pos-4-1 {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.dot-pos-4-2 {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.dot-pos-4-3 {
+    grid-column: 1;
+    grid-row: 3;
+}
+
+.dot-pos-4-4 {
+    grid-column: 3;
+    grid-row: 3;
+}
+
+.dot-pos-5-1 {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.dot-pos-5-2 {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.dot-pos-5-3 {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+.dot-pos-5-4 {
+    grid-column: 1;
+    grid-row: 3;
+}
+
+.dot-pos-5-5 {
+    grid-column: 3;
+    grid-row: 3;
+}
+
+.dot-pos-6-1 {
+    grid-column: 1;
+    grid-row: 1;
+}
+
+.dot-pos-6-2 {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.dot-pos-6-3 {
+    grid-column: 1;
+    grid-row: 2;
+}
+
+.dot-pos-6-4 {
+    grid-column: 3;
+    grid-row: 2;
+}
+
+.dot-pos-6-5 {
+    grid-column: 1;
+    grid-row: 3;
+}
+
+.dot-pos-6-6 {
+    grid-column: 3;
+    grid-row: 3;
+}
+
+/* Peças no Tabuleiro */
+.board-content .domino-tile {
+    margin: 0 2px;
+    cursor: default;
+}
+
+.board-content .domino-tile:hover {
+    transform: none;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    border-color: #fff;
+}
+
+/* Orientação das Peças no Tabuleiro */
+.domino-horizontal {
+    transform: rotate(90deg);
+    margin: 0 20px !important;
+    /* Espaço pro eixo rotacionado */
+}
+
+.domino-horizontal.flip {
+    transform: rotate(-90deg);
+}
+
+.domino-vertical {
+    transform: rotate(0deg);
+}
+
+.domino-vertical.flip {
+    transform: rotate(180deg);
+}
+
+/* Duplos no Tabuleiro sempre Vertical pra formar a Cruz Clássica */
+.board-content .domino-double {
+    transform: rotate(0deg);
+    margin: 0 5px !important;
+}
+
+/* Pinte as bordas das pontas abertas para ajudar na jogabilidade */
+.open-left {
+    box-shadow: -10px 0 20px #ffaa00;
+    border-left: 2px solid #ffaa00;
+}
+
+.open-right {
+    box-shadow: 10px 0 20px #ffaa00;
+    border-right: 2px solid #ffaa00;
+}

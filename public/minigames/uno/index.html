@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Royal Money UNO</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+        /* Modernized Styles targeting real app design */
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;700;900&display=swap');
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #050505;
+            background-image:
+                radial-gradient(circle at 50% -20%, rgba(234, 88, 12, 0.15), transparent 50%),
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        .top-bar {
+            background: rgba(10, 10, 10, 0.8);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            padding: 10px 24px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            width: 100%;
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .top-bar h1 {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 18px;
+            white-space: nowrap;
+        }
+
+        .back-btn {
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a1a1aa;
+            font-weight: 900;
+            font-size: 14px;
+            border-radius: 8px;
+            padding: 6px 14px;
+            line-height: 1;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: rgba(234, 88, 12, 0.15);
+            border-color: rgba(234, 88, 12, 0.5);
+            color: #f97316;
+            box-shadow: 0 0 10px rgba(234, 88, 12, 0.3);
+        }
+
+        .game-timer {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+    </style>
+    <script src="/minigames/anticheat.js"></script>
+</head>
+
+<body>
+    <div class="top-bar">
+        <a href="javascript:window.location.href='./lobby.html'" class="back-btn">X</a>
+        <h1>TORNEIO <span>BATTLE</span></h1>
+        <div class="game-timer" id="game-timer">10:00</div>
+    </div>
+
+    <div class="game-info">
+        <div class="player p2">
+            <div class="player-identity">
+                <img src="https://randomuser.me/api/portraits/men/32.jpg" class="player-avatar" id="avatar2">
+                <div class="player-name-val" id="name2">OPONENTE</div>
+            </div>
+            <span id="score2">Cartas: 7</span>
+        </div>
+
+        <div class="turn-indicator" id="turn-indicator-box">
+            <span id="turn-indicator">CARREGANDO...</span>
+            <span class="timer-val" id="turn-timer">10s</span>
+        </div>
+
+        <div class="player p1 active">
+            <div class="player-identity">
+                <div class="player-name-val" id="name1">VOCÊ</div>
+                <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=ea580c"
+                    class="player-avatar" id="avatar1">
+            </div>
+            <span id="score1">Cartas: 7</span>
+        </div>
+    </div>
+
+    <div class="table-area">
+        <div class="deck-container" id="deck-btn">
+            <div class="card card-back">COMPRA</div>
+        </div>
+        <div class="discard-container">
+            <div id="discard-pile" class="card"></div>
+        </div>
+    </div>
+
+    <div class="player-hand-container">
+        <div id="player-hand" class="player-hand"></div>
+    </div>
+
+    <div class="controls">
+        <button id="uno-btn" class="action-btn">GRITAR UNO!</button>
+    </div>
+
+    <div id="color-picker" class="modal">
+        <div class="modal-content">
+            <h3>ESCOLHA A NOVA COR:</h3>
+            <div class="color-options">
+                <button class="c-btn red" data-color="red">VERMELHO</button>
+                <button class="c-btn blue" data-color="blue">AZUL</button>
+                <button class="c-btn green" data-color="green">VERDE</button>
+                <button class="c-btn yellow" data-color="yellow">AMARELO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-msg" class="status-msg"></div>
+
+    <!-- Modal de Resultado -->
+    <div id="result-modal" class="modal game-result-modal">
+        <div class="result-content">
+            <h2 id="result-title">VITÓRIA!</h2>
+            <p id="result-text">Você superou seu oponente.</p>
+            <div class="result-stats">
+                <span id="result-match-info">UNO BATTLE ROYALE</span>
+            </div>
+            <button class="result-btn" onclick="goToLobby()">VOLTAR AO LOBBY</button>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+    <script>
+        // Load Real Avatars
+        try {
+            const lsUser = JSON.parse(localStorage.getItem('rf_current_user'));
+            if (lsUser) {
+                if (lsUser.name) document.getElementById('name1').innerText = lsUser.name;
+                if (lsUser.img) document.getElementById('avatar1').src = lsUser.img;
+            }
+        } catch (e) { }
+    </script>
+</body>
+
+</html>

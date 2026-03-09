@@ -8,9 +8,11 @@ import { useToast } from "@/hooks/use-toast";
 type PartnershipProps = {
     referralLink?: string;
     referralCount?: number;
+    confirmedCount?: number;
+    isStandalone?: boolean;
 };
 
-export default function PartnershipCapture({ referralLink = "", referralCount = 0 }: PartnershipProps) {
+export default function PartnershipCapture({ referralLink = "", referralCount = 0, confirmedCount = 0, isStandalone = false }: PartnershipProps) {
     const { toast } = useToast();
 
     const [questions, setQuestions] = useState<any[]>([]);
@@ -31,7 +33,7 @@ export default function PartnershipCapture({ referralLink = "", referralCount = 
         cardInfluencerColor: "orange",
     });
 
-    const [showOptions, setShowOptions] = useState(false);
+    const [showOptions, setShowOptions] = useState(isStandalone);
     const [showAffiliates, setShowAffiliates] = useState(false);
     const [showForm, setShowForm] = useState(false);
     const [showReferral, setShowReferral] = useState(false);
@@ -133,42 +135,63 @@ export default function PartnershipCapture({ referralLink = "", referralCount = 
             )}
 
             {showOptions && result === "pending" && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-bottom duration-300">
-                    <Card className={`bg-[#111] border border-${uiConfig.cardReferralColor}-500/30 hover:border-${uiConfig.cardReferralColor}-500 transition-colors cursor-pointer group`} onClick={() => { setShowOptions(false); setShowReferral(true); }}>
-                        <CardHeader className="pb-2">
-                            <CardTitle className={`text-base font-black text-${uiConfig.cardReferralColor}-400 uppercase flex items-center justify-between`}>
-                                <div className="flex items-center gap-2"><Users className="h-4 w-4" /> {uiConfig.cardReferralTitle}</div>
-                                <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-gray-400 text-xs">{uiConfig.cardReferralDesc}</p>
-                        </CardContent>
-                    </Card>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 animate-in slide-in-from-bottom duration-300 mt-6">
+                    {/* Botão Indique e Ganhe */}
+                    <div
+                        onClick={() => { setShowOptions(false); setShowReferral(true); }}
+                        className={`relative group cursor-pointer rounded-3xl p-[2px] overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 shadow-[0_0_20px_rgba(79,70,229,0.15)] hover:shadow-[0_0_30px_rgba(79,70,229,0.4)]`}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/50 via-purple-500/50 to-indigo-600/50 opacity-100 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="relative bg-[#050505]/95 backdrop-blur-xl border border-white/5 h-full rounded-3xl p-6 flex flex-col items-center text-center">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="bg-indigo-500/20 p-4 rounded-full mb-4 border border-indigo-500/40 shadow-[0_0_15px_rgba(79,70,229,0.5)] group-hover:scale-110 transition-transform">
+                                <Users className="h-8 w-8 text-indigo-400" />
+                            </div>
+                            <h3 className="text-xl font-black text-indigo-400 uppercase tracking-widest mb-2 drop-shadow-md">{uiConfig.cardReferralTitle}</h3>
+                            <p className="text-gray-400 text-xs font-medium leading-relaxed mb-4">{uiConfig.cardReferralDesc}</p>
+                            <span className="mt-auto w-full inline-flex items-center justify-center gap-2 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-colors border border-indigo-500/30">
+                                Acessar Painel <ChevronRight className="h-4 w-4" />
+                            </span>
+                        </div>
+                    </div>
 
-                    <Card className={`bg-[#111] border border-${uiConfig.cardAffiliateColor}-500/30 hover:border-${uiConfig.cardAffiliateColor}-500 transition-colors cursor-pointer group`} onClick={() => { setShowOptions(false); setShowAffiliates(true); }}>
-                        <CardHeader className="pb-2">
-                            <CardTitle className={`text-base font-black text-${uiConfig.cardAffiliateColor}-400 uppercase flex items-center justify-between`}>
-                                <div className="flex items-center gap-2"><Gem className="h-4 w-4" /> {uiConfig.cardAffiliateTitle}</div>
-                                <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-gray-400 text-xs">{uiConfig.cardAffiliateDesc}</p>
-                        </CardContent>
-                    </Card>
+                    {/* Botão Afiliado de Produtos */}
+                    <div
+                        onClick={() => { setShowOptions(false); setShowAffiliates(true); }}
+                        className={`relative group cursor-pointer rounded-3xl p-[2px] overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 shadow-[0_0_20px_rgba(59,130,246,0.15)] hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]`}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/50 via-cyan-500/50 to-blue-600/50 opacity-100 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="relative bg-[#050505]/95 backdrop-blur-xl border border-white/5 h-full rounded-3xl p-6 flex flex-col items-center text-center">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="bg-blue-500/20 p-4 rounded-full mb-4 border border-blue-500/40 shadow-[0_0_15px_rgba(59,130,246,0.5)] group-hover:scale-110 transition-transform">
+                                <Gem className="h-8 w-8 text-blue-400" />
+                            </div>
+                            <h3 className="text-xl font-black text-blue-400 uppercase tracking-widest mb-2 drop-shadow-md">{uiConfig.cardAffiliateTitle}</h3>
+                            <p className="text-gray-400 text-xs font-medium leading-relaxed mb-4">{uiConfig.cardAffiliateDesc}</p>
+                            <span className="mt-auto w-full inline-flex items-center justify-center gap-2 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-colors border border-blue-500/30">
+                                Ver Produtos <ChevronRight className="h-4 w-4" />
+                            </span>
+                        </div>
+                    </div>
 
-                    <Card className={`bg-[#111] border border-${uiConfig.cardInfluencerColor}-500/30 hover:border-${uiConfig.cardInfluencerColor}-500 transition-colors cursor-pointer group`} onClick={() => { setShowOptions(false); setShowForm(true); }}>
-                        <CardHeader className="pb-2">
-                            <CardTitle className={`text-base font-black text-${uiConfig.cardInfluencerColor}-400 uppercase flex items-center justify-between`}>
-                                <div className="flex items-center gap-2"><Briefcase className="h-4 w-4" /> {uiConfig.cardInfluencerTitle}</div>
-                                <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className={`text-gray-400 text-xs text-${uiConfig.cardInfluencerColor}-200/60`}>{uiConfig.cardInfluencerDesc}</p>
-                        </CardContent>
-                    </Card>
+                    {/* Botão Mestre Influenciador */}
+                    <div
+                        onClick={() => { setShowOptions(false); setShowForm(true); }}
+                        className={`relative group cursor-pointer rounded-3xl p-[2px] overflow-hidden transition-all duration-300 hover:scale-[1.03] hover:-translate-y-1 shadow-[0_0_20px_rgba(249,115,22,0.15)] hover:shadow-[0_0_30px_rgba(249,115,22,0.4)]`}
+                    >
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-500/50 via-yellow-500/50 to-orange-600/50 opacity-100 group-hover:opacity-100 transition-opacity"></div>
+                        <div className="relative bg-[#050505]/95 backdrop-blur-xl border border-white/5 h-full rounded-3xl p-6 flex flex-col items-center text-center">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                            <div className="bg-orange-500/20 p-4 rounded-full mb-4 border border-orange-500/40 shadow-[0_0_15px_rgba(249,115,22,0.5)] group-hover:scale-110 transition-transform">
+                                <Briefcase className="h-8 w-8 text-orange-400" />
+                            </div>
+                            <h3 className="text-xl font-black text-orange-400 uppercase tracking-widest mb-2 drop-shadow-md">{uiConfig.cardInfluencerTitle}</h3>
+                            <p className={`text-orange-200/60 text-xs font-medium leading-relaxed mb-4`}>{uiConfig.cardInfluencerDesc}</p>
+                            <span className="mt-auto w-full inline-flex items-center justify-center gap-2 bg-orange-600/20 hover:bg-orange-600/40 text-orange-300 py-3 rounded-xl font-black uppercase text-xs tracking-widest transition-colors border border-orange-500/30">
+                                Fazer o Teste <ChevronRight className="h-4 w-4" />
+                            </span>
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -186,9 +209,39 @@ export default function PartnershipCapture({ referralLink = "", referralCount = 
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <p className="text-sm text-indigo-100 leading-relaxed">
-                                Convide amigos! Indique no mínimo 10 jogadores. Após o cadastro e depósito deles, você recebe <strong className="text-white">R$ 10,00</strong> para jogar.
-                                Você já indicou <strong className="text-white">{referralCount}</strong> pessoa(s).
+                                Convide amigos! A cada <strong className="text-white">10 indicados que pagarem</strong> o primeiro depósito, você recebe <strong className="text-white">R$ 10,00</strong> direto no seu saldo.
                             </p>
+
+                            {/* PROGRESSO DE INDICAÇÕES */}
+                            <div className="bg-black/40 p-4 rounded-xl border border-indigo-500/20 space-y-3">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black uppercase text-indigo-300 tracking-widest">Progresso Atual</span>
+                                    <span className="text-[10px] font-black uppercase text-green-400 tracking-widest">
+                                        {Math.floor(confirmedCount / 10)}x Bônus Recebido
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-indigo-500 to-green-400 rounded-full transition-all duration-700"
+                                            style={{ width: `${(confirmedCount % 10) * 10}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-sm font-black text-white whitespace-nowrap">
+                                        {confirmedCount % 10}<span className="text-gray-500">/10</span>
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="bg-indigo-900/40 border border-indigo-500/20 rounded-lg p-2 text-center">
+                                        <p className="text-lg font-black text-white">{referralCount}</p>
+                                        <p className="text-[9px] font-black uppercase text-indigo-400">Cadastrados</p>
+                                    </div>
+                                    <div className="bg-green-900/40 border border-green-500/20 rounded-lg p-2 text-center">
+                                        <p className="text-lg font-black text-green-400">{confirmedCount}</p>
+                                        <p className="text-[9px] font-black uppercase text-green-400">Pagaram ✔</p>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div className="bg-black/40 p-3 rounded-lg border border-white/10 space-y-2">
                                 <label className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">Seu Link de Indicação</label>

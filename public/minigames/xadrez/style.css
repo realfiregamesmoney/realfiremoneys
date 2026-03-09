@@ -1,0 +1,340 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: #0a0a0a;
+    font-family: 'Orbitron', sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #1a0c00 0%, #000000 100%);
+    position: relative;
+    box-sizing: border-box;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(0deg, rgba(255, 85, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 170, 0, 0.05) 3px, rgba(255, 170, 0, 0.05) 3px);
+    pointer-events: none;
+    z-index: -1;
+}
+
+.top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 24px;
+    box-sizing: border-box;
+    position: relative;
+    background: rgba(10, 10, 10, 0.82);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 1000;
+}
+
+.top-bar h1 {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    font-size: 18px;
+    font-style: italic;
+    font-weight: 900;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.top-bar h1 span {
+    color: #f97316;
+}
+
+.back-btn {
+    color: #fff;
+    text-decoration: none;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 8px 15px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.2s;
+    position: relative;
+    z-index: 1001;
+}
+
+.back-btn:hover {
+    background: rgba(234, 88, 12, 0.15);
+    border-color: #f97316;
+    box-shadow: 0 0 10px #f97316;
+}
+
+.game-timer {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    position: relative;
+    z-index: 1001;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 98%;
+    max-width: 800px;
+    background: rgba(20, 20, 25, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(15px);
+    border-radius: 16px;
+    padding: 12px 10px;
+    margin: 20px auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+    flex-shrink: 0;
+    box-sizing: border-box;
+    gap: 8px;
+}
+
+.player {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.6;
+    transition: 0.3s;
+}
+
+.player.active {
+    opacity: 1;
+}
+
+.player-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 12px;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid #3f3f46;
+    object-fit: cover;
+}
+
+.player.active .player-identity {
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.1);
+    box-shadow: 0 0 15px rgba(249, 115, 22, 0.2);
+}
+
+.player.active .player-avatar {
+    border-color: #f97316;
+}
+
+.player-name-val {
+    font-weight: 800;
+    color: #fff;
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.player span {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f97316;
+}
+
+.turn-indicator {
+    background: rgba(249, 115, 22, 0.1);
+    border: 1px solid rgba(249, 115, 22, 0.4);
+    padding: 8px 12px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 20px rgba(249, 115, 22, 0.1);
+    min-width: 90px;
+}
+
+#turn-indicator {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.timer-val {
+    font-size: 18px;
+    font-weight: 900;
+    color: #f97316;
+}
+
+.board-container {
+    padding: 15px;
+    background: linear-gradient(135deg, #111 0%, #050505 100%);
+    border: 4px solid #333;
+    border-radius: 8px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.9), inset 0 0 20px rgba(255, 85, 0, 0.1);
+    position: relative;
+}
+
+.board-container::after {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: -6px;
+    right: -6px;
+    bottom: -6px;
+    border: 1px solid rgba(255, 170, 0, 0.3);
+    border-radius: 12px;
+    pointer-events: none;
+}
+
+.board {
+    display: grid;
+    grid-template-columns: repeat(8, 40px);
+    grid-template-rows: repeat(8, 40px);
+    border: 1px solid #222;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+}
+
+@media (min-width: 400px) {
+    .board {
+        grid-template-columns: repeat(8, 45px);
+        grid-template-rows: repeat(8, 45px);
+    }
+}
+
+.cell {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    box-sizing: border-box;
+    font-family: sans-serif;
+    user-select: none;
+}
+
+.cell.light {
+    background-color: #e6e6e6;
+}
+
+/* Madeira Branca / Mármore Claro */
+.cell.dark {
+    background-color: #1a1a1a;
+}
+
+/* Madeira Negra Fosca */
+
+.cell.valid-move::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: rgba(255, 170, 0, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 0 15px #ffaa00;
+    border: 2px solid #fff;
+    z-index: 5;
+}
+
+.cell.capture-move::after {
+    content: '';
+    position: absolute;
+    width: 90%;
+    height: 90%;
+    border: 3px solid rgba(255, 85, 0, 1);
+    border-radius: 50%;
+    box-shadow: inset 0 0 15px rgba(255, 51, 0, 0.8), 0 0 15px rgba(255, 51, 0, 0.8);
+    background: rgba(255, 50, 0, 0.1);
+    /* Um suave avermelhado dentro pra mostrar que é killzone */
+    z-index: 5;
+}
+
+.piece {
+    font-size: 32px;
+    /* Aumentar visual do Unicode */
+    line-height: 1;
+    text-align: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    /* Salto Elastico Otimizado Gamer */
+    /* Adicionando Pseudo 3D nas Peças de Xadrez Unicodes usando Multi Shadow Drop */
+}
+
+/* O jogador Ciano(Neon) agora é o Dourado Claro Vibrante */
+.piece.p1 {
+    color: #ffcc66;
+    /* Ouro Claro Brilhante */
+    text-shadow:
+        0 1px 0 #cc8800,
+        0 2px 0 #996600,
+        0 3px 0 #664400,
+        0 4px 10px rgba(0, 0, 0, 0.8),
+        0 0 15px rgba(255, 170, 0, 0.8);
+}
+
+/* O jogador Magenta(Sangue) agora é o Preto Metálico Profundo Fosco */
+.piece.p2 {
+    color: #333333;
+    /* Dark Graphite */
+    /* Pra uma peça preta destacar sobre fundo preto do board, precisamos de um outglow laranja suave e bordas prateadas/escuras */
+    text-shadow:
+        -1px -1px 0 #666,
+        /* Bisotado luz prata superior */
+        1px 1px 0 #000,
+        0 1px 0 #111,
+        0 2px 0 #0a0a0a,
+        0 3px 0 #000,
+        0 4px 10px rgba(0, 0, 0, 0.9),
+        0 0 12px rgba(255, 51, 0, 0.4);
+    /* Aura Sangue envolta dele */
+}
+
+.piece.selected {
+    transform: scale(1.15) translateY(-8px);
+    z-index: 20;
+}
+
+.piece.p1.selected {
+    color: #ffffff;
+    /* Fica Branco Brilhante qnd seleciona */
+    text-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.8),
+        0 0 35px #ffaa00,
+        0 0 10px #ffffff;
+}
+
+.piece.p2.selected {
+    color: #ff3300;
+    /* Fica Vermelho Fogo qnd clica p2 */
+    text-shadow:
+        0 10px 20px rgba(0, 0, 0, 0.9),
+        0 0 35px #ff3300,
+        0 0 10px #ff3300;
+}

@@ -78,35 +78,12 @@ export default function SubscriptionCheckout() {
                 setPixCode(data.payload);
                 toast({ title: "PIX Asaas Gerado!", description: "Escaneie ou Copie o código para ativar sua assinatura automaticamente." });
                 setLoading(false);
-            } else {
-                setTimeout(async () => {
-                    // Simula Webhook Asaas - Pagamento Confirmado!
-                    await processAsaasWebhookMock(planId as string);
-                    setSuccess(true);
-                    setLoading(false);
-                }, 2500);
             }
         } catch (error) {
             toast({ variant: "destructive", title: "Erro no pagamento." });
             setLoading(false);
         }
     };
-
-    const processAsaasWebhookMock = async (pid: string) => {
-        if (!user || !plan) return;
-
-        // Atualiza base de dados
-        const expirationDate = new Date();
-        expirationDate.setMonth(expirationDate.getMonth() + 1);
-
-        await (supabase as any).from("profiles").update({
-            plan_type: plan.title,
-            passes_available: 2,
-            pass_value: plan.roomPrice,
-            plan_expiration: expirationDate.toISOString()
-        }).eq("user_id", user.id);
-    };
-
     if (success) {
         return (
             <div className="min-h-screen bg-[#050505] p-6 text-white flex flex-col items-center justify-center">
@@ -142,7 +119,7 @@ export default function SubscriptionCheckout() {
                         <h3 className="text-sm font-bold uppercase text-gray-400 flex items-center gap-2">
                             <ShieldCheck className="h-4 w-4" /> Checkout Seguro Asaas
                         </h3>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3">
                             <Button
                                 variant="outline"
                                 className={`h-auto py-4 flex flex-col items-center gap-2 ${paymentMethod === 'pix' ? 'border-neon-orange bg-orange-500/10 text-orange-400' : 'border-white/10 bg-black text-gray-500 hover:text-white'}`}
@@ -150,27 +127,8 @@ export default function SubscriptionCheckout() {
                             >
                                 <QrCode className="h-6 w-6" /> PIX Copia e Cola
                             </Button>
-                            <Button
-                                variant="outline"
-                                className={`h-auto py-4 flex flex-col items-center gap-2 ${paymentMethod === 'credit_card' ? 'border-neon-orange bg-orange-500/10 text-orange-400' : 'border-white/10 bg-black text-gray-500 hover:text-white'}`}
-                                onClick={() => setPaymentMethod('credit_card')}
-                            >
-                                <CreditCard className="h-6 w-6" /> Cartão de Crédito
-                            </Button>
                         </div>
                     </div>
-
-                    {paymentMethod === 'credit_card' && (
-                        <div className="space-y-3 bg-black/40 p-4 rounded-xl border border-white/5">
-                            <input type="text" placeholder="Número do Cartão" className="w-full bg-[#0c0c0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-neon-orange outline-none transition-colors" />
-                            <div className="grid grid-cols-2 gap-3">
-                                <input type="text" placeholder="Validade (MM/AA)" className="w-full bg-[#0c0c0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-neon-orange outline-none transition-colors" />
-                                <input type="text" placeholder="CVC" className="w-full bg-[#0c0c0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-neon-orange outline-none transition-colors" />
-                            </div>
-                            <input type="text" placeholder="Nome Impresso no Cartão" className="w-full bg-[#0c0c0c] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-neon-orange outline-none transition-colors" />
-                            <p className="text-[10px] text-gray-500 text-center pt-2">A renovação acontecerá automaticamente todo mês.</p>
-                        </div>
-                    )}
 
                     {pixCode ? (
                         <div className="space-y-4 bg-green-500/10 border border-green-500/30 p-4 rounded-xl text-center">
@@ -187,9 +145,6 @@ export default function SubscriptionCheckout() {
                             <div className="flex justify-center items-center gap-2 text-xs text-orange-400 bg-orange-500/10 p-2 rounded">
                                 <Loader2 className="h-4 w-4 animate-spin" /> Aguardando Pagamento Processar...
                             </div>
-                            <Button variant="ghost" className="w-full text-xs text-gray-500 uppercase mt-2" onClick={() => { processAsaasWebhookMock(planId as string); setSuccess(true); }}>
-                                [DEV] Simular PIX Pago
-                            </Button>
                         </div>
                     ) : (
                         <Button onClick={handlePayment} disabled={loading} className="w-full bg-neon-orange hover:bg-orange-600 text-black font-black uppercase tracking-widest py-6 text-lg transition-transform active:scale-95 shadow-lg shadow-orange-900/50">

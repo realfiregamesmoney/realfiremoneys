@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { Shield, Swords, Loader2, Link as LinkIcon, Users, CheckCircle2 } from "lucide-react";
+import { Shield, Swords, Loader2, Link as LinkIcon, Users, CheckCircle2, Eye } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -103,7 +104,8 @@ export default function ChatBattleCard({ battleId }: { battleId: string }) {
     const rightTeam = participants.filter(p => p.team === 'right');
     const leftFull = leftTeam.length >= battle.max_players_per_team;
     const rightFull = rightTeam.length >= battle.max_players_per_team;
-    const imIn = participants.some(p => p.user_id === profile?.user_id);
+    const isParticipant = participants.some(p => p.user_id === profile?.user_id);
+    const isSpectator = !isParticipant && !isAdmin;
     const isFull = leftFull && rightFull;
 
     return (
@@ -123,13 +125,13 @@ export default function ChatBattleCard({ battleId }: { battleId: string }) {
                         <div className="flex -space-x-2">
                             {Array.from({ length: battle.max_players_per_team }).map((_, i) => (
                                 <Avatar key={i} className="h-8 w-8 border-2 border-black bg-zinc-800">
-                                    {leftTeam[i] ? <AvatarImage src={leftTeam[i].user.avatar_url} /> : <AvatarFallback><Users size={12} className="text-white/20" /></AvatarFallback>}
+                                    {leftTeam[i] ? <AvatarImage src={leftTeam[i].user?.avatar_url} /> : <AvatarFallback><Users size={12} className="text-white/20" /></AvatarFallback>}
                                 </Avatar>
                             ))}
                         </div>
                         <Button
                             size="sm"
-                            disabled={leftFull || imIn || isFull || actionLoading}
+                            disabled={leftFull || isParticipant || isFull || actionLoading}
                             onClick={() => handleJoin('left')}
                             className="w-full h-8 text-[10px] font-black uppercase bg-blue-600 hover:bg-blue-700 text-white"
                         >
@@ -148,13 +150,13 @@ export default function ChatBattleCard({ battleId }: { battleId: string }) {
                         <div className="flex -space-x-2">
                             {Array.from({ length: battle.max_players_per_team }).map((_, i) => (
                                 <Avatar key={i} className="h-8 w-8 border-2 border-black bg-zinc-800">
-                                    {rightTeam[i] ? <AvatarImage src={rightTeam[i].user.avatar_url} /> : <AvatarFallback><Users size={12} className="text-white/20" /></AvatarFallback>}
+                                    {rightTeam[i] ? <AvatarImage src={rightTeam[i].user?.avatar_url} /> : <AvatarFallback><Users size={12} className="text-white/20" /></AvatarFallback>}
                                 </Avatar>
                             ))}
                         </div>
                         <Button
                             size="sm"
-                            disabled={rightFull || imIn || isFull || actionLoading}
+                            disabled={rightFull || isParticipant || isFull || actionLoading}
                             onClick={() => handleJoin('right')}
                             className="w-full h-8 text-[10px] font-black uppercase bg-red-600 hover:bg-red-700 text-white"
                         >
@@ -164,8 +166,12 @@ export default function ChatBattleCard({ battleId }: { battleId: string }) {
                 </div>
 
                 {isFull && !showBattleModal && (
-                    <Button onClick={() => setShowBattleModal(true)} className="w-full flex items-center justify-center gap-2 bg-neon-green hover:bg-neon-green/90 text-black font-black uppercase tracking-widest text-xs h-10 shadow-[0_0_15px_rgba(0,255,0,0.3)] animate-pulse">
-                        <Swords size={16} /> Abrir Sala da Batalha
+                    <Button
+                        onClick={() => setShowBattleModal(true)}
+                        className={`w-full flex items-center justify-center gap-2 font-black uppercase tracking-widest text-xs h-10 shadow-lg animate-pulse transition-all ${isSpectator ? 'bg-zinc-800 border border-white/10 text-white hover:bg-zinc-700' : 'bg-neon-green hover:bg-neon-green/90 text-black shadow-[0_0_15px_rgba(0,255,0,0.3)]'}`}
+                    >
+                        {isSpectator ? <Eye size={16} /> : <Swords size={16} />}
+                        {isSpectator ? "Assistir Partida" : "Abrir Sala da Batalha"}
                     </Button>
                 )}
 
@@ -197,9 +203,10 @@ export default function ChatBattleCard({ battleId }: { battleId: string }) {
 
                                         <Button
                                             onClick={() => window.open(battle.room_link, "_blank")}
-                                            className="w-full h-14 bg-neon-green hover:bg-neon-green/90 text-black font-black uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(0,255,0,0.4)] hover:scale-105 transition-transform"
+                                            className={`w-full h-14 font-black uppercase tracking-widest text-sm shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2 ${isSpectator ? 'bg-zinc-800 border border-white/10 text-white hover:bg-zinc-700' : 'bg-neon-green hover:bg-neon-green/90 text-black shadow-[0_0_20px_rgba(0,255,0,0.4)]'}`}
                                         >
-                                            <Swords className="mr-2 h-5 w-5" /> COMEÇAR BATALHA
+                                            {isSpectator ? <Eye className="h-5 w-5" /> : <Swords className="h-5 w-5" />}
+                                            {isSpectator ? "ENTRAR PARA ASSISTIR" : "COMEÇAR BATALHA"}
                                         </Button>
                                     </div>
                                 )}

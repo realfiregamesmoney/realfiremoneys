@@ -18,6 +18,18 @@ import UpdatePassword from "./pages/UpdatePassword";
 import NotFound from "./pages/NotFound";
 import SubscriptionCheckout from "./pages/SubscriptionCheckout";
 import Quiz from "./pages/Quiz";
+import Partnership from "./pages/Partnership";
+import VipPlans from "./pages/VipPlans";
+import MiniGames from "./pages/MiniGames";
+import ShootingGame from "./pages/minigames/ShootingGame";
+import JumpingGame from "./pages/minigames/JumpingGame";
+import CheckersGame from "./pages/minigames/CheckersGame";
+import ChessGame from "./pages/minigames/ChessGame";
+import DominoGame from "./pages/minigames/DominoGame";
+import BattleshipGame from "./pages/minigames/BattleshipGame";
+import UnoGame from "./pages/minigames/UnoGame";
+import CachetaGame from "./pages/minigames/CachetaGame";
+import RadarScreen from "./pages/RadarScreen";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +69,26 @@ function AppRoutes() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/chat" element={<GlobalChat />} />
         <Route path="/quiz" element={<Quiz />} />
+        <Route path="/minigames" element={<MiniGames />} />
+        <Route path="/minigames/shooting" element={<ShootingGame />} />
+        <Route path="/minigames/jumping" element={<JumpingGame />} />
+
+        {/* Battle Games Battlefields */}
+        <Route path="/game/checkers" element={<CheckersGame />} />
+        <Route path="/game/damas" element={<CheckersGame />} />
+        <Route path="/game/chess" element={<ChessGame />} />
+        <Route path="/game/xadrez" element={<ChessGame />} />
+        <Route path="/game/domino" element={<DominoGame />} />
+        <Route path="/game/battleship" element={<BattleshipGame />} />
+        <Route path="/game/batalhanaval" element={<BattleshipGame />} />
+        <Route path="/game/uno" element={<UnoGame />} />
+        <Route path="/game/cacheta" element={<CachetaGame />} />
+
+        {/* Central Tournament Radar */}
+        <Route path="/radar/:gameId?" element={<RadarScreen />} />
+
+        <Route path="/partnership" element={<Partnership />} />
+        <Route path="/vip-plans" element={<VipPlans />} />
       </Route>
       <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />

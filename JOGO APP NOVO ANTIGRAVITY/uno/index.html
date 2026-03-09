@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Royal Money UNO</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+    <div class="top-bar">
+        <a href="../battle.html" class="back-btn">&larr; VOLTAR</a>
+        <h1>ROYAL <span>UNO</span></h1>
+    </div>
+
+    <div class="game-info">
+        <div class="player p2">INIMIGO (Bot) <span id="score2">Cartas: 7</span></div>
+        <div class="turn-indicator" id="turn-indicator">CARREGANDO...</div>
+        <div class="player p1 active">SUA MÃO <span id="score1">Cartas: 7</span></div>
+    </div>
+
+    <div class="table-area">
+        <div class="deck-container" id="deck-btn">
+            <div class="card card-back">COMPRAR</div>
+        </div>
+        <div class="discard-container">
+            <div id="discard-pile" class="card"></div>
+        </div>
+    </div>
+
+    <div class="player-hand-container">
+        <div id="player-hand" class="player-hand"></div>
+    </div>
+
+    <div class="controls">
+        <button id="uno-btn" class="action-btn">GRITAR UNO!</button>
+    </div>
+
+    <div id="color-picker" class="modal">
+        <div class="modal-content">
+            <h3>ESCOLHA A NOVA COR:</h3>
+            <div class="color-options">
+                <button class="c-btn red" data-color="red">VERMELHO</button>
+                <button class="c-btn blue" data-color="blue">AZUL</button>
+                <button class="c-btn green" data-color="green">VERDE</button>
+                <button class="c-btn yellow" data-color="yellow">AMARELO</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-msg" class="status-msg"></div>
+
+    <script src="main.js"></script>
+</body>
+
+</html>
