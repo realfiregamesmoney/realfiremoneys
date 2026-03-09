@@ -5314,14 +5314,14 @@ function AdminChatBattles() {
                                 const rightTeam = battle.participants.filter((p: any) => p.team === 'right');
                                 const totalPrize = (Number(battle.entry_fee) * battle.max_players_per_team * 2) * (1 - (battle.platform_tax || 30) / 100);
 
-                                const isPaid = activeSubTab === 'historico' && battle.prizes_paid;
+                                const isPaid = activeSubTab === 'historico' && (battle.prizes_paid === true);
 
                                 return (
-                                    <div key={battle.id} className={`border rounded-xl p-4 transition-all ${isPaid ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-[#0c0c0c] border-white/5 hover:border-red-500/20'}`}>
+                                    <div key={battle.id} className={`border rounded-xl p-4 transition-all ${isPaid ? 'bg-yellow-500/5 border-yellow-500/40 shadow-[0_0_15px_rgba(234,179,8,0.1)]' : 'bg-[#0c0c0c] border-white/5 hover:border-red-500/20'}`}>
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
-                                                <Badge className={`${isPaid ? 'bg-yellow-600 text-black' : 'bg-orange-600'} text-[9px] uppercase font-black`}>{battle.format_type}</Badge>
-                                                <h4 className={`${isPaid ? 'text-yellow-500' : 'text-white'} font-black text-base mt-1 italic tracking-wider`}>Prêmio: R$ {totalPrize.toFixed(2)}</h4>
+                                                <Badge className={`${isPaid ? 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.5)]' : 'bg-orange-600'} text-[9px] uppercase font-black`}>{battle.format_type}</Badge>
+                                                <h4 className={`${isPaid ? 'text-yellow-400' : 'text-white'} font-black text-base mt-1 italic tracking-wider`}>Prêmio: R$ {totalPrize.toFixed(2)}</h4>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <p className="text-[9px] text-gray-600 font-mono">ID: #{battle.id.substring(0, 8)}</p>
                                                     <span className="text-[9px] text-gray-500 font-bold uppercase">• Taxa: {battle.platform_tax}%</span>
@@ -5334,7 +5334,7 @@ function AdminChatBattles() {
                                                 ) : battle.status === 'open' ? (
                                                     <Badge className="bg-yellow-600/20 text-yellow-500 border-yellow-500/30 text-[9px] uppercase font-black py-1 px-2">Aguardando Jogadores</Badge>
                                                 ) : (
-                                                    <Badge className={`${isPaid ? 'bg-yellow-600 text-black' : 'bg-zinc-800 text-zinc-400'} text-[9px] uppercase font-black py-1 px-2`}>Finalizada</Badge>
+                                                    <Badge className={`${isPaid ? 'bg-yellow-500 text-black shadow-[0_0_5px_rgba(234,179,8,0.3)]' : 'bg-zinc-800 text-zinc-400'} text-[9px] uppercase font-black py-1 px-2`}>Finalizada</Badge>
                                                 )}
                                                 <p className="text-[9px] text-gray-700 uppercase font-bold">{new Date(battle.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</p>
 

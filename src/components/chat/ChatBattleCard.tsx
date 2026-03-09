@@ -110,7 +110,7 @@ export default function ChatBattleCard({ battleId }: { battleId: string }) {
 
     return (
         <div className="w-full flex justify-center py-2 animate-in fade-in slide-in-from-bottom-2">
-            <div className="bg-gradient-to-br from-red-900/30 via-black to-red-900/10 border border-red-500/30 rounded-[2rem] p-4 max-w-[95%] w-[400px] shadow-[0_10px_30px_rgba(255,0,0,0.2)]">
+            <div className="bg-gradient-to-br from-red-900/30 via-black to-red-900/10 border border-red-500/30 rounded-[2rem] p-4 w-full max-w-[400px] shadow-[0_10px_30px_rgba(255,0,0,0.2)]">
 
                 <div className="text-center mb-4">
                     <Badge className="bg-red-600 font-black uppercase tracking-widest text-[10px] mb-2 animate-pulse">🔥 Batalha Relâmpago {battle.format_type}</Badge>

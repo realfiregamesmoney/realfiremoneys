@@ -560,9 +560,7 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                         <Trash2 size={16} />
                                     </button>
                                 )}
-                                <div className="w-full max-w-[400px]">
-                                    <ChatBattleCard battleId={bId} />
-                                </div>
+                                <ChatBattleCard battleId={bId} />
                             </div>
                         );
                     }
