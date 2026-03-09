@@ -2484,6 +2484,12 @@ function AdminFinance() {
                                                 {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
                                             </Badge>
                                             <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
+                                            {tx.payment_method === 'asaas' && (
+                                                <Badge variant="outline" className="border-neon-blue text-neon-blue text-[8px] h-4">ASAAS</Badge>
+                                            )}
+                                            {tx.payment_method === 'manual_pix' && (
+                                                <Badge variant="outline" className="border-neon-orange text-neon-orange text-[8px] h-4">MANUAL</Badge>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-1.5 mt-1">
                                             <p className="text-xs text-gray-400">{tx.nickname}</p>
@@ -2535,6 +2541,12 @@ function AdminFinance() {
                                                 {tx.type === 'deposit' ? 'DEPÓSITO' : 'SAQUE'}
                                             </Badge>
                                             <span className="font-bold text-white">R$ {Number(tx.amount).toFixed(2)}</span>
+                                            {tx.payment_method === 'asaas' && (
+                                                <Badge variant="outline" className="border-neon-blue/50 text-neon-blue/50 text-[8px] h-4">ASAAS</Badge>
+                                            )}
+                                            {tx.payment_method === 'manual_pix' && (
+                                                <Badge variant="outline" className="border-neon-orange/50 text-neon-orange/50 text-[8px] h-4">MANUAL</Badge>
+                                            )}
                                         </div>
                                         <div className="flex items-center gap-1.5 mt-1">
                                             <p className="text-xs text-gray-400">{tx.nickname}</p>

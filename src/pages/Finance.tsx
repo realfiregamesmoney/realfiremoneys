@@ -116,18 +116,19 @@ function DepositTab() {
           user_id: user?.id,
           type: "deposit",
           amount: val,
-          status: "pending"
+          status: "pending",
+          payment_method: "asaas"
         });
 
         if (txError) {
-            console.error("Falha ao registrar transação no banco:", txError);
-            toast({
-                variant: 'destructive',
-                title: 'Erro Interno',
-                description: 'Não foi possível registrar seu pedido de depósito. Tente novamente.'
-            });
-            setIsLoadingAsaas(false);
-            return;
+          console.error("Falha ao registrar transação no banco:", txError);
+          toast({
+            variant: 'destructive',
+            title: 'Erro Interno',
+            description: 'Não foi possível registrar seu pedido de depósito. Tente novamente.'
+          });
+          setIsLoadingAsaas(false);
+          return;
         }
 
         // Log da geração
@@ -170,7 +171,8 @@ function DepositTab() {
       user_id: user.id,
       type: "deposit",
       amount: parseFloat(amount),
-      status: "pending"
+      status: "pending",
+      payment_method: "manual_pix"
     });
     if (error) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
