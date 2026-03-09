@@ -5271,6 +5271,18 @@ function AdminChatBattles() {
         }
     };
 
+    const handleDeleteBattle = async (battleId: string) => {
+        const confirmDelete = confirm("Tem certeza que deseja apagar DEFINITIVAMENTE esta batalha dos registros? Esta ação não pode ser desfeita.");
+        if (!confirmDelete) return;
+
+        const { error } = await supabase.from('chat_battles').delete().eq('id', battleId);
+        if (error) toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+        else {
+            toast({ title: "Batalha removida com sucesso!" });
+            fetchBattles();
+        }
+    };
+
     return (
         <Card className="bg-[#111] border-white/10 mt-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
             <CardHeader className="pb-2 border-b border-white/5">
@@ -5300,26 +5312,37 @@ function AdminChatBattles() {
                                 const totalPrize = (Number(battle.entry_fee) * battle.max_players_per_team * 2) * (1 - (battle.platform_tax || 30) / 100);
 
                                 return (
-                                    <div key={battle.id} className="bg-[#0c0c0c] border border-white/5 rounded-xl p-4 transition-all hover:border-red-500/20">
+                                    <div key={battle.id} className={`border rounded-xl p-4 transition-all ${activeSubTab === 'historico' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-[#0c0c0c] border-white/5 hover:border-red-500/20'}`}>
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
-                                                <Badge className="bg-orange-600 text-[9px] uppercase font-black">{battle.format_type}</Badge>
-                                                <h4 className="text-white font-black text-base mt-1 italic tracking-wider">Prêmio: R$ {totalPrize.toFixed(2)}</h4>
+                                                <Badge className={`${activeSubTab === 'historico' ? 'bg-yellow-600' : 'bg-orange-600'} text-[9px] uppercase font-black`}>{battle.format_type}</Badge>
+                                                <h4 className={`${activeSubTab === 'historico' ? 'text-yellow-500' : 'text-white'} font-black text-base mt-1 italic tracking-wider`}>Prêmio: R$ {totalPrize.toFixed(2)}</h4>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     <p className="text-[9px] text-gray-600 font-mono">ID: #{battle.id.substring(0, 8)}</p>
                                                     <span className="text-[9px] text-gray-500 font-bold uppercase">• Taxa: {battle.platform_tax}%</span>
                                                     <span className="text-[9px] text-gray-500 font-bold uppercase">• Entrada: R$ {Number(battle.entry_fee).toFixed(2)}</span>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-right flex flex-col items-end gap-2">
                                                 {battle.status === 'active' ? (
                                                     <Badge className="bg-green-600/20 text-green-500 border-green-500/30 text-[9px] uppercase font-black py-1 px-2 animate-pulse">Em Combate</Badge>
                                                 ) : battle.status === 'open' ? (
                                                     <Badge className="bg-yellow-600/20 text-yellow-500 border-yellow-500/30 text-[9px] uppercase font-black py-1 px-2">Aguardando Jogadores</Badge>
                                                 ) : (
-                                                    <Badge className="bg-zinc-800 text-zinc-400 text-[9px] uppercase font-black py-1 px-2">Finalizada</Badge>
+                                                    <Badge className="bg-yellow-600 text-black text-[9px] uppercase font-black py-1 px-2">Finalizada</Badge>
                                                 )}
-                                                <p className="text-[9px] text-gray-700 mt-1 uppercase font-bold">{new Date(battle.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                                                <p className="text-[9px] text-gray-700 uppercase font-bold">{new Date(battle.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}</p>
+
+                                                {activeSubTab === 'historico' && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 px-2 text-[8px] uppercase font-black bg-red-600/10 text-red-500 hover:bg-red-600/20 border border-red-500/20 rounded-md"
+                                                        onClick={() => handleDeleteBattle(battle.id)}
+                                                    >
+                                                        <Trash2 size={10} className="mr-1" /> Apagar Registro
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
 

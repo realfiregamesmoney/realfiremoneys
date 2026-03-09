@@ -518,8 +518,8 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                     const isPriorityAdminMessage = msg.is_admin && msg.message && msg.message.startsWith('📢 [PRIORIDADE]');
                     if (isPriorityAdminMessage) {
                         return (
-                            <div key={msg.id} className="w-full flex justify-center py-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="bg-gradient-to-br from-orange-600/30 via-orange-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 max-w-[90%] shadow-[0_10px_30px_rgba(255,100,0,0.15)] relative group transition-all hover:scale-[1.01]">
+                            <div key={msg.id} className="w-full flex justify-center py-2 animate-in fade-in slide-in-from-bottom-2 duration-300 px-2">
+                                <div className="bg-gradient-to-br from-orange-600/30 via-orange-500/10 to-transparent border border-orange-500/30 rounded-2xl p-4 w-full max-w-[500px] shadow-[0_10px_30px_rgba(255,100,0,0.15)] relative group transition-all hover:scale-[1.01]">
                                     <div className="flex items-center gap-2 mb-2">
                                         <div className="p-1 bg-yellow-500/20 rounded-lg">
                                             <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 animate-pulse" />
@@ -554,21 +554,23 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                     if (msg.message && msg.message.startsWith('SYS_BATTLE:')) {
                         const bId = msg.message.replace('SYS_BATTLE:', '').trim();
                         return (
-                            <div key={msg.id} className="relative">
+                            <div key={msg.id} className="w-full flex justify-center py-2 px-2 relative">
                                 {isAdmin && (
-                                    <button onClick={() => deleteMessage(msg.id)} className="absolute -top-3 right-4 z-50 text-red-500 hover:text-red-400 bg-black/60 border border-red-500/20 rounded-full p-2 transition-transform hover:scale-110" title="Deletar Tela de Batalha">
+                                    <button onClick={() => deleteMessage(msg.id)} className="absolute top-0 right-4 z-50 text-red-500 hover:text-red-400 bg-black/60 border border-red-500/20 rounded-full p-2 transition-transform hover:scale-110" title="Deletar Tela de Batalha">
                                         <Trash2 size={16} />
                                     </button>
                                 )}
-                                <ChatBattleCard battleId={bId} />
+                                <div className="w-full max-w-[400px]">
+                                    <ChatBattleCard battleId={bId} />
+                                </div>
                             </div>
                         );
                     }
 
                     const nickColor = stringToHslColor(msg.sender?.nickname || msg.sender_id);
                     return (
-                        <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${showHeader ? 'mt-2' : '-mt-2'}`}>
-                            <div className={`flex gap-3 max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div key={msg.id} className={`w-full flex flex-col items-center ${showHeader ? 'mt-4' : 'mt-1'}`}>
+                            <div className={`flex gap-3 w-full max-w-[500px] px-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                                 {!isMe && showHeader && (
                                     <Avatar className="h-8 w-8 rounded-full border-2 border-white/5 shrink-0 mt-1 shadow-md">
                                         <AvatarImage src={msg.sender?.avatar_url || ""} />
@@ -577,7 +579,7 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                 )}
                                 {!isMe && !showHeader && <div className="w-8 shrink-0" />}
 
-                                <div className={`relative px-4 py-2.5 rounded-2xl shadow-lg border animate-in fade-in slide-in-from-bottom-1 duration-300 ${isMe ? 'bg-neon-orange/20 border-neon-orange/20 rounded-tr-none' : 'bg-[#1a1a1a] border-white/5 rounded-tl-none'}`}>
+                                <div className={`relative px-4 py-2.5 rounded-2xl shadow-lg border animate-in fade-in slide-in-from-bottom-1 duration-300 flex-1 min-w-0 ${isMe ? 'bg-neon-orange/20 border-neon-orange/20 rounded-tr-none' : 'bg-[#1a1a1a] border-white/5 rounded-tl-none'}`}>
                                     {/* Tail effect */}
                                     {showHeader && (
                                         <div className={`absolute top-0 w-2 h-2 ${isMe ? '-right-1.5 bg-neon-orange/20' : '-left-1.5 bg-[#1a1a1a]'} clip-path-triangle`}></div>
