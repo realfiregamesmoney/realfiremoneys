@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { format, subDays, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -5168,6 +5169,255 @@ function AdminCompanyWallet() {
     );
 }
 
+// --- NOVO: GERENCIADOR DE BATALHAS DO CHAT ---
+function AdminChatBattles() {
+    const { toast } = useToast();
+    const [battles, setBattles] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeSubTab, setActiveSubTab] = useState<'pendentes' | 'historico'>('pendentes');
+
+    const fetchBattles = async () => {
+        setLoading(true);
+        let query = supabase
+            .from('chat_battles')
+            .select(`
+                *,
+                participants:chat_battle_participants(
+                    *,
+                    user:profiles(nickname, avatar_url, saldo)
+                )
+            `);
+
+        if (activeSubTab === 'pendentes') {
+            query = query.in('status', ['open', 'active']);
+        } else {
+            query = query.eq('status', 'finished');
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+
+        if (error) {
+            console.error("Error fetching battles:", error);
+        } else {
+            setBattles(data || []);
+        }
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchBattles();
+        // Subscribe to changes
+        const channel = supabase.channel('admin_battles_sync')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_battles' }, () => fetchBattles())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_battle_participants' }, () => fetchBattles())
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [activeSubTab]);
+
+    const handleFinalizeBattle = async (battle: any, winningTeam: 'left' | 'right') => {
+        const winners = battle.participants.filter((p: any) => p.team === winningTeam);
+        if (winners.length === 0) return toast({ variant: "destructive", title: "Erro", description: "Não há jogadores no time vencedor." });
+
+        const confirmPay = confirm(`Deseja pagar o prêmio para os ${winners.length} jogadores do time ${winningTeam === 'left' ? 'Azul' : 'Vermelho'}?`);
+        if (!confirmPay) return;
+
+        const totalPrize = (Number(battle.entry_fee) * battle.max_players_per_team * 2) * (1 - (battle.platform_tax || 30) / 100);
+        const prizePerWinner = totalPrize / winners.length;
+
+        try {
+            for (const winner of winners) {
+                const currentSaldo = Number(winner.user.saldo || 0);
+                const newSaldo = currentSaldo + prizePerWinner;
+
+                const { error: profileErr } = await supabase
+                    .from('profiles')
+                    .update({ saldo: newSaldo })
+                    .eq('user_id', winner.user_id);
+
+                if (profileErr) throw profileErr;
+
+                await supabase.from('transactions').insert({
+                    user_id: winner.user_id,
+                    type: 'deposit',
+                    amount: prizePerWinner,
+                    status: 'approved',
+                    source: 'chat_battle_win',
+                    payment_method: 'chat_battle'
+                });
+
+                await supabase.from('notifications').insert({
+                    user_id: winner.user_id,
+                    title: "🔥 Vitória na Batalha!",
+                    message: `Parabéns! Você ganhou R$ ${prizePerWinner.toFixed(2)} na Batalha do Chat.`,
+                    type: 'payment_confirmed'
+                });
+            }
+
+            await supabase.from('chat_battles').update({ status: 'finished' }).eq('id', battle.id);
+            toast({ title: "Batalha finalizada e vencedores pagos!" });
+            fetchBattles();
+        } catch (err: any) {
+            toast({ variant: "destructive", title: "Erro ao pagar", description: err.message });
+        }
+    };
+
+    const handleArchiveBattle = async (battleId: string) => {
+        const { error } = await supabase.from('chat_battles').update({ status: 'finished' }).eq('id', battleId);
+        if (error) toast({ variant: "destructive", title: "Erro ao arquivar" });
+        else {
+            toast({ title: "Batalha arquivada." });
+            fetchBattles();
+        }
+    };
+
+    return (
+        <Card className="bg-[#111] border-white/10 mt-6 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+            <CardHeader className="pb-2 border-b border-white/5">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-white uppercase tracking-widest">
+                    <Swords className="h-5 w-5 text-red-500" /> Batalhas do Chat Global
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4">
+                <Tabs value={activeSubTab} onValueChange={(v: any) => setActiveSubTab(v)} className="w-full">
+                    <TabsList className="bg-black/50 border border-white/5 w-full grid grid-cols-2 mb-4">
+                        <TabsTrigger value="pendentes" className="text-[10px] uppercase font-black data-[state=active]:bg-red-600 data-[state=active]:text-white transition-all">Ativas / Pendentes</TabsTrigger>
+                        <TabsTrigger value="historico" className="text-[10px] uppercase font-black data-[state=active]:bg-zinc-800 data-[state=active]:text-white transition-all">Histórico de Prêmios</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value={activeSubTab} className="mt-0 space-y-4">
+                        {loading ? (
+                            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-neon-orange" /></div>
+                        ) : battles.length === 0 ? (
+                            <div className="text-center py-12 bg-white/5 rounded-2xl border border-dashed border-white/10">
+                                <Archive className="h-8 w-8 text-gray-700 mx-auto mb-2" />
+                                <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Nenhuma batalha encontrada</p>
+                            </div>
+                        ) : (
+                            battles.map(battle => {
+                                const leftTeam = battle.participants.filter((p: any) => p.team === 'left');
+                                const rightTeam = battle.participants.filter((p: any) => p.team === 'right');
+                                const totalPrize = (Number(battle.entry_fee) * battle.max_players_per_team * 2) * (1 - (battle.platform_tax || 30) / 100);
+
+                                return (
+                                    <div key={battle.id} className="bg-[#0c0c0c] border border-white/5 rounded-xl p-4 transition-all hover:border-red-500/20">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <Badge className="bg-orange-600 text-[9px] uppercase font-black">{battle.format_type}</Badge>
+                                                <h4 className="text-white font-black text-base mt-1 italic tracking-wider">Prêmio: R$ {totalPrize.toFixed(2)}</h4>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <p className="text-[9px] text-gray-600 font-mono">ID: #{battle.id.substring(0, 8)}</p>
+                                                    <span className="text-[9px] text-gray-500 font-bold uppercase">• Taxa: {battle.platform_tax}%</span>
+                                                    <span className="text-[9px] text-gray-500 font-bold uppercase">• Entrada: R$ {Number(battle.entry_fee).toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                {battle.status === 'active' ? (
+                                                    <Badge className="bg-green-600/20 text-green-500 border-green-500/30 text-[9px] uppercase font-black py-1 px-2 animate-pulse">Em Combate</Badge>
+                                                ) : battle.status === 'open' ? (
+                                                    <Badge className="bg-yellow-600/20 text-yellow-500 border-yellow-500/30 text-[9px] uppercase font-black py-1 px-2">Aguardando Jogadores</Badge>
+                                                ) : (
+                                                    <Badge className="bg-zinc-800 text-zinc-400 text-[9px] uppercase font-black py-1 px-2">Finalizada</Badge>
+                                                )}
+                                                <p className="text-[9px] text-gray-700 mt-1 uppercase font-bold">{new Date(battle.created_at).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {/* Time Azul */}
+                                            <div className="bg-blue-900/5 border border-blue-500/10 p-3 rounded-xl">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest flex items-center gap-1.5">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                                        Time Azul ({leftTeam.length}/{battle.max_players_per_team})
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1.5 mb-3">
+                                                    {leftTeam.length > 0 ? leftTeam.map((p: any) => (
+                                                        <div key={p.user_id} className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5 group transition-all hover:bg-white/5">
+                                                            <Avatar className="h-6 w-6">
+                                                                <AvatarImage src={p.user?.avatar_url} />
+                                                                <AvatarFallback className="text-[8px] bg-zinc-800">{p.user?.nickname?.substring(0, 2)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[11px] text-white font-bold truncate">{p.user?.nickname}</p>
+                                                            </div>
+                                                        </div>
+                                                    )) : (
+                                                        <p className="text-[10px] text-gray-700 italic border border-dashed border-white/5 rounded-lg p-2 text-center">Nenhum jogador</p>
+                                                    )}
+                                                </div>
+                                                {activeSubTab === 'pendentes' && (
+                                                    <Button
+                                                        onClick={() => handleFinalizeBattle(battle, 'left')}
+                                                        disabled={leftTeam.length === 0}
+                                                        size="sm"
+                                                        className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-900/40"
+                                                    >
+                                                        Confirmar Vitória Azul
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {/* Time Vermelho */}
+                                            <div className="bg-red-900/5 border border-red-500/10 p-3 rounded-xl">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-[10px] font-black uppercase text-red-400 tracking-widest flex items-center gap-1.5">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                                                        Time Vermelho ({rightTeam.length}/{battle.max_players_per_team})
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1.5 mb-3">
+                                                    {rightTeam.length > 0 ? rightTeam.map((p: any) => (
+                                                        <div key={p.user_id} className="flex items-center gap-2 bg-black/40 p-2 rounded-lg border border-white/5 group transition-all hover:bg-white/5">
+                                                            <Avatar className="h-6 w-6">
+                                                                <AvatarImage src={p.user?.avatar_url} />
+                                                                <AvatarFallback className="text-[8px] bg-zinc-800">{p.user?.nickname?.substring(0, 2)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[11px] text-white font-bold truncate">{p.user?.nickname}</p>
+                                                            </div>
+                                                        </div>
+                                                    )) : (
+                                                        <p className="text-[10px] text-gray-700 italic border border-dashed border-white/5 rounded-lg p-2 text-center">Nenhum jogador</p>
+                                                    )}
+                                                </div>
+                                                {activeSubTab === 'pendentes' && (
+                                                    <Button
+                                                        onClick={() => handleFinalizeBattle(battle, 'right')}
+                                                        disabled={rightTeam.length === 0}
+                                                        size="sm"
+                                                        className="w-full h-8 bg-red-600 hover:bg-red-700 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-red-900/40"
+                                                    >
+                                                        Confirmar Vitória Vermelha
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {activeSubTab === 'pendentes' && (
+                                            <div className="flex justify-center mt-4 pt-2 border-t border-white/5">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="text-gray-600 hover:text-red-500 text-[10px] uppercase font-bold"
+                                                    onClick={() => handleArchiveBattle(battle.id)}
+                                                >
+                                                    Arquivar Batalha sem pagar
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+        </Card>
+    );
+}
+
 // --- 13. CHAT GLOBAL (ADMIN) ---
 function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void }) {
     const [isLocked, setIsLocked] = useState(false);
@@ -5469,6 +5719,8 @@ function AdminChatControl({ onTabChange }: { onTabChange: (val: string) => void 
                             </div>
                         </CardContent>
                     </Card>
+
+                    <AdminChatBattles />
                 </div>
 
                 <div className="h-full min-h-[600px] border border-white/10 bg-black/40 rounded-2xl p-2 relative">
