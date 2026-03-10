@@ -95,6 +95,7 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
             // 3. SUPABASE REALTIME
             const channel = supabase.channel('race_admin_channel')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'minigame_sessions' }, () => fetchRaceData())
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions', filter: "type=eq.race_score" }, () => fetchRaceData())
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchRaceData())
                 .subscribe();
 
