@@ -52,23 +52,29 @@ export default function ShootingGame() {
                 oldHighScoreRef.current = previousScores && previousScores.length > 0 ? previousScores[0].amount : 0;
                 lastSavedScoreRef.current = oldHighScoreRef.current;
 
-                // Consome a corrida
-                const newRaces = Math.max(0, currentProfile.passes_available - 1);
+                // 1. Consome a corrida (ESSENCIAL)
+                const newRaces = Math.max(0, (currentProfile.passes_available || 0) - 1);
                 await supabase.from("profiles").update({ passes_available: newRaces }).eq("user_id", user.id);
-                await refreshProfile();
+                refreshProfile(); // Não precisa de await aqui para o jogo carregar logo
 
-                // CRIA SESSÃO ATIVA PARA O ADMIN VER EM TEMPO REAL
-                const { data: sessionData } = await supabase.from('minigame_sessions').insert({
-                    user_id: user.id,
-                    game_id: 'shooting_game',
-                    status: 'active',
-                    played_at: new Date().toISOString()
-                }).select('id').single();
+                // 2. RASTREAMENTO DO ADMIN (OPCIONAL - Se falhar o jogo continua)
+                try {
+                    const { data: sessionData } = await supabase.from('minigame_sessions').insert({
+                        user_id: user.id,
+                        game_id: 'shooting_game',
+                        status: 'active',
+                        played_at: new Date().toISOString()
+                    }).select('id').maybeSingle();
 
-                if (sessionData) sessionIdRef.current = sessionData.id;
+                    if (sessionData) sessionIdRef.current = sessionData.id;
+                } catch (err) {
+                    console.error("Erro ao rastrear sessão admin (ignorado):", err);
+                }
 
                 toast.success("-1 Passe de Corrida. Acelere!");
             } catch (e) {
+                console.error("Erro fatal ao iniciar jogo de tiro:", e);
+                toast.error("Erro ao iniciar corrida. Tente novamente.");
                 navigate("/minigames");
             }
         };
@@ -235,7 +241,7 @@ export default function ShootingGame() {
             }
             toast.info(`Pista abandonada. Você fez ${finalScore} PONTOS.`);
         };
-    }, [user, navigate, profile, refreshProfile]);
+    }, [user, navigate]);
 
     return (
         <div className="fixed inset-0 bg-[#050505] z-[100] flex flex-col pointer-events-auto">
