@@ -567,8 +567,8 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
 
                     const nickColor = stringToHslColor(msg.sender?.nickname || msg.sender_id);
                     return (
-                        <div key={msg.id} className={`w-full flex flex-col items-center ${showHeader ? 'mt-4' : 'mt-1'}`}>
-                            <div className={`flex gap-3 w-full max-w-[500px] px-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                        <div key={msg.id} className={`w-full flex flex-col items-center justify-center ${showHeader ? 'mt-6' : 'mt-1'}`}>
+                            <div className={`flex gap-3 w-full max-w-[95%] sm:max-w-[450px] ${isMe ? 'flex-row-reverse' : 'flex-row'} items-start`}>
                                 {!isMe && showHeader && (
                                     <Avatar className="h-8 w-8 rounded-full border-2 border-white/5 shrink-0 mt-1 shadow-md">
                                         <AvatarImage src={msg.sender?.avatar_url || ""} />
@@ -577,10 +577,10 @@ export default function GlobalChat({ embedded = false }: { embedded?: boolean })
                                 )}
                                 {!isMe && !showHeader && <div className="w-8 shrink-0" />}
 
-                                <div className={`relative px-4 py-2.5 rounded-2xl shadow-lg border animate-in fade-in slide-in-from-bottom-1 duration-300 flex-1 min-w-0 ${isMe ? 'bg-neon-orange/20 border-neon-orange/20 rounded-tr-none' : 'bg-[#1a1a1a] border-white/5 rounded-tl-none'}`}>
+                                <div className={`relative px-4 py-2.5 rounded-2xl shadow-lg border animate-in fade-in slide-in-from-bottom-1 duration-300 flex-1 min-w-0 ${isMe ? 'bg-orange-600/20 border-orange-600/20 rounded-tr-none' : 'bg-[#1a1a1a] border-white/5 rounded-tl-none'}`}>
                                     {/* Tail effect */}
                                     {showHeader && (
-                                        <div className={`absolute top-0 w-2 h-2 ${isMe ? '-right-1.5 bg-neon-orange/20' : '-left-1.5 bg-[#1a1a1a]'} clip-path-triangle`}></div>
+                                        <div className={`absolute top-0 w-2 h-2 ${isMe ? '-right-1.5 bg-orange-600/20' : '-left-1.5 bg-[#1a1a1a]'} clip-path-triangle`}></div>
                                     )}
 
                                     {showHeader && (

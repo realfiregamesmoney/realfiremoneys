@@ -146,10 +146,30 @@ export default function MiniGames() {
 
         init();
 
+        let channel: any;
+
         if (activeCategory === "race" || activeCategory === "battle") {
             loadRaceData();
             loadLeaderboard();
+
+            // Sincronização em tempo real para o ranking
+            const scoreType = activeCategory === 'battle' ? 'battle_score' : 'race_score';
+            channel = supabase.channel('ranking_realtime')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'transactions',
+                    filter: `type=eq.${scoreType}`
+                }, () => {
+                    console.log("Novo recorde detectado, atualizando ranking...");
+                    loadLeaderboard();
+                })
+                .subscribe();
         }
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
     }, [activeCategory, user?.id]);
 
     const loadPackages = async () => {
@@ -203,26 +223,37 @@ export default function MiniGames() {
 
     const loadLeaderboard = async () => {
         const type = activeCategory === 'battle' ? 'battle_score' : 'race_score';
-        const { data } = await supabase.from("transactions")
-            .select("amount, user_id, profiles!inner(nickname, avatar_url)")
-            .eq("type", type)
-            .order("amount", { ascending: false })
-            .limit(20);
 
-        if (data && data.length > 0) {
-            const uniqueUsers = new Map();
-            data.forEach(item => {
-                if (!uniqueUsers.has(item.user_id)) {
-                    uniqueUsers.set(item.user_id, {
-                        score: item.amount,
-                        nickname: item.profiles?.nickname || 'Piloto',
-                        avatar_url: item.profiles?.avatar_url
+        try {
+            // Tenta usar a RPC otimizada que separa recordes únicos por jogador
+            const { data, error } = await supabase.rpc('get_global_ranking', { p_type: type });
+
+            if (data && !error) {
+                // Removemos o .slice(0, 10) para aparecer TODOS os jogadores conforme solicitado
+                setLeaderboard(data);
+            } else {
+                // Fallback caso a RPC ainda não exista no banco
+                const { data: fallbackData } = await supabase.from("transactions")
+                    .select("amount, user_id, profiles!inner(nickname, avatar_url)")
+                    .eq("type", type)
+                    .order("amount", { ascending: false });
+
+                if (fallbackData) {
+                    const uniqueUsers = new Map();
+                    fallbackData.forEach(item => {
+                        if (!uniqueUsers.has(item.user_id)) {
+                            uniqueUsers.set(item.user_id, {
+                                score: item.amount,
+                                nickname: item.profiles?.nickname || 'Piloto',
+                                avatar_url: item.profiles?.avatar_url
+                            });
+                        }
                     });
+                    setLeaderboard(Array.from(uniqueUsers.values()));
                 }
-            });
-            setLeaderboard(Array.from(uniqueUsers.values()).slice(0, 10));
-        } else {
-            setLeaderboard([]);
+            }
+        } catch (err) {
+            console.error("Erro ao carregar o leaderboard:", err);
         }
     };
 
