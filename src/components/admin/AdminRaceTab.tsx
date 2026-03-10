@@ -55,25 +55,24 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
                 .limit(20);
             setActiveRaces(active || []);
 
-            // 2. Partidas Realizadas
+            // 2. Partidas Realizadas (Histórico Total)
             const { data: finished } = await supabase
                 .from('minigame_sessions')
                 .select('*, profiles(nickname, avatar_url)')
-                .eq('status', 'finished')
                 .order('played_at', { ascending: false })
-                .limit(50);
+                .limit(100);
             setFinishedRaces(finished || []);
 
-            // 3. Ranking Global de Corridas (Usando a nova RPC para ser fiel ao reset do Admin)
+            // 3. Ranking Global de Corridas (Com sistema de Reset)
             const { data: rank, error: rankErr } = await supabase.rpc('get_global_ranking', { p_type: 'race_score' });
 
-            if (rank) {
-                setRaceRanking(rank || []);
+            if (rank && !rankErr) {
+                setRaceRanking(rank);
             } else if (rankErr) {
-                console.error("Erro RPC Ranking:", rankErr);
+                console.error("Erro ao sincronizar ranking admin:", rankErr);
             }
         } catch (error) {
-            console.error("Erro ao buscar dados de corrida:", error);
+            console.error("Erro geral na sincronização admin:", error);
         } finally {
             setIsLoadingData(false);
         }
