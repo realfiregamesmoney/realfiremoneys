@@ -77,6 +77,7 @@ export default function Dashboard() {
       const { data: players, error: playersError } = await supabase
         .from("profiles")
         .select("nickname, avatar_url, freefire_level, total_winnings, user_id")
+        .not("is_banned", "eq", true) // OCULTA BANIDOS
         .order("total_winnings", { ascending: false })
         .limit(10);
 
@@ -162,7 +163,8 @@ export default function Dashboard() {
         const { data: profiles, error: profError } = await supabase
           .from('profiles')
           .select('nickname, avatar_url, user_id')
-          .in('nickname', uniqueNames);
+          .in('nickname', uniqueNames)
+          .not("is_banned", "eq", true); // OCULTA BANIDOS DOS GANHADORES
 
         if (profiles) {
           // Buscar patentes separadamente para os ganhadores recentes
