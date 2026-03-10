@@ -78,20 +78,19 @@ export default function AdminGames() {
                 .order('created_at', { ascending: false })
                 .limit(50);
 
-            const { data: rankingData } = await supabase.from('race_scores').select('*, profiles(nickname)').order('score', { ascending: false }).limit(50);
-
             if (gamesData) setGames(gamesData);
             if (packagesData) setPackages(packagesData);
             if (sessionsData) setSessions(sessionsData);
             if (settingsData) setAppSettings(settingsData);
             if (transactionsData) setTransactions(transactionsData);
 
-            if (rankingData) {
-                const formattedRanking = rankingData.map((r: any) => ({
-                    ...r,
-                    nickname: r.profiles?.nickname || 'Anônimo'
-                }));
-                setRaceRanking(formattedRanking);
+            // 3. Ranking Global de Corridas (Respeitando Reset)
+            const { data: rank, error: rankErr } = await supabase.rpc('get_global_ranking', { p_type: 'race_score' });
+
+            if (rank && !rankErr) {
+                setRaceRanking(rank);
+            } else if (rankErr) {
+                console.error("Erro ao buscar ranking na RPC:", rankErr);
             }
 
             // Carregar configurações de visibilidade
@@ -269,6 +268,26 @@ export default function AdminGames() {
         }
     };
 
+    const handleResetRanking = async () => {
+        const confirm = window.confirm("⚠️ ATENÇÃO: Deseja ZERAR o ranking global agora? \n\nIsso irá esconder todos os recordes atuais. Apenas pontos feitos APÓS esta ação serão contados. Esta ação não pode ser desfeita!");
+
+        if (!confirm) return;
+
+        toast.loading("Reiniciando Ranking...");
+        try {
+            const now = new Date().toISOString();
+            const { error: resetErr } = await supabase.from('app_settings').upsert({ key: 'race_ranking_last_reset', value: JSON.stringify(now) });
+            if (resetErr) throw resetErr;
+
+            toast.dismiss();
+            toast.success("Ranking ZERADO com sucesso!");
+            fetchInitialData();
+        } catch (e) {
+            toast.dismiss();
+            toast.error("Erro ao zerar ranking");
+        }
+    };
+
     const toggleGameVisibility = async (key: 'hide_race' | 'hide_battle') => {
         const newValue = !hidingConfig[key];
         try {
@@ -277,7 +296,7 @@ export default function AdminGames() {
                 .upsert({ key: key, value: String(newValue) }, { onConflict: 'key' });
 
             if (error) throw error;
-            
+
             setHidingConfig(prev => ({ ...prev, [key]: newValue }));
             toast.success(`${key === 'hide_race' ? 'RACE' : 'BATTLE'} ${newValue ? 'OCULTADO' : 'EXIBIDO'} com sucesso!`);
         } catch (err: any) {
@@ -609,8 +628,8 @@ export default function AdminGames() {
                             <tr className="border-b border-white/5 bg-white/5">
                                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Posição</th>
                                 <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Piloto / Recordista</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Pontuação Total</th>
-                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Última Atualização</th>
+                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Recorde Atual</th>
+                                <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Reset de Temporada</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
@@ -627,7 +646,15 @@ export default function AdminGames() {
                                         </div>
                                     </td>
                                     <td className="px-8 py-4 text-orange-400 font-black italic text-lg">{(rank.score || 0).toLocaleString()} PTS</td>
-                                    <td className="px-8 py-4 text-xs font-bold text-gray-500 uppercase">{new Date(rank.updated_at).toLocaleString('pt-BR')}</td>
+                                    <td className="px-8 py-4 text-right">
+                                        <Button
+                                            variant="destructive"
+                                            onClick={handleResetRanking}
+                                            className="h-8 rounded-lg px-4 text-[9px] uppercase font-black tracking-widest bg-red-600 hover:bg-red-500 shadow-lg shadow-red-900/20"
+                                        >
+                                            Zerar Ranking
+                                        </Button>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -724,15 +751,15 @@ export default function AdminGames() {
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    <Button 
-                        onClick={() => toggleGameVisibility('hide_race')} 
+                    <Button
+                        onClick={() => toggleGameVisibility('hide_race')}
                         variant={hidingConfig.hide_race ? "destructive" : "outline"}
                         className={`h-10 px-4 rounded-xl font-black text-[10px] tracking-widest ${!hidingConfig.hide_race ? 'border-orange-500/50 text-orange-500' : ''}`}
                     >
                         {hidingConfig.hide_race ? "EXIBIR RACE" : "OCULTAR RACE"}
                     </Button>
-                    <Button 
-                        onClick={() => toggleGameVisibility('hide_battle')} 
+                    <Button
+                        onClick={() => toggleGameVisibility('hide_battle')}
                         variant={hidingConfig.hide_battle ? "destructive" : "outline"}
                         className={`h-10 px-4 rounded-xl font-black text-[10px] tracking-widest ${!hidingConfig.hide_battle ? 'border-blue-500/50 text-blue-500' : ''}`}
                     >

@@ -35,11 +35,16 @@ export default function ShootingGame() {
             }
 
             try {
-                // Fetch highest score for tracking
+                // Busca a data do último reset
+                const { data: resetConfig } = await supabase.from("app_settings").select("value").eq("key", "race_ranking_last_reset").single();
+                const resetDate = resetConfig ? (typeof resetConfig.value === 'string' ? JSON.parse(resetConfig.value) : resetConfig.value) : '2000-01-01T00:00:00.000Z';
+
+                // Fetch highest score for tracking (APENAS desta temporada após reset)
                 const { data: previousScores } = await supabase.from("transactions")
                     .select("amount")
                     .eq("user_id", user.id)
                     .eq("type", "race_score")
+                    .gt("created_at", resetDate)
                     .order("amount", { ascending: false })
                     .limit(1);
 

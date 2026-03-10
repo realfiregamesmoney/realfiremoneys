@@ -64,13 +64,14 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
                 .limit(50);
             setFinishedRaces(finished || []);
 
-            // 3. Ranking Global de Corridas
-            const { data: rank } = await supabase
-                .from('profiles')
-                .select('id, nickname, avatar_url, race_victories, total_winnings')
-                .order('race_victories', { ascending: false })
-                .limit(50);
-            setRaceRanking(rank || []);
+            // 3. Ranking Global de Corridas (Usando a nova RPC para ser fiel ao reset do Admin)
+            const { data: rank, error: rankErr } = await supabase.rpc('get_global_ranking', { p_type: 'race_score' });
+
+            if (rank) {
+                setRaceRanking(rank || []);
+            } else if (rankErr) {
+                console.error("Erro RPC Ranking:", rankErr);
+            }
         } catch (error) {
             console.error("Erro ao buscar dados de corrida:", error);
         } finally {
@@ -191,6 +192,36 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
                 }
             }
         );
+    };
+
+    const handleResetRanking = async () => {
+        const confirm = window.confirm("⚠️ ATENÇÃO: Deseja ZERAR o ranking global agora? \n\nIsso irá esconder todos os recordes atuais. Apenas pontos feitos APÓS esta ação serão contados. Esta ação não pode ser desfeita!");
+
+        if (!confirm) return;
+
+        toast.loading("Reiniciando Ranking...");
+        try {
+            const now = new Date().toISOString();
+
+            // Atualiza a data de reset no app_settings
+            const { error: resetErr } = await supabase
+                .from('app_settings')
+                .upsert({
+                    key: 'race_ranking_last_reset',
+                    value: JSON.stringify(now)
+                });
+
+            if (resetErr) throw resetErr;
+
+            toast.dismiss();
+            toast.success("Ranking ZERADO com sucesso! Novo cronômetro de temporada iniciado.");
+            fetchRaceData(); // Atualiza a visão local
+            onRefresh(); // Notifica o componente pai
+        } catch (e) {
+            toast.dismiss();
+            toast.error("Erro ao zerar ranking");
+            console.error(e);
+        }
     };
 
     if (!isInsideScreen) {
@@ -574,14 +605,27 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
+                            <div className="p-6 flex justify-between items-center bg-white/[0.02] border-b border-white/5">
+                                <div className="flex flex-col">
+                                    <span className="text-white font-black uppercase text-xs">Controle de Temporada</span>
+                                    <span className="text-[9px] text-gray-500 uppercase font-black">Zerar pontos e iniciar nova contagem</span>
+                                </div>
+                                <Button
+                                    onClick={handleResetRanking}
+                                    variant="destructive"
+                                    className="h-9 px-6 rounded-xl font-black uppercase text-[10px] tracking-widest shadow-lg shadow-red-900/40 border border-red-500/30"
+                                >
+                                    <History className="w-3 h-3 mr-2" /> Zerar Ranking Total
+                                </Button>
+                            </div>
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-white/5 bg-white/5">
                                             <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 w-20">Rank</th>
                                             <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500">Piloto / Nickname</th>
-                                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Vitórias</th>
-                                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Ganhos Totais</th>
+                                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-center">Recorde</th>
+                                            <th className="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-gray-500 text-right">Perfil</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
@@ -598,10 +642,10 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
                                                     </span>
                                                 </td>
                                                 <td className="px-8 py-4 text-center">
-                                                    <Badge className="bg-orange-600/20 text-orange-500 border border-orange-500/20 font-black px-4">{rank.race_victories || 0} VIT</Badge>
+                                                    <Badge className="bg-orange-600/20 text-orange-500 border border-orange-500/20 font-black px-4">{(rank.score || 0).toLocaleString()} PTS</Badge>
                                                 </td>
                                                 <td className="px-8 py-4 text-right">
-                                                    <span className="text-emerald-500 font-black text-lg">R$ {(rank.total_winnings || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                                                    <span className="text-gray-500 font-black text-[10px] uppercase">ID: {rank.user_id?.substring(0, 8)}...</span>
                                                 </td>
                                             </tr>
                                         ))}
