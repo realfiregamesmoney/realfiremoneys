@@ -16,6 +16,7 @@ export default function JumpingGame() {
     const lastSavedScoreRef = useRef(0);
     const notifiedRecordRef = useRef(false);
     const hasQuitRef = useRef(false);
+    const sessionIdRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (!user) {
@@ -55,6 +56,17 @@ export default function JumpingGame() {
                 const newRaces = Math.max(0, currentProfile.passes_available - 1);
                 await supabase.from("profiles").update({ passes_available: newRaces }).eq("user_id", user.id);
                 await refreshProfile();
+
+                // CRIA SESSÃO ATIVA PARA O ADMIN VER EM TEMPO REAL
+                const { data: sessionData } = await supabase.from('minigame_sessions').insert({
+                    user_id: user.id,
+                    game_id: 'jumping_game',
+                    status: 'active',
+                    played_at: new Date().toISOString()
+                }).select('id').single();
+
+                if (sessionData) sessionIdRef.current = sessionData.id;
+
                 toast.success("-1 Passe de Corrida. Acelere!");
             } catch (e) {
                 navigate("/minigames");
@@ -159,6 +171,13 @@ export default function JumpingGame() {
                         amount: currentScoreRef.current,
                         status: 'approved'
                     });
+
+                    // Atualiza sessão no admin
+                    if (sessionIdRef.current) {
+                        await supabase.from('minigame_sessions')
+                            .update({ status: 'finished', score: currentScoreRef.current })
+                            .eq('id', sessionIdRef.current);
+                    }
                     toast.success(`NOVO RECORDE FINAL: ${finalScore} PONTOS! 🏆`);
                 } else {
                     toast.info(`Corrida Finalizada. Você fez ${finalScore} PONTOS.`);
@@ -176,6 +195,13 @@ export default function JumpingGame() {
                             amount: finalScore,
                             status: 'approved'
                         });
+
+                        // Atualiza sessão no admin
+                        if (sessionIdRef.current) {
+                            await supabase.from('minigame_sessions')
+                                .update({ status: 'finished', score: finalScore })
+                                .eq('id', sessionIdRef.current);
+                        }
                         toast.success(`Pista abandonada! Novo Recorde Salvo: ${finalScore} PONTOS! 🏆`);
                     } else {
                         toast.info(`Pista abandonada. Você fez ${finalScore} PONTOS.`);

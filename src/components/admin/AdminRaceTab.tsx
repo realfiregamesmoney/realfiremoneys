@@ -55,13 +55,23 @@ export default function AdminRaceTab({ games, packages, settings, onRefresh, acc
                 .limit(20);
             setActiveRaces(active || []);
 
-            // 2. Partidas Realizadas (Histórico Total)
+            // 2. Partidas Realizadas (Histórico de Pontos Gravados na Transactions)
             const { data: finished } = await supabase
-                .from('minigame_sessions')
+                .from('transactions')
                 .select('*, profiles(nickname, avatar_url)')
-                .order('played_at', { ascending: false })
+                .eq('type', 'race_score')
+                .order('created_at', { ascending: false })
                 .limit(100);
-            setFinishedRaces(finished || []);
+
+            // Adaptamos os dados da transactions para o formato esperado pela tabela da UI
+            const adaptedFinished = (finished || []).map(tx => ({
+                id: tx.id,
+                profiles: tx.profiles,
+                score: tx.amount, // No transações o ponto chama-se 'amount'
+                played_at: tx.created_at,
+                prize_won: 0 // Nas corridas normais não há prêmio imediato por partida, apenas no ranking final
+            }));
+            setFinishedRaces(adaptedFinished);
 
             // 3. Ranking Global de Corridas (Com sistema de Reset)
             const { data: rank, error: rankErr } = await supabase.rpc('get_global_ranking', { p_type: 'race_score' });
