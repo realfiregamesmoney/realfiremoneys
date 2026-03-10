@@ -75,27 +75,8 @@ export default function ShootingGame() {
 
         consumeRaceAndInit();
 
-        // Salva pontos a cada 3 segundos se bater ou aumentar o recorde 
-        // Isso resolve o problema de fechar a aba/sair da corrida e perder pontos.
-        const saveInterval = setInterval(() => {
-            if (currentScoreRef.current > lastSavedScoreRef.current) {
-                const scoreToSave = currentScoreRef.current;
-                lastSavedScoreRef.current = scoreToSave;
-                oldHighScoreRef.current = scoreToSave;
-
-                supabase.from("transactions").insert({
-                    user_id: user.id,
-                    type: 'race_score',
-                    amount: scoreToSave,
-                    status: 'approved'
-                }).then();
-
-                if (!notifiedRecordRef.current) {
-                    toast.success("🔥 Novo Recorde Atingido!");
-                    notifiedRecordRef.current = true;
-                }
-            }
-        }, 3000);
+        // O saveInterval foi removido para evitar poluir o histórico do admin.
+        // Agora os pontos são salvos apenas ao final de cada crédito/vida.
 
         const handleMessage = async (event: MessageEvent) => {
             if (!event.data) return;
@@ -129,14 +110,34 @@ export default function ShootingGame() {
                     await refreshProfile();
                     console.log("[DEBUG] Passe cobrado com sucesso. Saldo atualizado.");
 
+                    // SALVA O PONTO FINAL DO CRÉDITO ANTERIOR ANTES DE REINICIAR
+                    const finalScorePrev = currentScoreRef.current;
+                    if (finalScorePrev > 0) {
+                        await supabase.from("transactions").insert({
+                            user_id: user.id,
+                            type: 'race_score',
+                            amount: finalScorePrev,
+                            status: 'approved'
+                        });
+
+                        if (sessionIdRef.current) {
+                            await supabase.from('minigame_sessions')
+                                .update({ status: 'finished', score: finalScorePrev })
+                                .eq('id', sessionIdRef.current);
+                        }
+                    }
+
+                    // CRIA NOVA SESSÃO PARA O NOVO CRÉDITO
+                    const { data: newSession } = await supabase.from('minigame_sessions').insert({
+                        user_id: user.id,
+                        game_id: 'shooting_game',
+                        status: 'active',
+                        played_at: new Date().toISOString()
+                    }).select('id').single();
+                    if (newSession) sessionIdRef.current = newSession.id;
+
                     // Reset do tracking de recorde para proxima run
-                    const { data: previousScores } = await supabase.from("transactions")
-                        .select("amount")
-                        .eq("user_id", user.id)
-                        .eq("type", "race_score")
-                        .order("amount", { ascending: false })
-                        .limit(1);
-                    oldHighScoreRef.current = previousScores && previousScores.length > 0 ? previousScores[0].amount : 0;
+                    oldHighScoreRef.current = Math.max(oldHighScoreRef.current, finalScorePrev);
                     lastSavedScoreRef.current = oldHighScoreRef.current;
                     currentScoreRef.current = 0;
                     notifiedRecordRef.current = false;
@@ -162,9 +163,8 @@ export default function ShootingGame() {
                 const finalScore = event.data.score || 0;
                 currentScoreRef.current = finalScore;
 
-                // Força último save imediato caso seja Game Over
-                if (currentScoreRef.current > lastSavedScoreRef.current) {
-                    lastSavedScoreRef.current = currentScoreRef.current;
+                // Força save final APENAS se houver ponto
+                if (currentScoreRef.current > 0) {
                     await supabase.from("transactions").insert({
                         user_id: user.id,
                         type: 'race_score',
@@ -178,9 +178,9 @@ export default function ShootingGame() {
                             .update({ status: 'finished', score: currentScoreRef.current })
                             .eq('id', sessionIdRef.current);
                     }
-                    toast.success(`NOVO RECORDE FINAL: ${finalScore} PONTOS! 🏆`);
+                    toast.success(`Corrida Finalizada: ${finalScore} PONTOS! 🏁`);
                 } else {
-                    toast.info(`Corrida Finalizada. Você fez ${finalScore} PONTOS.`);
+                    toast.info(`Corrida Finalizada. Tente novamente!`);
                 }
             }
 
@@ -188,7 +188,7 @@ export default function ShootingGame() {
                 const finalScore = currentScoreRef.current;
                 if (finalScore > 0 && !hasQuitRef.current) {
                     hasQuitRef.current = true;
-                    if (finalScore > lastSavedScoreRef.current) {
+                    if (finalScore > 0) {
                         await supabase.from("transactions").insert({
                             user_id: user.id,
                             type: 'race_score',
@@ -202,9 +202,9 @@ export default function ShootingGame() {
                                 .update({ status: 'finished', score: finalScore })
                                 .eq('id', sessionIdRef.current);
                         }
-                        toast.success(`Pista abandonada! Novo Recorde Salvo: ${finalScore} PONTOS! 🏆`);
+                        toast.success(`Pista abandonada! Pontuação: ${finalScore} PONTOS.`);
                     } else {
-                        toast.info(`Pista abandonada. Você fez ${finalScore} PONTOS.`);
+                        toast.info(`Pista abandonada.`);
                     }
                 }
                 navigate("/minigames");
@@ -214,27 +214,28 @@ export default function ShootingGame() {
         window.addEventListener('message', handleMessage);
 
         return () => {
-            clearInterval(saveInterval);
             window.removeEventListener('message', handleMessage);
 
             // Final save & toast when leaving the screen (unmounting)
             const finalScore = currentScoreRef.current;
             if (finalScore > 0 && !hasQuitRef.current) {
                 hasQuitRef.current = true;
-                if (finalScore > lastSavedScoreRef.current) {
-                    supabase.from("transactions").insert({
-                        user_id: user.id,
-                        type: 'race_score',
-                        amount: finalScore,
-                        status: 'approved'
-                    }).then();
-                    toast.success(`Pista abandonada! Novo Recorde Salvo: ${finalScore} PONTOS! 🏆`);
-                } else {
-                    toast.info(`Pista abandonada. Você fez ${finalScore} PONTOS.`);
+                supabase.from("transactions").insert({
+                    user_id: user.id,
+                    type: 'race_score',
+                    amount: finalScore,
+                    status: 'approved'
+                }).then();
+
+                if (sessionIdRef.current) {
+                    supabase.from('minigame_sessions')
+                        .update({ status: 'finished', score: finalScore })
+                        .eq('id', sessionIdRef.current).then();
                 }
             }
+            toast.info(`Pista abandonada. Você fez ${finalScore} PONTOS.`);
         };
-    }, [user, navigate, profile]);
+    }, [user, navigate, profile, refreshProfile]);
 
     return (
         <div className="fixed inset-0 bg-[#050505] z-[100] flex flex-col pointer-events-auto">
