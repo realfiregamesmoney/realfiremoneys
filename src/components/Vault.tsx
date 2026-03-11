@@ -134,6 +134,17 @@ export default function Vault() {
 
     const handleUnlockHint = async (hint: any) => {
         if (!user || !profile) return toast.error("Faça login para desbloquear!");
+
+        // Verifica ordem obrigatória Sequencial das dicas
+        const hintIndex = hints.findIndex(h => h.id === hint.id);
+        if (hintIndex > 0) {
+            const prevHint = hints[hintIndex - 1];
+            const prevIsUnlocked = unlockedHintIds.includes(prevHint.id) || prevHint.is_revealed || new Date(prevHint.reveal_at) <= new Date();
+            if (!prevIsUnlocked) {
+                return toast.error("Você deve desbloquear a dica anterior primeiro!");
+            }
+        }
+
         if (profile.saldo < hint.unlock_price) return toast.error("Saldo insuficiente!");
 
         setLoading(true);
@@ -727,6 +738,7 @@ export default function Vault() {
                         const isRevealedByTime = h.is_revealed || new Date(h.reveal_at) <= new Date();
                         const isUnlocked = unlockedHintIds.includes(h.id);
                         const canSee = isRevealedByTime || isUnlocked;
+                        const previousIsUnlocked = i === 0 || unlockedHintIds.includes(hints[i - 1].id) || hints[i - 1].is_revealed || new Date(hints[i - 1].reveal_at) <= new Date();
                         const daysUntil = Math.max(0, Math.ceil((new Date(h.reveal_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24)));
 
                         return (
@@ -784,13 +796,23 @@ export default function Vault() {
                                                         </div>
                                                     )}
                                                     <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] mb-4">{h.pre_reveal_title || "Informação Criptografada"}</p>
-                                                    <Button
-                                                        onClick={() => setConfirmHint(h)}
-                                                        className="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] px-10 h-14 rounded-2xl shadow-xl shadow-blue-600/20 flex items-center gap-3 transition-all active:scale-95 border-b-4 border-blue-800"
-                                                    >
-                                                        <Fingerprint className="h-5 w-5" />
-                                                        DESBLOQUEAR AGORA
-                                                    </Button>
+                                                    {previousIsUnlocked ? (
+                                                        <Button
+                                                            onClick={() => setConfirmHint(h)}
+                                                            className="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-[10px] px-10 h-14 rounded-2xl shadow-xl shadow-blue-600/20 flex items-center gap-3 transition-all active:scale-95 border-b-4 border-blue-800"
+                                                        >
+                                                            <Fingerprint className="h-5 w-5" />
+                                                            DESBLOQUEAR AGORA
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            disabled
+                                                            className="bg-black/50 text-gray-500 font-black uppercase text-[10px] px-6 h-14 rounded-2xl flex items-center justify-center gap-2 cursor-not-allowed border-2 border-white/5 opacity-50 w-full"
+                                                        >
+                                                            <Lock className="h-4 w-4" />
+                                                            DESBLOQUEIE A ANTERIOR
+                                                        </Button>
+                                                    )}
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
