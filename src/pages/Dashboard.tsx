@@ -141,61 +141,42 @@ export default function Dashboard() {
   };
 
   const fetchRecentWinners = async () => {
-    const { data: logs } = await supabase
-      .from("audit_logs")
-      .select("details")
-      .eq("action_type", "tournament_result")
+    const { data: results, error } = await supabase
+      .from("tournament_results")
+      .select("prize_amount, created_at, profiles!inner(nickname, avatar_url, user_id)")
       .order("created_at", { ascending: false })
       .limit(10);
 
-    if (logs && logs.length > 0) {
-      const winners = logs.map(log => {
-        const match = log.details?.match(/Vencedor:\s*(.+?)\s*\(R\$\s*([\d.,]+)\)/);
+    if (results && results.length > 0) {
+      const userIds = results.map(r => r.profiles?.user_id).filter(Boolean);
+
+      const { data: achievements } = await supabase
+        .from("user_achievements")
+        .select("user_id, is_active, achievements(image_url, type)")
+        .in("user_id", userIds)
+        .eq("is_active", true);
+
+      const patentMap = new Map();
+      const badgeMap = new Map();
+      achievements?.forEach(ua => {
+        const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
+        if (ach?.type === 'patent') {
+          patentMap.set(ua.user_id, ach.image_url);
+        } else {
+          badgeMap.set(ua.user_id, ach.image_url);
+        }
+      });
+
+      const winners = results.map(r => {
         return {
-          name: match?.[1] || "Jogador",
-          amount: `R$ ${match?.[2] || "0,00"}`,
-          avatar_url: undefined
+          name: r.profiles?.nickname || "Jogador",
+          amount: `R$ ${Number(r.prize_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          avatar_url: r.profiles?.avatar_url,
+          active_patent_url: patentMap.get(r.profiles?.user_id),
+          active_badge_url: badgeMap.get(r.profiles?.user_id)
         } as WinnerEntry;
       });
 
-      const uniqueNames = Array.from(new Set(winners.map(w => w.name)));
-      if (uniqueNames.length > 0) {
-        const { data: profiles, error: profError } = await supabase
-          .from('profiles')
-          .select('nickname, avatar_url, user_id')
-          .in('nickname', uniqueNames)
-          .not("is_banned", "eq", true); // OCULTA BANIDOS DOS GANHADORES
-
-        if (profiles) {
-          // Buscar patentes separadamente para os ganhadores recentes
-          const userIds = profiles.map(p => p.user_id);
-          const { data: achievements } = await supabase
-            .from("user_achievements")
-            .select("user_id, is_active, achievements(image_url, type)")
-            .in("user_id", userIds)
-            .eq("is_active", true);
-
-          const patentMap = new Map();
-          const badgeMap = new Map();
-          achievements?.forEach(ua => {
-            const ach = Array.isArray(ua.achievements) ? ua.achievements[0] : ua.achievements;
-            if (ach?.type === 'patent') {
-              patentMap.set(ua.user_id, ach.image_url);
-            } else {
-              badgeMap.set(ua.user_id, ach.image_url);
-            }
-          });
-
-          winners.forEach(w => {
-            const match = profiles.find(p => p.nickname === w.name);
-            if (match) {
-              w.avatar_url = match.avatar_url;
-              (w as any).active_patent_url = patentMap.get(match.user_id);
-              (w as any).active_badge_url = badgeMap.get(match.user_id);
-            }
-          });
-        }
-      }
       setRecentWinners(winners);
     } else {
       setRecentWinners([]);
@@ -205,11 +186,8 @@ export default function Dashboard() {
   useEffect(() => {
     const channel = supabase
       .channel('winners-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, (payload) => {
-        const newLog = payload.new as any;
-        if (newLog.action_type === 'tournament_result') {
-          fetchRecentWinners();
-        }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tournament_results' }, () => {
+        fetchRecentWinners();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
