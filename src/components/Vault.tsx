@@ -431,7 +431,7 @@ export default function Vault() {
                                                 <span className="text-4xl text-yellow-500 font-bold mb-4 mr-2">R$</span>
                                                 {vault?.prize_pool || "0"}
                                             </h2>
-                                            <p className="text-gray-500 font-bold uppercase text-[10px] tracking-[0.4em] mt-2">Prêmio Acumulado em Tempo Real</p>
+                                            <p className="text-gray-500 font-bold uppercase text-[10px] tracking-[0.4em] mt-2">PREMIO EM DINHEIRO REAL NO PIX</p>
                                         </div>
                                     )}
                                 </div>
