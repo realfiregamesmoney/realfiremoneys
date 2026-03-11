@@ -111,6 +111,7 @@ export default function Vault() {
                 .from('vault_guesses')
                 .select('guess')
                 .eq('user_id', user.id)
+                .eq('vault_id', vaultId) // FILTRO CRÍTICO: Garante que a dica seja deste cofre específico
                 .like('guess', 'HINT_UNLOCK_%');
 
             const fallbackIds = unlockedFallback?.map(g => g.guess.replace('HINT_UNLOCK_', '')) || [];
@@ -119,7 +120,8 @@ export default function Vault() {
                 const { data: unlocked } = await supabase
                     .from('vault_unlocked_hints')
                     .select('hint_id')
-                    .eq('user_id', user.id);
+                    .eq('user_id', user.id)
+                    .eq('vault_id', vaultId); // FILTRO ADICIONAL: Segurança em dobro
 
                 const originalIds = unlocked?.map(u => u.hint_id) || [];
                 setUnlockedHintIds([...new Set([...fallbackIds, ...originalIds])]);
