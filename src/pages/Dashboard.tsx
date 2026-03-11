@@ -143,17 +143,23 @@ export default function Dashboard() {
   const fetchRecentWinners = async () => {
     const { data: results, error } = await supabase
       .from("tournament_results")
-      .select("prize_amount, created_at, profiles!inner(nickname, avatar_url, user_id)")
+      .select("prize_amount, created_at, winner_user_id")
       .order("created_at", { ascending: false })
       .limit(10);
 
     if (results && results.length > 0) {
-      const userIds = results.map(r => r.profiles?.user_id).filter(Boolean);
+      const winnerIds = Array.from(new Set(results.map(r => r.winner_user_id).filter(Boolean)));
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("nickname, avatar_url, user_id")
+        .in("user_id", winnerIds)
+        .not("is_banned", "eq", true);
 
       const { data: achievements } = await supabase
         .from("user_achievements")
         .select("user_id, is_active, achievements(image_url, type)")
-        .in("user_id", userIds)
+        .in("user_id", winnerIds)
         .eq("is_active", true);
 
       const patentMap = new Map();
@@ -168,14 +174,15 @@ export default function Dashboard() {
       });
 
       const winners = results.map(r => {
+        const profile = profiles?.find(p => p.user_id === r.winner_user_id);
         return {
-          name: r.profiles?.nickname || "Jogador",
+          name: profile?.nickname || "Jogador Oculto",
           amount: `R$ ${Number(r.prize_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          avatar_url: r.profiles?.avatar_url,
-          active_patent_url: patentMap.get(r.profiles?.user_id),
-          active_badge_url: badgeMap.get(r.profiles?.user_id)
+          avatar_url: profile?.avatar_url,
+          active_patent_url: patentMap.get(r.winner_user_id),
+          active_badge_url: badgeMap.get(r.winner_user_id)
         } as WinnerEntry;
-      });
+      }).filter(w => w.name !== "Jogador Oculto");
 
       setRecentWinners(winners);
     } else {
