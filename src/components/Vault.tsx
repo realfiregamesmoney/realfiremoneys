@@ -676,11 +676,6 @@ export default function Vault() {
 
             {/* INTELLIGENCE SECTION (NOW ON TOP) */}
             <div className="space-y-8 pt-10">
-                <div className="flex flex-col items-center text-center space-y-2">
-                    <Badge variant="outline" className="border-blue-500/30 text-blue-400 font-black uppercase tracking-widest px-6 py-1.5 text-[8px] bg-blue-500/5">Transmissão Criptografada</Badge>
-                    <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter">Arquivos de Inteligência</h3>
-                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Interceptações estratégicas do Protocolo Enigma</p>
-                </div>
 
                 {vault?.search_button_enabled && (
                     <div className="flex justify-center px-4 max-w-7xl mx-auto w-full">
@@ -720,6 +715,12 @@ export default function Vault() {
                         </motion.button>
                     </div>
                 )}
+
+                <div className="flex flex-col items-center text-center space-y-2 mt-8">
+                    <Badge variant="outline" className="border-blue-500/30 text-blue-400 font-black uppercase tracking-widest px-6 py-1.5 text-[8px] bg-blue-500/5">Transmissão Criptografada</Badge>
+                    <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter">Arquivos de Inteligência</h3>
+                    <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Interceptações estratégicas do Protocolo Enigma</p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto px-4">
                     {hints.map((h, i) => {
