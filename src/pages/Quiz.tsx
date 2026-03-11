@@ -981,8 +981,8 @@ export default function Quiz() {
                                             {[
                                                 { title: "REGRAS DE SOBREVIVÊNCIA", desc: event.rules_text, icon: <ShieldCheck className="h-5 w-5 text-orange-500" /> },
                                                 { title: "DIRETRIZES DA MISSÃO", desc: event.extra_rules_text, icon: <Target className="h-5 w-5 text-orange-500" /> },
-                                                { title: "SISTEMA DE REVIVER", desc: "Se você errar, terá 10s para renascer pagando com saldo do app.", icon: <Zap className="h-5 w-5 text-orange-500" /> },
-                                                { title: "PREMIAÇÃO FINAL", desc: event.prize_type === 'product' ? `Item em jogo: ${event.prize_product_name}` : "Prêmio enviado via PIX na mesma hora.", icon: <Trophy className="h-5 w-5 text-orange-500" /> }
+                                                { title: "SISTEMA DE REVIVER", desc: event.revive_system_text || "Se você errar, terá 10s para renascer pagando com saldo do app.", icon: <Zap className="h-5 w-5 text-orange-500" /> },
+                                                { title: "PREMIAÇÃO FINAL", desc: event.final_prize_text || (event.prize_type === 'product' ? `Item em jogo: ${event.prize_product_name}` : "Prêmio enviado via PIX na mesma hora."), icon: <Trophy className="h-5 w-5 text-orange-500" /> }
                                             ].map((box, i) => (
 
                                                 <div key={i} className="bg-[#0A0A0A] p-6 rounded-3xl border border-orange-500/10 hover:border-orange-500/30 transition-all group overflow-hidden relative">

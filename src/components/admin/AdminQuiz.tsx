@@ -50,6 +50,8 @@ export default function AdminQuiz() {
         custom_info_color: "#EAB308",
         rules_text: "O jogo consiste em 5 perguntas oficiais e 1 desempate. Se errar, você pode reviver pagando com seu saldo do app.",
         extra_rules_text: "A cada rodada o tempo diminui e a pressão aumenta!",
+        revive_system_text: "Se você errar, terá 10s para renascer pagando com saldo do app.",
+        final_prize_text: "Prêmio enviado via PIX na mesma hora.",
         button_text: "Reservar Meu Ticket",
         questions: Array(6).fill(0).map((_, i) => ({
             id: i,
@@ -227,6 +229,8 @@ export default function AdminQuiz() {
                 welcome_text: (formData.welcome_text || "").trim(),
                 rules_text: (formData.rules_text || "").trim(),
                 extra_rules_text: (formData.extra_rules_text || "").trim(),
+                revive_system_text: (formData.revive_system_text || "").trim(),
+                final_prize_text: (formData.final_prize_text || "").trim(),
                 button_text: (formData.button_text || "").trim(),
                 questions: sanitizedQuestions,
                 winner_message: (formData.winner_message || "").trim(),
@@ -261,6 +265,8 @@ export default function AdminQuiz() {
                 delete safePayload.show_estimated_value;
                 delete safePayload.custom_info_text;
                 delete safePayload.custom_info_color;
+                delete safePayload.revive_system_text;
+                delete safePayload.final_prize_text;
 
                 if (editMode && editingId) {
                     res = await supabase.from('quiz_events').update(safePayload).eq('id', editingId);
@@ -659,7 +665,11 @@ export default function AdminQuiz() {
 
                                             <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Texto do Botão</Label><Input value={formData.button_text} onChange={e => setFormData({ ...formData, button_text: e.target.value })} className="bg-black/40 border-white/10 h-14 rounded-xl font-black italic" /></div>
                                             <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500 text-yellow-500 block relative bottom-[-10px]">Atenção do BD</Label><p className="text-[9px] text-yellow-500/50 uppercase font-black mb-4">Se os dados abaixo não salvarem, rode a migração SQL no seu painel Supabase para criar as gavetas extras.</p></div>
-                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Regra Extra (Se Houver)</Label><Textarea value={formData.extra_rules_text} onChange={e => setFormData({ ...formData, extra_rules_text: e.target.value })} className="bg-black/40 border-white/10 min-h-[40px] rounded-xl text-[10px]" /></div>
+                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Regra Extra / Diretrizes da Missão</Label><Textarea value={formData.extra_rules_text} onChange={e => setFormData({ ...formData, extra_rules_text: e.target.value })} className="bg-black/40 border-white/10 min-h-[40px] rounded-xl text-[10px]" /></div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Sistema de Reviver</Label><Textarea value={formData.revive_system_text} onChange={e => setFormData({ ...formData, revive_system_text: e.target.value })} className="bg-black/40 border-white/10 min-h-[40px] rounded-xl text-[10px]" /></div>
+                                                <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Premiação Final</Label><Textarea value={formData.final_prize_text} onChange={e => setFormData({ ...formData, final_prize_text: e.target.value })} className="bg-black/40 border-white/10 min-h-[40px] rounded-xl text-[10px]" /></div>
+                                            </div>
                                             <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-yellow-500">Mensagem de Vitória Exata</Label><Textarea value={formData.winner_message} onChange={e => setFormData({ ...formData, winner_message: e.target.value })} className="bg-black/40 border-white/10 border-yellow-500/20 min-h-[80px] rounded-xl text-[10px]" /></div>
                                             <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-400">Mensagem de Derrota / Finalista</Label><Textarea value={formData.runner_up_message} onChange={e => setFormData({ ...formData, runner_up_message: e.target.value })} className="bg-black/40 border-white/10 min-h-[80px] rounded-xl text-[10px]" /></div>
                                         </div>
