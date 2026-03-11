@@ -548,52 +548,94 @@ export default function Profile() {
                 <Ticket className="h-24 w-24 text-white rotate-12" />
               </div>
 
-              <div className="flex justify-between items-center border-b border-white/[0.05] pb-4 mb-4">
-                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Plano Ativo</span>
-                <Badge className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-0 ${(profile?.plan_type && profile.plan_type !== 'Free Avulso') ? 'bg-orange-600 text-white animate-pulse' : 'bg-gray-800 text-gray-500'}`}>
-                  {profile?.plan_type || 'Conta Básica'}
-                </Badge>
-              </div>
+              {(() => {
+                let activePlans: any[] = [];
+                let isFree = true;
 
-              {profile?.plan_type && profile.plan_type !== 'Free Avulso' ? (
-                <div className="space-y-5">
-                  <div className="flex justify-between items-center">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Valor Economizado</span>
-                      <span className="text-xl font-black text-orange-400">R$ {Number(profile.pass_value || 0).toFixed(2)} / sala</span>
+                try {
+                  if (profile?.plan_type && profile.plan_type.startsWith('[')) {
+                    activePlans = JSON.parse(profile.plan_type);
+                    isFree = activePlans.length === 0;
+                  } else if (profile?.plan_type && profile.plan_type !== 'Free Avulso') {
+                    isFree = false;
+                    activePlans = [{
+                      title: profile.plan_type,
+                      passes_available: profile.passes_available || 0,
+                      pass_value: profile.pass_value || 0
+                    }];
+                  }
+                } catch (e) { }
+
+                if (isFree) {
+                  return (
+                    <div className="text-center space-y-6 py-4 relative z-10">
+                      <div className="flex justify-between items-center border-b border-white/[0.05] pb-4 mb-4">
+                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Plano Ativo</span>
+                        <Badge className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-0 bg-gray-800 text-gray-500">
+                          Conta Básica
+                        </Badge>
+                      </div>
+                      <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 inline-block mb-2">
+                        <ShieldAlert className="h-8 w-8 text-red-500" />
+                      </div>
+                      <div className="px-4">
+                        <p className="text-sm text-gray-400 font-medium leading-relaxed">
+                          Você está usando uma <b className="text-white">Conta Gratuita</b>. Melhore para o VIP e jogue salas profissionais sem taxa de inscrição!
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => { setActiveModal(null); navigate("/dashboard"); }}
+                        className="w-full py-7 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.4)] border-0"
+                      >
+                        Desbloquear Modo VIP
+                      </Button>
                     </div>
-                    <div className="text-right">
-                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block">Uso Diário</span>
-                      <span className="text-xl font-black text-green-400">{profile.passes_available || 0} / 2</span>
+                  );
+                }
+
+                return (
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-center border-b border-white/[0.05] pb-4 mb-4">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Plano(s) Ativo(s)</span>
+                      <div className="flex gap-2">
+                        {activePlans.map((p, idx) => (
+                          <Badge key={idx} className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-0 bg-orange-600 text-white animate-pulse shadow-[0_0_10px_rgba(234,88,12,0.5)]">
+                            {p.title}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 mt-4">
+                      {activePlans.map((plan, idx) => (
+                        <div key={idx} className="bg-white/[0.02] border border-white/5 p-4 rounded-2xl">
+                          <h4 className="text-orange-400 font-black uppercase tracking-widest text-xs mb-4 border-b border-white/5 pb-2">
+                            {plan.title}
+                          </h4>
+                          <div className="flex justify-between items-center mb-4">
+                            <div className="flex flex-col">
+                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Passe Válido Para Sala</span>
+                              <span className="text-lg font-black text-white">R$ {Number(plan.pass_value || 0).toFixed(2)}</span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block">Uso Diário</span>
+                              <span className="text-lg font-black text-green-400">{plan.passes_available || 0} / 2</span>
+                            </div>
+                          </div>
+
+                          <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                            <div className="h-full bg-gradient-to-r from-orange-600 to-yellow-400 rounded-full" style={{ width: `${((plan.passes_available || 0) / 2) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      ))}
+
+                      <p className="text-[10px] text-gray-500 text-center uppercase tracking-widest font-black opacity-50 mt-4">
+                        Válido até 23:59 • Uso instantâneo nas salas correspondentes
+                      </p>
                     </div>
                   </div>
-
-                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5 p-[1px]">
-                    <div className="h-full bg-gradient-to-r from-orange-600 to-yellow-400 rounded-full" style={{ width: `${((profile.passes_available || 0) / 2) * 100}%` }}></div>
-                  </div>
-
-                  <p className="text-[10px] text-gray-500 text-center uppercase tracking-widest font-black opacity-50">
-                    Válido até 23:59 • Uso instantâneo
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center space-y-6 py-4">
-                  <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 inline-block mb-2">
-                    <ShieldAlert className="h-8 w-8 text-red-500" />
-                  </div>
-                  <div className="px-4">
-                    <p className="text-sm text-gray-400 font-medium leading-relaxed">
-                      Você está usando uma <b className="text-white">Conta Gratuita</b>. Melhore para o VIP e jogue salas profissionais sem taxa de inscrição!
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => { setActiveModal(null); navigate("/dashboard"); }}
-                    className="w-full py-7 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.4)] border-0"
-                  >
-                    Desbloquear Modo VIP
-                  </Button>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </div>
         </DialogContent>
