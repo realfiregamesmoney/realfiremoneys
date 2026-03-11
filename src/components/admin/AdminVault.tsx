@@ -27,7 +27,11 @@ export default function AdminVault() {
         prize_product_image: "",
         show_estimated_value: true,
         estimated_prize_value: 0,
-        status: "inactive"
+        status: "inactive",
+        search_button_enabled: false,
+        search_button_text: "PROCURAR SENHA",
+        search_button_url: "",
+        search_button_price: 0
     });
 
     const [hintData, setHintData] = useState({
@@ -114,7 +118,11 @@ export default function AdminVault() {
                 prize_product_image: formData.prize_product_image,
                 show_estimated_value: formData.show_estimated_value,
                 estimated_prize_value: Number(formData.estimated_prize_value) || 0,
-                status: formData.status
+                status: formData.status,
+                search_button_enabled: formData.search_button_enabled,
+                search_button_text: formData.search_button_text,
+                search_button_url: formData.search_button_url,
+                search_button_price: Number(formData.search_button_price) || 0
             };
 
             const { error } = await supabase.from('vault_events').insert(payload);
@@ -126,7 +134,11 @@ export default function AdminVault() {
                 title: "", description: "", correct_password: "", prize_pool: 0,
                 prize_type: "cash", prize_product_name: "", prize_product_image: "",
                 show_estimated_value: true, estimated_prize_value: 0,
-                status: "inactive"
+                status: "inactive",
+                search_button_enabled: false,
+                search_button_text: "PROCURAR SENHA",
+                search_button_url: "",
+                search_button_price: 0
             });
         } catch (error: any) {
             console.error("Erro ao criar cofre:", error);
@@ -148,7 +160,11 @@ export default function AdminVault() {
                 prize_product_image: formData.prize_product_image,
                 show_estimated_value: formData.show_estimated_value,
                 estimated_prize_value: Number(formData.estimated_prize_value) || 0,
-                status: formData.status
+                status: formData.status,
+                search_button_enabled: formData.search_button_enabled,
+                search_button_text: formData.search_button_text,
+                search_button_url: formData.search_button_url,
+                search_button_price: Number(formData.search_button_price) || 0
             };
 
             const { error } = await supabase.from('vault_events').update(payload).eq('id', editingVault.id);
@@ -277,7 +293,11 @@ export default function AdminVault() {
             prize_product_image: vault.prize_product_image || "",
             show_estimated_value: vault.show_estimated_value ?? true,
             estimated_prize_value: vault.estimated_prize_value || 0,
-            status: vault.status || "inactive"
+            status: vault.status || "inactive",
+            search_button_enabled: vault.search_button_enabled || false,
+            search_button_text: vault.search_button_text || "PROCURAR SENHA",
+            search_button_url: vault.search_button_url || "",
+            search_button_price: vault.search_button_price || 0
         });
         loadHints(vault.id);
         loadGuesses(vault.id);
@@ -377,6 +397,36 @@ export default function AdminVault() {
                                         <Button key={s} type="button" size="sm" className={`flex-1 ${formData.status === s ? 'bg-yellow-500 text-black' : 'bg-white/5 text-gray-500'}`} onClick={() => setFormData({ ...formData, status: s as any })}>{s}</Button>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="space-y-4 p-5 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-[10px] uppercase font-black text-blue-400">Botão "PROCURAR SENHA"</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={`h-7 px-3 text-[10px] font-black uppercase border ${formData.search_button_enabled ? 'bg-blue-500 text-white' : 'bg-white/5 text-gray-600'}`}
+                                        onClick={() => setFormData({ ...formData, search_button_enabled: !formData.search_button_enabled })}
+                                    >
+                                        {formData.search_button_enabled ? 'Ativo' : 'Inativo'}
+                                    </Button>
+                                </div>
+                                {formData.search_button_enabled && (
+                                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300">
+                                        <div className="space-y-1">
+                                            <Label className="text-[9px] uppercase font-black text-gray-500">Texto do Botão</Label>
+                                            <Input value={formData.search_button_text} onChange={e => setFormData({ ...formData, search_button_text: e.target.value })} className="bg-black border-white/10 text-xs" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[9px] uppercase font-black text-gray-500">Link Destino</Label>
+                                            <Input placeholder="https://..." value={formData.search_button_url} onChange={e => setFormData({ ...formData, search_button_url: e.target.value })} className="bg-black border-white/10 text-xs" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-[9px] uppercase font-black text-gray-500">Custo por Clique (R$)</Label>
+                                            <Input type="number" step="0.01" value={formData.search_button_price} onChange={e => setFormData({ ...formData, search_button_price: e.target.value ? parseFloat(e.target.value) : 0 })} className="bg-black border-white/10 text-xs" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex gap-3 pt-6">

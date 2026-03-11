@@ -180,6 +180,49 @@ export default function Vault() {
         setLastWinners(data || []);
     };
 
+    const handleSearchButton = async () => {
+        if (!user || !profile || !vault) return;
+
+        const price = vault.search_button_price || 0;
+        const url = vault.search_button_url;
+
+        if (!url) return toast.error("Link de busca não configurado!");
+
+        if (price > 0) {
+            if (profile.saldo < price) return toast.error("Saldo insuficiente!");
+
+            if (!confirm(`Deseja pagar R$ ${price.toLocaleString()} para ${vault.search_button_text}?`)) return;
+
+            setLoading(true);
+            try {
+                // Deduzir saldo
+                const { error: balanceError } = await supabase
+                    .from('profiles')
+                    .update({ saldo: profile.saldo - price })
+                    .eq('user_id', user.id);
+
+                if (balanceError) throw balanceError;
+
+                // Registrar transação
+                await supabase.from('transactions').insert({
+                    user_id: user.id,
+                    type: 'vault_purchase',
+                    amount: price,
+                    status: 'approved'
+                });
+
+                window.open(url, '_blank');
+                toast.success("Acesso concedido!");
+            } catch (e: any) {
+                toast.error("Erro na transação: " + e.message);
+            } finally {
+                setLoading(false);
+            }
+        } else {
+            window.open(url, '_blank');
+        }
+    };
+
     const loadPackages = async () => {
         try {
             const { data, error } = await supabase
@@ -638,6 +681,45 @@ export default function Vault() {
                     <h3 className="text-4xl font-black text-white uppercase italic tracking-tighter">Arquivos de Inteligência</h3>
                     <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">Interceptações estratégicas do Protocolo Enigma</p>
                 </div>
+
+                {vault?.search_button_enabled && (
+                    <div className="flex justify-center px-4 max-w-7xl mx-auto w-full">
+                        <motion.button
+                            onClick={handleSearchButton}
+                            whileHover={{ scale: 1.02, y: -5 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="group relative w-full lg:w-2/3 py-10 px-8 rounded-[3rem] overflow-hidden border-4 border-blue-500/30 bg-gradient-to-br from-blue-600/20 via-black to-black shadow-[0_30px_60px_rgba(59,130,246,0.3)] transition-all hover:border-blue-500/50"
+                        >
+                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
+                            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-30 transition-opacity">
+                                <ShieldCheck className="h-24 w-24 text-blue-500" />
+                            </div>
+
+                            <div className="relative flex flex-col items-center gap-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-2 w-12 bg-blue-500 rounded-full animate-pulse"></div>
+                                    <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 uppercase font-black px-4 py-1 text-[10px] tracking-widest">Acesso Estratégico Especial</Badge>
+                                    <div className="h-2 w-12 bg-blue-500 rounded-full animate-pulse"></div>
+                                </div>
+
+                                <div className="space-y-2 text-center">
+                                    <h4 className="text-5xl md:text-6xl font-black text-white italic tracking-tighter uppercase drop-shadow-[0_4px_20px_rgba(59,130,246,0.5)]">
+                                        {vault.search_button_text}
+                                    </h4>
+                                    {vault.search_button_price > 0 && (
+                                        <p className="text-blue-400 font-black tracking-[0.3em] text-xs uppercase">
+                                            Investimento Único: R$ {vault.search_button_price.toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center gap-2 bg-blue-500 text-black px-10 py-4 rounded-2xl font-black uppercase text-sm shadow-[0_0_30px_#3b82f6] group-hover:shadow-[0_0_50px_#3b82f6] transition-all">
+                                    Iniciar Operação <ArrowRight className="h-5 w-5" />
+                                </div>
+                            </div>
+                        </motion.button>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto px-4">
                     {hints.map((h, i) => {
