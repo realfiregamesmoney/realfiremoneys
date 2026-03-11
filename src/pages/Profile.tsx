@@ -530,6 +530,75 @@ export default function Profile() {
         </button>
       </div>
 
+      {/* EXIBIÇÃO DE PASSES LIVRES */}
+      <Dialog open={activeModal === "free_passes"} onOpenChange={() => setActiveModal(null)}>
+        <DialogContent className="border-0 bg-[#070707] text-white w-[95%] rounded-[2rem] max-h-[90vh] overflow-y-auto shadow-[0_0_100px_rgba(249,115,22,0.15)] ring-1 ring-white/10 p-0">
+          <DialogHeader className="p-6 pb-2">
+            <div className="mx-auto w-16 h-16 rounded-3xl bg-orange-500/10 flex items-center justify-center mb-4">
+              <Ticket className="h-8 w-8 text-orange-500" />
+            </div>
+            <DialogTitle className="text-2xl font-black text-white italic uppercase tracking-tighter text-center">
+              Seus Passes Livres
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-6 px-6">
+            <div className="relative group p-6 rounded-[2rem] bg-gradient-to-br from-white/[0.05] to-transparent border border-white/[0.1] shadow-xl overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                <Ticket className="h-24 w-24 text-white rotate-12" />
+              </div>
+
+              <div className="flex justify-between items-center border-b border-white/[0.05] pb-4 mb-4">
+                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Plano Ativo</span>
+                <Badge className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border-0 ${(profile?.plan_type && profile.plan_type !== 'Free Avulso') ? 'bg-orange-600 text-white animate-pulse' : 'bg-gray-800 text-gray-500'}`}>
+                  {profile?.plan_type || 'Conta Básica'}
+                </Badge>
+              </div>
+
+              {profile?.plan_type && profile.plan_type !== 'Free Avulso' ? (
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Valor Economizado</span>
+                      <span className="text-xl font-black text-orange-400">R$ {Number(profile.pass_value || 0).toFixed(2)} / sala</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block">Uso Diário</span>
+                      <span className="text-xl font-black text-green-400">{profile.passes_available || 0} / 2</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden border border-white/5 p-[1px]">
+                    <div className="h-full bg-gradient-to-r from-orange-600 to-yellow-400 rounded-full" style={{ width: `${((profile.passes_available || 0) / 2) * 100}%` }}></div>
+                  </div>
+
+                  <p className="text-[10px] text-gray-500 text-center uppercase tracking-widest font-black opacity-50">
+                    Válido até 23:59 • Uso instantâneo
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center space-y-6 py-4">
+                  <div className="p-4 rounded-3xl bg-red-500/10 border border-red-500/20 inline-block mb-2">
+                    <ShieldAlert className="h-8 w-8 text-red-500" />
+                  </div>
+                  <div className="px-4">
+                    <p className="text-sm text-gray-400 font-medium leading-relaxed">
+                      Você está usando uma <b className="text-white">Conta Gratuita</b>. Melhore para o VIP e jogue salas profissionais sem taxa de inscrição!
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => { setActiveModal(null); navigate("/dashboard"); }}
+                    className="w-full py-7 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.4)] border-0"
+                  >
+                    Desbloquear Modo VIP
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* MODAL EDITAR PERFIL - [UX CAMPOS TRAVADOS] */}
       <Dialog open={activeModal === "edit_profile"} onOpenChange={() => setActiveModal(null)}>
         <DialogContent className="border-neon-orange bg-[#09090b] text-white w-[95%] rounded-2xl max-h-[90vh] overflow-y-auto">
@@ -586,11 +655,73 @@ export default function Profile() {
       {/* MODAL CONFIGURAÇÕES */}
       <Dialog open={activeModal === "settings"} onOpenChange={() => setActiveModal(null)}>
         <DialogContent className="border-white/10 bg-[#09090b] text-white w-[95%] rounded-2xl">
-          <DialogHeader><DialogTitle><Settings className="inline mr-2" /> Configurações</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="flex items-center gap-2 italic uppercase font-black tracking-tighter"><Settings className="text-gray-400 h-5 w-5" /> Configurações</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="flex justify-between"><span>Notificações</span><button onClick={() => toggleSetting("push")} className={`w-10 h-5 rounded-full relative ${settings.push ? 'bg-green-500' : 'bg-gray-700'}`}><div className={`w-3 h-3 bg-white rounded-full absolute top-1 transition-all ${settings.push ? 'left-6' : 'left-1'}`} /></button></div>
-            <Button onClick={() => setActiveModal("change_password")} variant="outline" className="w-full justify-start border-white/10 text-gray-300"><Key className="mr-2 h-4 w-4" /> Alterar Minha Senha</Button>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3"><Bell className="h-5 w-5 text-gray-400" /><span className="text-sm font-bold">Notificações Push</span></div>
+                <button onClick={() => toggleSetting("push")} className={`w-10 h-5 rounded-full relative ${settings.push ? "bg-neon-green" : "bg-gray-700"}`}><div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${settings.push ? "left-6" : "left-1"}`} /></button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3"><Mail className="h-5 w-5 text-gray-400" /><span className="text-sm font-bold">Notificações por Email</span></div>
+                <button onClick={() => toggleSetting("email")} className={`w-10 h-5 rounded-full relative ${settings.email ? "bg-neon-green" : "bg-gray-700"}`}><div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${settings.email ? "left-6" : "left-1"}`} /></button>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3"><Volume2 className="h-5 w-5 text-gray-400" /><span className="text-sm font-bold">Efeitos Sonoros</span></div>
+                <button onClick={() => toggleSetting("sound")} className={`w-10 h-5 rounded-full relative ${settings.sound ? "bg-neon-green" : "bg-gray-700"}`}><div className={`absolute top-1 w-3 h-3 rounded-full bg-white transition-all ${settings.sound ? "left-6" : "left-1"}`} /></button>
+              </div>
+            </div>
+            <Separator className="bg-white/10" />
+            <div className="space-y-2">
+              <Button onClick={() => setActiveModal("change_password")} variant="outline" className="w-full justify-start border-white/10 hover:bg-white/5 text-gray-300 font-bold uppercase text-[10px] tracking-widest"><Key className="mr-2 h-4 w-4 text-neon-orange" /> Alterar Minha Senha</Button>
+              <Button onClick={() => setActiveModal("terms")} variant="outline" className="w-full justify-start border-white/10 hover:bg-white/5 text-gray-300 font-bold uppercase text-[10px] tracking-widest"><FileText className="mr-2 h-4 w-4" /> Termos de Uso</Button>
+              <Button onClick={() => setActiveModal("privacy")} variant="outline" className="w-full justify-start border-white/10 hover:bg-white/5 text-gray-300 font-bold uppercase text-[10px] tracking-widest"><Shield className="mr-2 h-4 w-4" /> Política de Privacidade</Button>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- SUB-MODAIS DE CONFIGURAÇÕES --- */}
+
+      {/* 1. Alterar Senha */}
+      <Dialog open={activeModal === "change_password"} onOpenChange={() => setActiveModal("settings")}>
+        <DialogContent className="border-white/10 bg-[#09090b] text-white w-[95%] rounded-2xl">
+          <DialogHeader><DialogTitle className="flex items-center gap-2 italic uppercase font-black"><Key className="text-neon-orange h-5 w-5" /> Alterar Senha</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <Input type="password" value={passwordData.newPassword} onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })} className="bg-white/5 border-white/10 h-12" placeholder="Nova Senha" />
+            <Input type="password" value={passwordData.confirmPassword} onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })} className="bg-white/5 border-white/10 h-12" placeholder="Confirmar Senha" />
+          </div>
+          <DialogFooter><Button onClick={handlePasswordChange} className="w-full bg-neon-orange text-black font-black uppercase tracking-widest rounded-xl">Salvar Nova Senha</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2. Termos de Uso */}
+      <Dialog open={activeModal === "terms"} onOpenChange={() => setActiveModal("settings")}>
+        <DialogContent className="border-white/10 bg-[#09090b] text-white w-[95%] rounded-[2rem] max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="italic font-black uppercase text-center text-xl">Termos de Uso</DialogTitle></DialogHeader>
+          <div className="text-sm text-gray-400 space-y-4 leading-relaxed p-4">
+            <div><h3 className="text-neon-orange font-bold mb-1 uppercase text-xs">1. Aceitação e Elegibilidade</h3><p>O uso deste aplicativo é estritamente reservado para maiores de 18 anos. Ao realizar o cadastro, você declara estar em plena capacidade civil e concorda integralmente com estes termos.</p></div>
+            <div><h3 className="text-neon-orange font-bold mb-1 uppercase text-xs">2. Regras de Conduta e Fair Play</h3><p>Prezamos pelo jogo limpo. O uso de hacks, macros, bugs, emuladores não autorizados ou qualquer vantagem desleal resultará em banimento permanente e perda irrevogável do saldo em conta.</p></div>
+            <div><h3 className="text-neon-orange font-bold mb-1 uppercase text-xs">3. Gestão de Saldo e Pagamentos</h3><p>Os depósitos são destinados exclusivamente para a participação em torneios. Os saques serão processados via PIX, unicamente para contas bancárias de mesma titularidade do CPF cadastrado, em até 48 horas úteis.</p></div>
+            <div><h3 className="text-neon-orange font-bold mb-1 uppercase text-xs">4. Propriedade Intelectual</h3><p>Todo o conteúdo, design e código deste aplicativo são propriedade exclusiva da Real Fire. É proibida a cópia, engenharia reversa ou distribuição não autorizada.</p></div>
+            <div><h3 className="text-neon-orange font-bold mb-1 uppercase text-xs">5. Limitação de Responsabilidade</h3><p>A Real Fire não se responsabiliza por instabilidades na conexão de internet do usuário, falhas nos servidores do jogo (Free Fire) ou manutenções programadas que afetem o andamento das partidas.</p></div>
+          </div>
+          <DialogFooter><Button onClick={() => setActiveModal("settings")} className="w-full bg-white/10 rounded-xl font-bold">Voltar</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 3. Política de Privacidade */}
+      <Dialog open={activeModal === "privacy"} onOpenChange={() => setActiveModal("settings")}>
+        <DialogContent className="border-white/10 bg-[#09090b] text-white w-[95%] rounded-[2rem] max-h-[80vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="italic font-black uppercase text-center text-xl">Política de Privacidade</DialogTitle></DialogHeader>
+          <div className="text-sm text-gray-400 space-y-4 leading-relaxed p-4">
+            <div><h3 className="text-neon-green font-bold mb-1 uppercase text-xs">1. Coleta de Dados</h3><p>Coletamos minimamente seu Nome Completo, CPF e E-mail. Também podemos coletar dados técnicos do dispositivo (IP, modelo) para fins de segurança e prevenção de fraudes.</p></div>
+            <div><h3 className="text-neon-green font-bold mb-1 uppercase text-xs">2. Finalidade do Tratamento</h3><p>Seus dados são utilizados exclusivamente para: validação de identidade (KYC), processamento de pagamentos e saques (PIX), suporte ao cliente e comunicação sobre torneios.</p></div>
+            <div><h3 className="text-neon-green font-bold mb-1 uppercase text-xs">3. Segurança da Informação</h3><p>Adotamos práticas rigorosas de segurança, incluindo criptografia de ponta a ponta e servidores protegidos. Recomendamos que nunca compartilhe sua senha com terceiros.</p></div>
+            <div><h3 className="text-neon-green font-bold mb-1 uppercase text-xs">4. Compartilhamento de Dados</h3><p>Não vendemos nem alugamos seus dados pessoais. O compartilhamento ocorre apenas com gateways de pagamento estritamente necessários para processar suas transações financeiras.</p></div>
+            <div><h3 className="text-neon-green font-bold mb-1 uppercase text-xs">5. Seus Direitos (LGPD)</h3><p>Você tem o direito de solicitar o acesso, correção ou exclusão dos seus dados pessoais a qualquer momento, entrando em contato através da nossa aba de Ajuda e Suporte.</p></div>
+          </div>
+          <DialogFooter><Button onClick={() => setActiveModal("settings")} className="w-full bg-white/10 rounded-xl font-bold">Voltar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
