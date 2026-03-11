@@ -36,27 +36,24 @@ function TitlesModal({ open, onClose, userId, refreshProfile, profile }: { open:
 
   const handlePurchase = async () => {
     if (!confirmItem || !userId || !profile) return;
-    if (profile?.saldo < confirmItem.price) {
-      toast.error("Saldo insuficiente.");
-      setConfirmItem(null);
-      return;
-    }
+
     setPurchasing(true);
     try {
-      const { error: profileError } = await supabase.from('profiles').update({ saldo: (profile?.saldo || 0) - confirmItem.price }).eq('user_id', userId);
-      if (profileError) throw profileError;
-      const { data: existing } = await supabase.from('user_achievements').select('id, count').eq('user_id', userId).eq('achievement_id', confirmItem.id).maybeSingle();
-      if (existing) {
-        await supabase.from('user_achievements').update({ count: (existing.count || 0) + 1, earned_at: new Date().toISOString() }).eq('id', existing.id);
-      } else {
-        await supabase.from('user_achievements').insert({ user_id: userId, achievement_id: confirmItem.id, is_active: false, count: 1 });
+      // Usando a nova função RPC segura no backend que resolve saldo, insert e history em UMA ÚNICA chamada protegida!
+      const { data, error } = await supabase.rpc('purchase_achievement', {
+        p_user_id: userId,
+        p_achievement_id: confirmItem.id
+      });
+
+      if (error) {
+        throw new Error(error.message || "Erro na compra");
       }
-      await supabase.from('transactions').insert({ user_id: userId, type: 'patent_purchase', amount: confirmItem.price, status: 'approved' });
-      toast.success(`Patente adquirida!`);
+
+      toast.success(data?.message || "Patente adquirida!");
       await fetchTitles();
       refreshProfile();
     } catch (error: any) {
-      toast.error("Erro na compra");
+      toast.error(error.message || "Erro ao adquirir patente.");
     } finally {
       setPurchasing(false);
       setConfirmItem(null);
