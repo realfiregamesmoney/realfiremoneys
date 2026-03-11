@@ -351,9 +351,10 @@ export default function AdminQuiz() {
 
     const updateStatus = async (id: string, status: string) => {
         const payload: any = { status };
-        if (status === 'live') {
-            payload.scheduled_at = new Date().toISOString();
-        }
+        // Correção 2: Remove a sobreposição do scheduled_at que matava o relógio ao vivo
+        // if (status === 'live') {
+        //    payload.scheduled_at = new Date().toISOString();
+        // }
         await supabase.from('quiz_events').update(payload).eq('id', id);
         toast({ title: `Status: ${status.toUpperCase()}` });
         loadQuizzes();
@@ -544,10 +545,10 @@ export default function AdminQuiz() {
                         </CardHeader>
                         <CardContent className="p-10 space-y-12">
                             <Tabs defaultValue="basic" className="w-full">
-                                <TabsList className="bg-black/20 border-white/5 mb-8 rounded-2xl h-12">
-                                    <TabsTrigger value="basic" className="rounded-xl data-[state=active]:bg-white/10 text-[10px] font-black uppercase">Dados Básicos</TabsTrigger>
-                                    <TabsTrigger value="design" className="rounded-xl data-[state=active]:bg-white/10 text-[10px] font-black uppercase">Design & Textos</TabsTrigger>
-                                    <TabsTrigger value="questions" className="rounded-xl data-[state=active]:bg-white/10 text-[10px] font-black uppercase">Fases e Regras</TabsTrigger>
+                                <TabsList className="bg-black/20 border-white/5 mb-8 rounded-2xl h-12 w-full flex overflow-x-auto shadow-inner shadow-black/50">
+                                    <TabsTrigger value="basic" className="flex-1 rounded-xl data-[state=active]:bg-white/10 data-[state=active]:text-yellow-500 text-[10px] sm:text-xs font-black uppercase transition-all">Dados Básicos</TabsTrigger>
+                                    <TabsTrigger value="design" className="flex-1 rounded-xl data-[state=active]:bg-white/10 data-[state=active]:text-yellow-500 text-[10px] sm:text-xs font-black uppercase transition-all">Textos & Design</TabsTrigger>
+                                    <TabsTrigger value="questions" className="flex-1 rounded-xl data-[state=active]:bg-white/10 data-[state=active]:text-yellow-500 text-[10px] sm:text-xs font-black uppercase transition-all">Regras & Fases</TabsTrigger>
                                 </TabsList>
 
                                 <TabsContent value="basic" className="space-y-8 animate-in fade-in duration-300">
@@ -657,8 +658,10 @@ export default function AdminQuiz() {
                                             <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Descrição das Regras</Label><Textarea value={formData.rules_text} onChange={e => setFormData({ ...formData, rules_text: e.target.value })} className="bg-black/40 border-white/10 min-h-[100px] rounded-xl text-xs" /></div>
 
                                             <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Texto do Botão</Label><Input value={formData.button_text} onChange={e => setFormData({ ...formData, button_text: e.target.value })} className="bg-black/40 border-white/10 h-14 rounded-xl font-black italic" /></div>
-                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500 text-yellow-500">Mensagem do Vencedor</Label><Textarea value={formData.winner_message} onChange={e => setFormData({ ...formData, winner_message: e.target.value })} className="bg-black/40 border-white/10 min-h-[80px] rounded-xl text-[10px]" /></div>
-                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500 text-gray-400">Mensagem dos Finalistas (Perdedores)</Label><Textarea value={formData.runner_up_message} onChange={e => setFormData({ ...formData, runner_up_message: e.target.value })} className="bg-black/40 border-white/10 min-h-[80px] rounded-xl text-[10px]" /></div>
+                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500 text-yellow-500 block relative bottom-[-10px]">Atenção do BD</Label><p className="text-[9px] text-yellow-500/50 uppercase font-black mb-4">Se os dados abaixo não salvarem, rode a migração SQL no seu painel Supabase para criar as gavetas extras.</p></div>
+                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-500">Regra Extra (Se Houver)</Label><Textarea value={formData.extra_rules_text} onChange={e => setFormData({ ...formData, extra_rules_text: e.target.value })} className="bg-black/40 border-white/10 min-h-[40px] rounded-xl text-[10px]" /></div>
+                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-yellow-500">Mensagem de Vitória Exata</Label><Textarea value={formData.winner_message} onChange={e => setFormData({ ...formData, winner_message: e.target.value })} className="bg-black/40 border-white/10 border-yellow-500/20 min-h-[80px] rounded-xl text-[10px]" /></div>
+                                            <div className="space-y-3"><Label className="text-[10px] font-black uppercase text-gray-400">Mensagem de Derrota / Finalista</Label><Textarea value={formData.runner_up_message} onChange={e => setFormData({ ...formData, runner_up_message: e.target.value })} className="bg-black/40 border-white/10 min-h-[80px] rounded-xl text-[10px]" /></div>
                                         </div>
                                     </div>
                                 </TabsContent>
